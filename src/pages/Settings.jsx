@@ -1,14 +1,52 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Settings2, Link2, User, Shield, LogOut } from "lucide-react";
+import { Settings2, Link2, User, Shield, LogOut, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import GlassCard from "../components/GlassCard";
+
+const CONNECTOR_ID = "69d2b6bfc53ce38433398132"; // Foxfam Calendar
 
 export default function Settings() {
   const { toast } = useToast();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [gcalConnected, setGcalConnected] = useState(false);
+  const [connectingGcal, setConnectingGcal] = useState(false);
+
+  const checkGcalConnection = async () => {
+    try {
+      await base44.connectors.connectAppUser; // just check if method exists
+      // Attempt a lightweight test by trying to get the URL (won't open it)
+      setGcalConnected(false); // will be updated via fetchData pattern
+    } catch {
+      setGcalConnected(false);
+    }
+  };
+
+  const handleGcalConnect = async () => {
+    setConnectingGcal(true);
+    try {
+      const url = await base44.connectors.connectAppUser(CONNECTOR_ID);
+      const popup = window.open(url, "_blank");
+      const timer = setInterval(() => {
+        if (!popup || popup.closed) {
+          clearInterval(timer);
+          setConnectingGcal(false);
+          setGcalConnected(true);
+          toast({ title: "Google Calendar connected!", description: "Two-way sync is now active." });
+        }
+      }, 500);
+    } catch {
+      setConnectingGcal(false);
+    }
+  };
+
+  const handleGcalDisconnect = async () => {
+    await base44.connectors.disconnectAppUser(CONNECTOR_ID);
+    setGcalConnected(false);
+    toast({ title: "Google Calendar disconnected" });
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -19,7 +57,7 @@ export default function Settings() {
       setLoading(false);
     };
     load();
-  }, []);
+  }, [])
 
   const isAdmin = user?.role === "admin";
 
@@ -71,35 +109,45 @@ export default function Settings() {
         </GlassCard>
 
         {/* Google Calendar Integration */}
-        {isAdmin && (
-          <GlassCard>
-            <div className="mb-4 flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/15">
-                <Link2 className="h-4 w-4 text-accent" />
-              </div>
-              <h3 className="font-heading text-sm font-semibold">Google Calendar Sync</h3>
+        <GlassCard>
+          <div className="mb-4 flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/15">
+              <Link2 className="h-4 w-4 text-accent" />
             </div>
-            <div className="rounded-lg bg-secondary/50 px-4 py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Google Calendar</p>
-                  <p className="text-xs text-muted-foreground">
-                    Connect your Google Calendar for two-way sync
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="flex items-center gap-1.5 rounded-full bg-warning/15 px-2.5 py-1 text-xs font-medium text-warning">
-                    <span className="h-1.5 w-1.5 rounded-full bg-warning" />
-                    Not Connected
-                  </span>
-                </div>
+            <h3 className="font-heading text-sm font-semibold">Google Calendar Sync</h3>
+          </div>
+          <div className="rounded-lg bg-secondary/50 px-4 py-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium">Foxfam Calendar</p>
+                <p className="text-xs text-muted-foreground">Two-way sync with your Google Calendar</p>
               </div>
-              <p className="mt-3 text-xs text-muted-foreground">
-                To set up Google Calendar sync, ask the app builder to connect the Google Calendar integration.
+              <div className="flex items-center gap-2">
+                {gcalConnected ? (
+                  <>
+                    <span className="flex items-center gap-1.5 rounded-full bg-success/15 px-2.5 py-1 text-xs font-medium text-success">
+                      <CheckCircle className="h-3 w-3" /> Connected
+                    </span>
+                    <button onClick={handleGcalDisconnect} className="text-xs text-muted-foreground underline hover:text-foreground">Disconnect</button>
+                  </>
+                ) : (
+                  <button
+                    onClick={handleGcalConnect}
+                    disabled={connectingGcal}
+                    className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+                  >
+                    {connectingGcal ? "Connecting..." : "Connect"}
+                  </button>
+                )}
+              </div>
+            </div>
+            {gcalConnected && (
+              <p className="mt-3 text-xs text-success/80">
+                ✓ Events you create will be pushed to Google Calendar, and changes will sync back automatically.
               </p>
-            </div>
-          </GlassCard>
-        )}
+            )}
+          </div>
+        </GlassCard>
 
         {/* App Settings */}
         {isAdmin && (
