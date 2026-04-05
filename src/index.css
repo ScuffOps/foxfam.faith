@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bitter:wght@300;400;500;600;700&family=Comfortaa:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,12 +6,12 @@
 
 @layer base {
   :root {
-    --font-heading: 'Space Grotesk', sans-serif;
-    --font-body: 'Inter', sans-serif;
+    --font-heading: 'Comfortaa', system-ui;
+    --font-body: 'Bitter', serif;
 
-    --background: 230 25% 7%;
-    --foreground: 220 20% 95%;
-    --card: 230 22% 11%;
+    --background: 230 60% 8%;
+    --foreground: 220 100% 99%;
+    --card: 230 39% 22%;
     --card-foreground: 220 20% 95%;
     --popover: 230 22% 11%;
     --popover-foreground: 220 20% 95%;
