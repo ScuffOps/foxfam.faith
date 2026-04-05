@@ -1,0 +1,82 @@
+import { Link, useLocation } from "react-router-dom";
+import {
+  LayoutDashboard,
+  CalendarDays,
+  Cake,
+  MessageSquare,
+  Settings,
+  Sparkles,
+  X,
+} from "lucide-react";
+
+const navItems = [
+  { path: "/", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/calendar", label: "Calendar", icon: CalendarDays },
+  { path: "/birthdays", label: "Birthdays", icon: Cake },
+  { path: "/community", label: "Community", icon: MessageSquare },
+  { path: "/settings", label: "Settings", icon: Settings },
+];
+
+export default function Sidebar({ onClose }) {
+  const location = useLocation();
+
+  return (
+    <div className="flex h-full w-64 flex-col border-r border-border bg-sidebar">
+      {/* Logo */}
+      <div className="flex items-center justify-between px-5 py-6">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/20">
+            <Sparkles className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="font-heading text-base font-bold text-foreground">
+              CommHub
+            </h1>
+            <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+              Calendar + Input
+            </p>
+          </div>
+        </div>
+        {onClose && (
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground lg:hidden">
+            <X className="h-5 w-5" />
+          </button>
+        )}
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 px-3 py-2">
+        <div className="space-y-1">
+          {navItems.map((item) => {
+            const isActive =
+              item.path === "/"
+                ? location.pathname === "/"
+                : location.pathname.startsWith(item.path);
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={onClose}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+                  isActive
+                    ? "bg-primary/15 text-primary"
+                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                }`}
+              >
+                <item.icon className={`h-[18px] w-[18px] ${isActive ? "text-primary" : ""}`} />
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+
+      {/* Footer */}
+      <div className="border-t border-border px-5 py-4">
+        <p className="text-xs text-muted-foreground">
+          Community Calendar v1.0
+        </p>
+      </div>
+    </div>
+  );
+}

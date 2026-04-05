@@ -1,0 +1,43 @@
+{
+  "name": "Birthday",
+  "type": "object",
+  "properties": {
+    "display_name": {
+      "type": "string",
+      "description": "Name to display"
+    },
+    "birthday_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Birthday date (month and day)"
+    },
+    "note": {
+      "type": "string",
+      "description": "Optional note"
+    },
+    "is_private": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether to hide year/age"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "submitted_by_email": {
+      "type": "string"
+    },
+    "submitted_by_name": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "display_name",
+    "birthday_date"
+  ]
+}

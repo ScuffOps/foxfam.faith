@@ -1,0 +1,75 @@
+{
+  "name": "Event",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Event title"
+    },
+    "description": {
+      "type": "string",
+      "description": "Event description"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "personal",
+        "community",
+        "collabs",
+        "birthdays"
+      ],
+      "description": "Event category"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Event start date/time"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Event end date/time"
+    },
+    "all_day": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this is an all-day event"
+    },
+    "recurring": {
+      "type": "boolean",
+      "default": false
+    },
+    "recurrence_type": {
+      "type": "string",
+      "enum": [
+        "none",
+        "daily",
+        "weekly",
+        "monthly",
+        "yearly"
+      ],
+      "default": "none"
+    },
+    "location": {
+      "type": "string"
+    },
+    "google_event_id": {
+      "type": "string",
+      "description": "Google Calendar event ID for synced events"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "cancelled",
+        "completed"
+      ],
+      "default": "active"
+    }
+  },
+  "required": [
+    "title",
+    "category",
+    "start_date"
+  ]
+}

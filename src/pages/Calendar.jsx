@@ -1,0 +1,174 @@
+import { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
+import { format, addMonths, subMonths, addWeeks, subWeeks } from "date-fns";
+import { ChevronLeft, ChevronRight, Plus, List, Grid3X3, CalendarDays } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import MonthView from "../components/calendar/MonthView";
+import WeekView from "../components/calendar/WeekView";
+import ListView from "../components/calendar/ListView";
+import EventFormDialog from "../components/calendar/EventFormDialog";
+
+export default function Calendar() {
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [view, setView] = useState("month");
+  const [showForm, setShowForm] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null);
+  const [filterCategory, setFilterCategory] = useState("all");
+
+  const loadEvents = async () => {
+    setLoading(true);
+    const all = await base44.entities.Event.filter({ status: "active" });
+    setEvents(all);
+    setLoading(false);
+  };
+
+  useEffect(() => { loadEvents(); }, []);
+
+  const filteredEvents = filterCategory === "all"
+    ? events
+    : events.filter((e) => e.category === filterCategory);
+
+  const handlePrev = () => {
+    setCurrentDate(view === "week" ? subWeeks(currentDate, 1) : subMonths(currentDate, 1));
+  };
+  const handleNext = () => {
+    setCurrentDate(view === "week" ? addWeeks(currentDate, 1) : addMonths(currentDate, 1));
+  };
+  const handleToday = () => setCurrentDate(new Date());
+
+  const handleEventClick = (ev) => {
+    setEditingEvent(ev);
+    setShowForm(true);
+  };
+  const handleDateClick = (day) => {
+    setEditingEvent(null);
+    setShowForm(true);
+  };
+  const handleSaved = () => {
+    setEditingEvent(null);
+    loadEvents();
+  };
+
+  const handleDelete = async () => {
+    if (editingEvent) {
+      await base44.entities.Event.delete(editingEvent.id);
+      setShowForm(false);
+      setEditingEvent(null);
+      loadEvents();
+    }
+  };
+
+  const viewButtons = [
+    { key: "month", icon: Grid3X3, label: "Month" },
+    { key: "week", icon: CalendarDays, label: "Week" },
+    { key: "list", icon: List, label: "List" },
+  ];
+
+  const categories = [
+    { key: "all", label: "All" },
+    { key: "personal", label: "Personal" },
+    { key: "community", label: "Community" },
+    { key: "collabs", label: "Collabs" },
+    { key: "birthdays", label: "Birthdays" },
+  ];
+
+  return (
+    <div className="mx-auto max-w-6xl animate-fade-in">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="font-heading text-2xl font-bold md:text-3xl">Calendar</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Manage your events and schedule</p>
+        </div>
+        <Button onClick={() => { setEditingEvent(null); setShowForm(true); }} className="gap-2">
+          <Plus className="h-4 w-4" /> New Event
+        </Button>
+      </div>
+
+      {/* Controls */}
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={handlePrev}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleToday}>Today</Button>
+          <Button variant="outline" size="icon" onClick={handleNext}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <h2 className="ml-2 font-heading text-lg font-semibold">
+            {format(currentDate, view === "week" ? "'Week of' MMM d, yyyy" : "MMMM yyyy")}
+          </h2>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Category filter */}
+          <div className="flex rounded-lg border border-border bg-secondary/50 p-0.5">
+            {categories.map((c) => (
+              <button
+                key={c.key}
+                onClick={() => setFilterCategory(c.key)}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  filterCategory === c.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+          {/* View toggle */}
+          <div className="flex rounded-lg border border-border bg-secondary/50 p-0.5">
+            {viewButtons.map((v) => (
+              <button
+                key={v.key}
+                onClick={() => setView(v.key)}
+                className={`rounded-md p-1.5 transition-colors ${
+                  view === v.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <v.icon className="h-4 w-4" />
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Calendar View */}
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
+        </div>
+      ) : (
+        <>
+          {view === "month" && (
+            <MonthView
+              currentDate={currentDate}
+              events={filteredEvents}
+              onDateClick={handleDateClick}
+              onEventClick={handleEventClick}
+            />
+          )}
+          {view === "week" && (
+            <WeekView
+              currentDate={currentDate}
+              events={filteredEvents}
+              onEventClick={handleEventClick}
+            />
+          )}
+          {view === "list" && (
+            <ListView events={filteredEvents} onEventClick={handleEventClick} />
+          )}
+        </>
+      )}
+
+      {/* Event Form Dialog */}
+      {showForm && (
+        <EventFormDialog
+          open={showForm}
+          onOpenChange={(v) => { if (!v) { setShowForm(false); setEditingEvent(null); } }}
+          event={editingEvent}
+          onSaved={handleSaved}
+        />
+      )}
+    </div>
+  );
+}
