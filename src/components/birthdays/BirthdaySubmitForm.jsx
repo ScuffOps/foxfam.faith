@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
+import { useGuestProfile } from "@/hooks/useGuestProfile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +11,7 @@ import GlassCard from "../GlassCard";
 import { Cake, Send } from "lucide-react";
 
 export default function BirthdaySubmitForm({ onSubmitted }) {
+  const { profile } = useGuestProfile();
   const { toast } = useToast();
   const [form, setForm] = useState({
     display_name: "",
@@ -29,7 +31,9 @@ export default function BirthdaySubmitForm({ onSubmitted }) {
       const user = await base44.auth.me();
       submitterName = user.full_name || user.email;
       submitterEmail = user.email;
-    } catch {}
+    } catch {
+      if (profile.name) submitterName = profile.name + (profile.discordId ? ` (${profile.discordId})` : "");
+    }
     await base44.entities.Birthday.create({
       ...form,
       status: "pending",

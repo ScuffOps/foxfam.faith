@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import BirthdaySubmitForm from "../components/birthdays/BirthdaySubmitForm";
+import GuestProfileBanner from "../components/GuestProfileBanner";
 import BirthdayList from "../components/birthdays/BirthdayList";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -61,6 +62,7 @@ export default function Birthdays() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-1">
+          {!user && <GuestProfileBanner />}
           <BirthdaySubmitForm onSubmitted={loadData} />
         </div>
         <div className="lg:col-span-2">

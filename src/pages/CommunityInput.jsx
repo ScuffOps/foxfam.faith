@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Plus } from "lucide-react";
+import GuestProfileBanner from "../components/GuestProfileBanner";
 import { Button } from "@/components/ui/button";
 import PostForm from "../components/community/PostForm";
 import IdeaCard from "../components/community/IdeaCard";
@@ -61,6 +62,8 @@ export default function CommunityInput() {
           <Plus className="h-4 w-4" /> New Post
         </Button>
       </div>
+
+      {!user && <GuestProfileBanner />}
 
       {/* Filters */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">

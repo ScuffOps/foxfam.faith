@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
+import { useGuestProfile } from "@/hooks/useGuestProfile";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, X } from "lucide-react";
 
 export default function PostForm({ open, onOpenChange, onCreated }) {
+  const { profile } = useGuestProfile();
   const [form, setForm] = useState({ title: "", description: "", type: "idea" });
   const [pollOptions, setPollOptions] = useState(["", ""]);
   const [saving, setSaving] = useState(false);
@@ -22,7 +24,9 @@ export default function PostForm({ open, onOpenChange, onCreated }) {
     try {
       const user = await base44.auth.me();
       submitterName = user.full_name || user.email;
-    } catch {}
+    } catch {
+      if (profile.name) submitterName = profile.name + (profile.discordId ? ` (${profile.discordId})` : "");
+    }
 
     const data = {
       ...form,
