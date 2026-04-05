@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Settings2, Link2, User, Shield, LogOut, CheckCircle } from "lucide-react";
+import { Settings2, Link2, User, Shield, LogOut, CheckCircle, Palette } from "lucide-react";
+import AvatarUpload from "../components/AvatarUpload";
+import AccentColorPicker from "../components/AccentColorPicker";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import GlassCard from "../components/GlassCard";
@@ -11,6 +13,12 @@ export default function Settings() {
   const { toast } = useToast();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [avatar, setAvatar] = useState(() => localStorage.getItem('commhub_user_avatar') || '');
+
+  const handleAvatarUploaded = (url) => {
+    setAvatar(url);
+    localStorage.setItem('commhub_user_avatar', url);
+  };
   const [gcalConnected, setGcalConnected] = useState(false);
   const [connectingGcal, setConnectingGcal] = useState(false);
 
@@ -79,11 +87,12 @@ export default function Settings() {
       <div className="space-y-6">
         {/* Profile */}
         <GlassCard>
-          <div className="mb-4 flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15">
-              <User className="h-4 w-4 text-primary" />
+          <div className="mb-4 flex items-center gap-3">
+            <AvatarUpload avatarUrl={avatar} onUploaded={handleAvatarUploaded} size="lg" />
+            <div>
+              <h3 className="font-heading text-sm font-semibold">{user?.full_name || "Profile"}</h3>
+              <p className="text-xs text-muted-foreground">{user?.email}</p>
             </div>
-            <h3 className="font-heading text-sm font-semibold">Profile</h3>
           </div>
           <div className="space-y-3">
             <div className="flex items-center justify-between rounded-lg bg-secondary/50 px-4 py-3">
@@ -106,6 +115,17 @@ export default function Settings() {
               <Shield className="h-4 w-4 text-muted-foreground" />
             </div>
           </div>
+        </GlassCard>
+
+        {/* Appearance */}
+        <GlassCard>
+          <div className="mb-4 flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-chart-5/15">
+              <Palette className="h-4 w-4 text-chart-5" />
+            </div>
+            <h3 className="font-heading text-sm font-semibold">Appearance</h3>
+          </div>
+          <AccentColorPicker />
         </GlassCard>
 
         {/* Google Calendar Integration */}

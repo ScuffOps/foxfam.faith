@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useGuestProfile } from "@/hooks/useGuestProfile";
+import AvatarUpload from "./AvatarUpload";
+import AccentColorPicker from "./AccentColorPicker";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -9,6 +11,13 @@ import GlassCard from "./GlassCard";
 export default function GuestProfileBanner() {
   const { profile, saveProfile } = useGuestProfile();
   const [editing, setEditing] = useState(!profile.name);
+  const avatarKey = 'commhub_guest_avatar';
+  const [avatar, setAvatar] = useState(() => localStorage.getItem(avatarKey) || '');
+
+  const handleAvatarUploaded = (url) => {
+    setAvatar(url);
+    localStorage.setItem(avatarKey, url);
+  };
   const [form, setForm] = useState({ name: profile.name, discordId: profile.discordId });
 
   const handleSave = () => {
@@ -18,18 +27,16 @@ export default function GuestProfileBanner() {
 
   return (
     <GlassCard className="mb-4">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/15">
-            <User className="h-3.5 w-3.5 text-accent" />
-          </div>
+      <div className="mb-3 flex items-center gap-3">
+        <AvatarUpload avatarUrl={avatar} onUploaded={handleAvatarUploaded} />
+        <div className="flex flex-1 items-center justify-between">
           <span className="font-heading text-sm font-semibold">Your Profile</span>
+          {!editing && profile.name && (
+            <button onClick={() => setEditing(true)} className="text-muted-foreground hover:text-foreground transition-colors">
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
-        {!editing && profile.name && (
-          <button onClick={() => setEditing(true)} className="text-muted-foreground hover:text-foreground transition-colors">
-            <Pencil className="h-3.5 w-3.5" />
-          </button>
-        )}
       </div>
 
       {editing ? (
@@ -57,6 +64,7 @@ export default function GuestProfileBanner() {
               className="mt-1 h-8 bg-secondary text-sm"
             />
           </div>
+          <AccentColorPicker />
           <Button size="sm" className="w-full gap-1.5" onClick={handleSave}>
             <Check className="h-3.5 w-3.5" /> Save Profile
           </Button>
