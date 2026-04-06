@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 
 const BG_VIDEO = "https://cdn.discordapp.com/attachments/1197092699388522537/1490571405295882291/BG.mp4?ex=69d48a4c&is=69d338cc&hm=44531f28fd055fa7ee2340f0c8d2c478e65cb30e77b971c7cd6d0556ad47bfef&";
-const CLOCK_VIDEO = "https://cdn.discordapp.com/attachments/1089508877730580750/1490569435730284604/CLOCK.webm";
+const CLOCK_VIDEO = "https://media.discordapp.net/attachments/1197092699388522537/1490585495485284423/Untitled_design.png";
 const CLOCK = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/d5f592291_image.png";
 const WALLS = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/f1b7a3f97_Wallredo.png";
 const WALL_RIGHT = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/0a518e115_wall-Copy.png";
