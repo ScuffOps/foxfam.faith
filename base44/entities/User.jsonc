@@ -6,10 +6,18 @@
       "type": "string",
       "enum": [
         "admin",
-        "mod",
         "user"
       ],
       "default": "user"
+    },
+    "display_name": {
+      "type": "string",
+      "description": "User's preferred display name"
+    },
+    "onboarded": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the user has completed onboarding"
     }
   }
 }

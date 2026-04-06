@@ -1,13 +1,23 @@
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
-import { useState } from "react";
+import OnboardingModal from "./OnboardingModal";
+import { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    base44.auth.me().then((user) => {
+      if (user && !user.onboarded) setShowOnboarding(true);
+    }).catch(() => {});
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
+      {showOnboarding && <OnboardingModal onComplete={() => setShowOnboarding(false)} />}
       {/* Desktop Sidebar */}
       <div className="hidden lg:block">
         <Sidebar />
