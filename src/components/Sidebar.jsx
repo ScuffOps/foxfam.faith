@@ -25,7 +25,7 @@ export default function Sidebar({ onClose }) {
       {/* Logo */}
       <div className="flex items-center justify-between px-5 py-6">
         <div className="flex items-center gap-2.5">
-          <img src="https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/e241ead03_TenkoTokenrerwork.png" alt="CommHub" className="h-9 w-9 rounded-lg object-cover" />
+          <img src="https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/e241ead03_TenkoTokenrerwork.png" alt="Foxfam" className="h-9 w-9 rounded-lg object-cover" />
           <div>
             <h1 className="font-heading text-base font-bold text-foreground">
               CommHub
