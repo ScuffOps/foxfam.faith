@@ -11,6 +11,7 @@ import Calendar from './pages/Calendar';
 import Birthdays from './pages/Birthdays';
 import CommunityInput from './pages/CommunityInput';
 import Settings from './pages/Settings';
+import PrayerWall from './pages/PrayerWall';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -44,6 +45,7 @@ const AuthenticatedApp = () => {
         <Route path="/birthdays" element={<Birthdays />} />
         <Route path="/community" element={<CommunityInput />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/prayer" element={<PrayerWall />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

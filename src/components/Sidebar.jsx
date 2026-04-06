@@ -7,6 +7,7 @@ import {
   Settings,
   Sparkles,
   X,
+  Flame,
 } from "lucide-react";
 
 const navItems = [
@@ -14,6 +15,7 @@ const navItems = [
   { path: "/calendar", label: "Calendar", icon: CalendarDays },
   { path: "/birthdays", label: "Birthdays", icon: Cake },
   { path: "/community", label: "Community", icon: MessageSquare },
+  { path: "/prayer", label: "Prayer Wall", icon: Flame },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 
