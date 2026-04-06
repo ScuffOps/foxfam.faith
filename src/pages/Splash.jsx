@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 
 const CLOCK = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/d5f592291_image.png";
 const WALLS = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/f1b7a3f97_Wallredo.png";
+const WALL_RIGHT = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/0a518e115_wall-Copy.png";
 const LANTERN = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/1bdcd1587_Lantern.png";
 const STONE_TABLE = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/3ade0b749_stonetable.png";
 
@@ -48,7 +49,18 @@ export default function Splash({ onEnter }) {
         background: "radial-gradient(ellipse at 50% 0%, rgba(30,60,180,0.12) 0%, transparent 60%)"
       }} />
 
-      {/* Temple Walls — left + right from the Wallredo image */}
+      {/* Temple Walls — background layer (right wall accent) */}
+      <img
+        src={WALL_RIGHT}
+        alt=""
+        className="absolute bottom-0 right-0 pointer-events-none"
+        style={{
+          width: "45%",
+          opacity: 0.6,
+          filter: "drop-shadow(0 0 20px rgba(40,120,255,0.2))",
+        }}
+      />
+      {/* Temple Walls — full scene */}
       <img
         src={WALLS}
         alt=""
@@ -58,7 +70,6 @@ export default function Splash({ onEnter }) {
           transform: "scale(1.05)",
           transformOrigin: "bottom center",
           filter: "drop-shadow(0 0 30px rgba(40,120,255,0.3))",
-          mixBlendMode: "normal",
         }}
       />
 
