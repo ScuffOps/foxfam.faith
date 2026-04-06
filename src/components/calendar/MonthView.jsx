@@ -1,11 +1,5 @@
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, format } from "date-fns";
-
-const categoryDots = {
-  personal: "bg-chart-1",
-  community: "bg-chart-2",
-  collabs: "bg-chart-4",
-  birthdays: "bg-chart-5",
-};
+import { getCategoryColor } from "@/lib/categoryColors";
 
 export default function MonthView({ currentDate, events, onDateClick, onEventClick }) {
   const monthStart = startOfMonth(currentDate);
@@ -64,7 +58,7 @@ export default function MonthView({ currentDate, events, onDateClick, onEventCli
                     onClick={(e) => { e.stopPropagation(); onEventClick(ev); }}
                     className="flex items-center gap-1 truncate rounded px-1 py-0.5 text-[10px] font-medium hover:bg-primary/10 md:text-xs"
                   >
-                    <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${categoryDots[ev.category] || "bg-primary"}`} />
+                    <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ background: getCategoryColor(ev.category).hex }} />
                     <span className="truncate">{ev.title}</span>
                   </div>
                 ))}

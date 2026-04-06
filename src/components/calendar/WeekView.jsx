@@ -1,11 +1,5 @@
 import { startOfWeek, addDays, isSameDay, format } from "date-fns";
-
-const categoryColors = {
-  personal: "border-chart-1 bg-chart-1/10",
-  community: "border-chart-2 bg-chart-2/10",
-  collabs: "border-chart-4 bg-chart-4/10",
-  birthdays: "border-chart-5 bg-chart-5/10",
-};
+import { getCategoryColor } from "@/lib/categoryColors";
 
 export default function WeekView({ currentDate, events, onEventClick }) {
   const weekStart = startOfWeek(currentDate);
@@ -37,7 +31,8 @@ export default function WeekView({ currentDate, events, onEventClick }) {
                   <div
                     key={ev.id}
                     onClick={() => onEventClick(ev)}
-                    className={`cursor-pointer rounded-md border-l-2 px-2 py-1.5 transition-colors hover:opacity-80 ${categoryColors[ev.category] || "border-primary bg-primary/10"}`}
+                    className="cursor-pointer rounded-md border-l-2 px-2 py-1.5 transition-colors hover:opacity-80"
+                    style={{ borderColor: getCategoryColor(ev.category).border, background: getCategoryColor(ev.category).bg }}
                   >
                     <p className="truncate text-xs font-medium">{ev.title}</p>
                     {!ev.all_day && (
