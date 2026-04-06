@@ -9,15 +9,24 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
+  const [isGuest, setIsGuest] = useState(false);
+
   useEffect(() => {
     base44.auth.me().then((user) => {
-      if (user && !user.onboarded) setShowOnboarding(true);
-    }).catch(() => {});
+      if (user && !user.onboarded) {
+        setIsGuest(false);
+        setShowOnboarding(true);
+      }
+    }).catch(() => {
+      // Not logged in — show onboarding with sign-up step
+      setIsGuest(true);
+      setShowOnboarding(true);
+    });
   }, []);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      {showOnboarding && <OnboardingModal onComplete={() => setShowOnboarding(false)} />}
+      {showOnboarding && <OnboardingModal onComplete={() => setShowOnboarding(false)} isGuest={isGuest} />}
       {/* Desktop Sidebar */}
       <div className="hidden lg:block">
         <Sidebar />

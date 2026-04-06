@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CalendarDays, Users, Cake, MessageSquare, ArrowRight, Check } from "lucide-react";
+import { CalendarDays, Users, Cake, MessageSquare, ArrowRight, Check, Sparkles } from "lucide-react";
 
 const STEPS = [
   {
@@ -35,15 +35,24 @@ const STEPS = [
     subtitle: "✦ IN TENEBRIS, LUX MANET ✦",
     description: "Add your birthday so the community can celebrate with you. We, of course, are polite little Heathens and allow you to keep your age to yourself.",
   },
+  {
+    icon: <Sparkles className="h-12 w-12 mx-auto" style={{ color: "#7c5cbf" }} />,
+    title: "Join the Faith",
+    subtitle: "✦ EX RUINA, VERI SURGIT ✦",
+    description: "Create your free account to post prayers, vote on ideas, submit birthdays, and become part of the Forsaken Faith community.",
+    isSignUp: true,
+  },
 ];
 
-export default function OnboardingModal({ onComplete }) {
+export default function OnboardingModal({ onComplete, isGuest = false }) {
   const [step, setStep] = useState(0);
   const [displayName, setDisplayName] = useState("");
   const [saving, setSaving] = useState(false);
 
   const isNameStep = step === 1;
-  const isLast = step === STEPS.length - 1;
+  const allSteps = isGuest ? STEPS : STEPS.filter((s) => !s.isSignUp);
+  const isLast = step === allSteps.length - 1;
+  const currentIsSignUp = isGuest && isLast;
 
   const handleNext = async () => {
     if (isLast) {
@@ -60,14 +69,14 @@ export default function OnboardingModal({ onComplete }) {
     }
   };
 
-  const current = STEPS[step];
+  const current = allSteps[step];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
       <div className="glass-card w-full max-w-md rounded-2xl p-8 animate-fade-in">
         {/* Progress dots */}
         <div className="flex justify-center gap-2 mb-8">
-          {STEPS.map((_, i) => (
+          {allSteps.map((_, i) => (
             <span
               key={i}
               className={`h-2 rounded-full transition-all duration-300 ${
@@ -110,13 +119,19 @@ export default function OnboardingModal({ onComplete }) {
               Back
             </button>
           ) : <div />}
-          <Button onClick={handleNext} disabled={saving} className="gap-2 ml-auto">
-            {isLast ? (
-              <><Check className="h-4 w-4" /> {saving ? "Setting up..." : "Let the Chaos commence!"}</>
-            ) : (
-              <>Next <ArrowRight className="h-4 w-4" /></>
-            )}
-          </Button>
+          {currentIsSignUp ? (
+            <Button onClick={() => base44.auth.redirectToLogin()} className="gap-2 ml-auto">
+              <Sparkles className="h-4 w-4" /> Join the Faith
+            </Button>
+          ) : (
+            <Button onClick={handleNext} disabled={saving} className="gap-2 ml-auto">
+              {isLast ? (
+                <><Check className="h-4 w-4" /> {saving ? "Setting up..." : "Let the Chaos commence!"}</>
+              ) : (
+                <>Next <ArrowRight className="h-4 w-4" /></>
+              )}
+            </Button>
+          )}
         </div>
       </div>
     </div>
