@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { format, addMonths, subMonths, addWeeks, subWeeks } from "date-fns";
-import { ChevronLeft, ChevronRight, Plus, List, Grid3X3, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, List, Grid3X3, CalendarDays, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MonthView from "../components/calendar/MonthView";
 import WeekView from "../components/calendar/WeekView";
@@ -16,6 +16,7 @@ export default function Calendar() {
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
   const [filterCategory, setFilterCategory] = useState("all");
+  const [showCollabBooking, setShowCollabBooking] = useState(false);
 
   const loadEvents = async () => {
     setLoading(true);
@@ -81,10 +82,32 @@ export default function Calendar() {
           <h1 className="font-heading text-2xl font-bold md:text-3xl">Calendar</h1>
           <p className="mt-1 text-sm text-muted-foreground">Manage your events and schedule</p>
         </div>
-        <Button onClick={() => { setEditingEvent(null); setShowForm(true); }} className="gap-2">
-          <Plus className="h-4 w-4" /> New Event
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowCollabBooking(!showCollabBooking)} className="gap-2">
+            <Users className="h-4 w-4" /> {showCollabBooking ? "Hide Booking" : "Book a Collab"}
+          </Button>
+          <Button onClick={() => { setEditingEvent(null); setShowForm(true); }} className="gap-2">
+            <Plus className="h-4 w-4" /> New Event
+          </Button>
+        </div>
       </div>
+
+      {/* Collab Booking Embed */}
+      {showCollabBooking && (
+        <div className="mb-6 overflow-hidden rounded-xl border border-border bg-card">
+          <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+            <Users className="h-4 w-4 text-primary" />
+            <span className="font-heading text-sm font-semibold">Book a Collab Slot</span>
+            <span className="ml-auto text-xs text-muted-foreground">Powered by Google Calendar</span>
+          </div>
+          <iframe
+            src="https://calendar.app.google/QhFmUCXPxe7FZKEy9"
+            className="w-full"
+            style={{ height: "600px", border: "none" }}
+            title="Collab Availability Booking"
+          />
+        </div>
+      )}
 
       {/* Controls */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
