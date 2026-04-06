@@ -2,12 +2,19 @@ import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
 import OnboardingModal from "./OnboardingModal";
+import Splash from "../pages/Splash";
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showSplash, setShowSplash] = useState(() => !sessionStorage.getItem("splash_seen"));
+
+  const handleEnterSite = () => {
+    sessionStorage.setItem("splash_seen", "1");
+    setShowSplash(false);
+  };
 
   const [isGuest, setIsGuest] = useState(false);
 
@@ -26,6 +33,7 @@ export default function Layout() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
+      {showSplash && <Splash onEnter={handleEnterSite} />}
       {showOnboarding && <OnboardingModal onComplete={() => setShowOnboarding(false)} isGuest={isGuest} />}
       {/* Desktop Sidebar */}
       <div className="hidden lg:block">
