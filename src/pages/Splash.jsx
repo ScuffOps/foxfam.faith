@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 
+const BG_VIDEO = "https://cdn.discordapp.com/attachments/1197092699388522537/1490571405295882291/BG.mp4?ex=69d48a4c&is=69d338cc&hm=44531f28fd055fa7ee2340f0c8d2c478e65cb30e77b971c7cd6d0556ad47bfef&";
 const CLOCK_VIDEO = "https://cdn.discordapp.com/attachments/1089508877730580750/1490569435730284604/CLOCK.webm";
 const CLOCK = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/d5f592291_image.png";
 const WALLS = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/f1b7a3f97_Wallredo.png";
@@ -40,11 +41,25 @@ export default function Splash({ onEnter }) {
       onClick={handleClick}
       className="fixed inset-0 z-[999] flex items-center justify-center cursor-pointer overflow-hidden select-none"
       style={{
-        background: "radial-gradient(ellipse at 50% 60%, #06091a 0%, #020408 70%, #000 100%)",
+        background: "#000",
         opacity: phase === "fading" ? 0 : 1,
         transition: phase === "fading" ? "opacity 1s ease-in-out" : "none",
       }}
     >
+      {/* Background video */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+        style={{ opacity: 0.7 }}
+      >
+        <source src={BG_VIDEO} type="video/mp4" />
+      </video>
+      {/* Dark overlay for depth */}
+      <div className="absolute inset-0 pointer-events-none" style={{ background: "rgba(2,4,12,0.45)" }} />
+
       {/* Atmospheric top vignette */}
       <div className="absolute inset-0 pointer-events-none" style={{
         background: "radial-gradient(ellipse at 50% 0%, rgba(30,60,180,0.12) 0%, transparent 60%)"
