@@ -1,0 +1,26 @@
+{
+  "name": "Prayer",
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string",
+      "description": "The prayer or encouraging message"
+    },
+    "author_name": {
+      "type": "string",
+      "description": "Display name (empty if anonymous)"
+    },
+    "is_anonymous": {
+      "type": "boolean",
+      "default": false
+    },
+    "support_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of community prayers sent in support"
+    }
+  },
+  "required": [
+    "message"
+  ]
+}
