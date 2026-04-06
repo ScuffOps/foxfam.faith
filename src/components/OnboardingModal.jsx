@@ -8,34 +8,32 @@ import { CalendarDays, Users, Cake, MessageSquare, ArrowRight, Check } from "luc
 const STEPS = [
   {
     icon: <img src="https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/e241ead03_TenkoTokenrerwork.png" alt="Foxfam" className="h-16 w-16 rounded-xl object-cover mx-auto" />,
-    title: "✦ EX RUINA, VERI SURGIT ✦  ",
-    description: "Welcome to the Forsaken Faith.",
-    "Welcome home, FoxFam   ♡ ⊹˚.ˑ ";
-    "Your community hub for everything Scuffox; events, polls, suggestions, prayers, collabs, birthdays, and shared ideas. Let's get you set up in a few quick steps..",
+    title: "✦ EX RUINA, VERI SURGIT ✦",
+    description: "Welcome to the Forsaken Faith.\n\nWelcome home, FoxFam ♡ ⊹˚.ˑ\n\nYour community hub for everything Scuffox; events, polls, suggestions, prayers, collabs, birthdays, and shared ideas. Let's get you set up in a few quick steps..",
   },
   {
     icon: <CalendarDays className="h-12 w-12 text-primary mx-auto" />,
     title: "Community Calendar",
+    subtitle: "✦ IN NOMINE VERI ARDEMUS ✦",
     description: "Stay up to date with community events, collab availability slots, and more — all in one place.",
-     "✦ IN NOMINE VERI ARDEMUS ✦",
   },
   {
     icon: <Users className="h-12 w-12 mx-auto" style={{ color: "#3c5693" }} />,
     title: "Book Collabs",
+    subtitle: "✦ FIDES NOS TENET ✦",
     description: "See when slots are open and book a collab directly from the Calendar page. No DMs needed.",
-    "✦ FIDES NOS TENET ✦",
   },
   {
     icon: <MessageSquare className="h-12 w-12 mx-auto" style={{ color: "#753243" }} />,
     title: "Feedback & Polls",
+    subtitle: "✦ IN LUMINE EIUS VIVIMUS ✦",
     description: "Submit ideas, feedback, or polls to the community & mod team. Upvote what you love — top ideas may become events!",
-    "✦ IN LUMINE EIUS VIVIMUS ✦",
   },
   {
     icon: <Cake className="h-12 w-12 mx-auto" style={{ color: "#755665" }} />,
     title: "Celebrate Birthdays",
+    subtitle: "✦ IN TENEBRIS, LUX MANET ✦",
     description: "Add your birthday so the community can celebrate with you. We, of course, are polite little Heathens and allow you to keep your age to yourself.",
-    "✦ IN TENEBRIS, LUX MANET ✦",
   },
 ];
 
@@ -83,7 +81,10 @@ export default function OnboardingModal({ onComplete }) {
         <div className="text-center mb-8">
           <div className="mb-4">{current.icon}</div>
           <h2 className="font-heading text-xl font-bold mb-2">{current.title}</h2>
-          <p className="text-sm text-muted-foreground leading-relaxed">{current.description}</p>
+          {current.subtitle && (
+            <p className="text-xs font-medium tracking-widest text-primary/70 mb-2">{current.subtitle}</p>
+          )}
+          <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{current.description}</p>
         </div>
 
         {/* Name input on step 0 */}
