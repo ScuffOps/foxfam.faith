@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 
+const CLOCK_VIDEO = "https://cdn.discordapp.com/attachments/1089508877730580750/1490569435730284604/CLOCK.webm";
 const CLOCK = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/d5f592291_image.png";
 const WALLS = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/f1b7a3f97_Wallredo.png";
 const WALL_RIGHT = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/0a518e115_wall-Copy.png";
@@ -162,19 +163,26 @@ export default function Splash({ onEnter }) {
           transform: "translate(-50%, -50%)",
         }} />
 
-        {/* Clock image */}
-        <img
-          src={CLOCK}
-          alt="The Clock"
+        {/* Clock video (transparent webm) */}
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
           style={{
-            width: "min(380px, 80vw)",
+            width: "min(400px, 82vw)",
             filter: phase === "igniting"
               ? "drop-shadow(0 0 60px rgba(80,200,255,1)) drop-shadow(0 0 20px rgba(100,160,255,0.8)) brightness(1.2)"
               : "drop-shadow(0 0 20px rgba(60,100,255,0.5)) drop-shadow(0 0 6px rgba(80,140,255,0.3))",
             animation: "clockFloat 5s ease-in-out infinite",
             transition: "filter 0.3s",
+            mixBlendMode: "normal",
           }}
-        />
+        >
+          <source src={CLOCK_VIDEO} type="video/webm" />
+          {/* Fallback to static image */}
+          <img src={CLOCK} alt="The Clock" style={{ width: "min(380px, 80vw)" }} />
+        </video>
 
         {/* Title */}
         <div className="mt-6 text-center" style={{ opacity: phase === "igniting" ? 0 : 1, transition: "opacity 0.3s" }}>
