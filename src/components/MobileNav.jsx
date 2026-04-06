@@ -1,4 +1,4 @@
-import { Menu } from "lucide-react";
+import { Menu, Sparkles } from "lucide-react";
 
 export default function MobileNav({ onMenuClick }) {
   return (

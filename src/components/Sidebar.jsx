@@ -5,6 +5,7 @@ import {
   Cake,
   MessageSquare,
   Settings,
+  Sparkles,
   X,
 } from "lucide-react";
 
