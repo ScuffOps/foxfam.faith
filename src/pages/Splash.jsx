@@ -5,7 +5,7 @@ const CLOCK_VIDEO = "https://media.discordapp.net/attachments/119709269938852253
 const CLOCK = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/d5f592291_image.png";
 const WALLS = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/f1b7a3f97_Wallredo.png";
 const WALL_RIGHT = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/0a518e115_wall-Copy.png";
-const LANTERN = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/1bdcd1587_Lantern.png";
+const LANTERN = "https://media.discordapp.net/attachments/1197092699388522537/1205626774881304636/ink_blue_flame.gif";
 const STONE_TABLE = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/3ade0b749_stonetable.png";
 
 export default function Splash({ onEnter }) {
