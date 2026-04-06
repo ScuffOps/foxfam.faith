@@ -5,9 +5,9 @@ import {
   Cake,
   MessageSquare,
   Settings,
-  Sparkles,
   X,
   Flame,
+  Handshake,
 } from "lucide-react";
 
 const navItems = [
@@ -16,6 +16,7 @@ const navItems = [
   { path: "/birthdays", label: "Birthdays", icon: Cake },
   { path: "/community", label: "Community", icon: MessageSquare },
   { path: "/prayer", label: "Prayer Wall", icon: Flame },
+  { path: "/collabs", label: "Collab Requests", icon: Handshake },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 

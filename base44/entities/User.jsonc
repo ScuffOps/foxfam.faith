@@ -6,9 +6,12 @@
       "type": "string",
       "enum": [
         "admin",
-        "user"
+        "mod",
+        "creator",
+        "foxfam",
+        "wanderer"
       ],
-      "default": "user"
+      "default": "wanderer"
     },
     "display_name": {
       "type": "string",
@@ -19,5 +22,6 @@
       "default": false,
       "description": "Whether the user has completed onboarding"
     }
-  }
+  },
+  "required": []
 }

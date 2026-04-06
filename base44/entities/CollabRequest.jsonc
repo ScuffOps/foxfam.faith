@@ -1,0 +1,93 @@
+{
+  "name": "CollabRequest",
+  "type": "object",
+  "properties": {
+    "game_category": {
+      "type": "string",
+      "description": "Suggested game or stream category"
+    },
+    "estimated_duration": {
+      "type": "string",
+      "description": "Estimated duration of the collab"
+    },
+    "description": {
+      "type": "string",
+      "description": "Brief description of the collab idea"
+    },
+    "shared_chat": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether to enable a shared chat during the collab"
+    },
+    "extra_info": {
+      "type": "string",
+      "description": "Open-ended ideas or extra exciting info"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "submitted_by_name": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "game_category",
+    "description"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "creator"
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "mod"
+          }
+        },
+        {
+          "created_by": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "mod"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "created_by": "{{user.email}}"
+        }
+      ]
+    }
+  }
+}
