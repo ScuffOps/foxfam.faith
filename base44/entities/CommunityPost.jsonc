@@ -72,5 +72,15 @@
   "required": [
     "title",
     "type"
-  ]
+  ],
+  "rls": {
+    "create": true,
+    "read": true,
+    "update": true,
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
 }
