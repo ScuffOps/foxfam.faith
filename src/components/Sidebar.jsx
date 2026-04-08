@@ -1,4 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
 import {
   LayoutDashboard,
   CalendarDays,
@@ -22,6 +24,18 @@ const navItems = [
 
 export default function Sidebar({ onClose }) {
   const location = useLocation();
+  const [userRole, setUserRole] = useState(null);
+
+  useEffect(() => {
+    base44.auth.me().then((u) => setUserRole(u?.role)).catch(() => {});
+  }, []);
+
+  const isMod = userRole === "mod" || userRole === "admin";
+
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.path === "/collabs") return isMod;
+    return true;
+  });
 
   return (
     <div className="flex h-full w-64 flex-col border-r border-border bg-sidebar">
@@ -47,7 +61,7 @@ export default function Sidebar({ onClose }) {
       {/* Nav */}
       <nav className="flex-1 px-3 py-2">
         <div className="space-y-1">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const isActive =
               item.path === "/"
                 ? location.pathname === "/"
