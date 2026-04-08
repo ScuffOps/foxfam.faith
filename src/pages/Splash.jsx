@@ -209,7 +209,7 @@ export default function Splash({ onEnter }) {
             color: "#fff",
             textShadow: "0 0 40px rgba(80,160,255,0.6), 0 2px 4px rgba(0,0,0,0.8)",
           }}>
-            Foxfam.Faith
+            foxfam.faith
           </h1>
           <p className="text-sm mt-2" style={{ color: "rgba(140,180,255,0.45)", fontFamily: "var(--font-heading)", letterSpacing: "0.15em" }}>
             — Veri's Shrine —
