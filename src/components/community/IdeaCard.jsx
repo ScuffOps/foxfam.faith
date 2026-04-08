@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { ArrowUp, Check, X, CalendarPlus, Lightbulb, MessageSquare } from "lucide-react";
+import { ArrowUp, Check, X, CalendarPlus, Lightbulb, MessageSquare, Map } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "../StatusBadge";
 import GlassCard from "../GlassCard";
@@ -58,6 +58,11 @@ export default function IdeaCard({ post, isAdmin, userEmail, onRefresh }) {
     onRefresh();
   };
 
+  const handleAddToRoadmap = async () => {
+    await base44.entities.CommunityPost.update(post.id, { roadmap_status: "planned" });
+    onRefresh();
+  };
+
   return (
     <GlassCard className="flex gap-3">
       {/* Upvote */}
@@ -98,9 +103,16 @@ export default function IdeaCard({ post, isAdmin, userEmail, onRefresh }) {
             </div>
           )}
           {isAdmin && post.status === "approved" && (
-            <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs text-primary hover:bg-primary/10" onClick={handleConvert}>
-              <CalendarPlus className="h-3 w-3" /> Convert to Event
-            </Button>
+            <>
+              <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs text-primary hover:bg-primary/10" onClick={handleConvert}>
+                <CalendarPlus className="h-3 w-3" /> Convert to Event
+              </Button>
+              {(!post.roadmap_status || post.roadmap_status === "none") && (
+                <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs text-chart-4 hover:bg-chart-4/10" onClick={handleAddToRoadmap}>
+                  <Map className="h-3 w-3" /> Add to Roadmap
+                </Button>
+              )}
+            </>
           )}
         </div>
       </div>

@@ -10,6 +10,7 @@ import {
   X,
   Flame,
   Handshake,
+  Map,
 } from "lucide-react";
 
 const navItems = [
@@ -19,6 +20,7 @@ const navItems = [
   { path: "/community", label: "Community", icon: MessageSquare },
   { path: "/prayer", label: "Prayer Wall", icon: Flame },
   { path: "/collabs", label: "Collab Requests", icon: Handshake },
+  { path: "/roadmap", label: "Roadmap", icon: Map },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 

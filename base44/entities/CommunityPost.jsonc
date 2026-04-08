@@ -27,6 +27,17 @@
       ],
       "default": "pending"
     },
+    "roadmap_status": {
+      "type": "string",
+      "enum": [
+        "none",
+        "planned",
+        "in_progress",
+        "completed"
+      ],
+      "default": "none",
+      "description": "Roadmap stage for approved posts"
+    },
     "upvotes": {
       "type": "number",
       "default": 0

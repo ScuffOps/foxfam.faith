@@ -13,6 +13,7 @@ import CommunityInput from './pages/CommunityInput';
 import Settings from './pages/Settings';
 import PrayerWall from './pages/PrayerWall';
 import CollabRequests from './pages/CollabRequests';
+import Roadmap from './pages/Roadmap';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -48,6 +49,7 @@ const AuthenticatedApp = () => {
         <Route path="/settings" element={<Settings />} />
         <Route path="/prayer" element={<PrayerWall />} />
         <Route path="/collabs" element={<CollabRequests />} />
+        <Route path="/roadmap" element={<Roadmap />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>
