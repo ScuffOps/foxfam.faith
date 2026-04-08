@@ -58,11 +58,9 @@ export default function CommunityInput() {
           <h1 className="font-heading text-2xl font-bold md:text-3xl">Community Input</h1>
           <p className="mt-1 text-sm text-muted-foreground">Ideas, polls, and feedback from the community</p>
         </div>
-        {isAdmin && (
-          <Button onClick={() => setShowForm(true)} className="gap-2">
-            <Plus className="h-4 w-4" /> New Post
-          </Button>
-        )}
+        <Button onClick={() => setShowForm(true)} className="gap-2">
+          <Plus className="h-4 w-4" /> New Post
+        </Button>
       </div>
 
       {!user && <GuestProfileBanner />}
