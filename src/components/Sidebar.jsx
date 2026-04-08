@@ -11,6 +11,7 @@ import {
   Flame,
   Handshake,
   Map,
+  Sparkles,
 } from "lucide-react";
 
 const navItems = [
@@ -20,6 +21,7 @@ const navItems = [
   { path: "/community", label: "Community", icon: MessageSquare },
   { path: "/prayer", label: "Prayer Wall", icon: Flame },
   { path: "/collabs", label: "Collab Requests", icon: Handshake },
+  { path: "/blessings", label: "Blessings", icon: Sparkles },
   { path: "/roadmap", label: "Roadmap", icon: Map },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
