@@ -240,7 +240,7 @@ export default function Splash({ onEnter }) {
         bottom: 0,
         left: "50%",
         transform: "translateX(-50%)",
-        width: "min(400px, 70vw)",
+        width: "min(900px, 90vw)",
         opacity: 0.7,
         filter: "drop-shadow(0 0 12px rgba(40,80,200,0.4))"
       }} />
