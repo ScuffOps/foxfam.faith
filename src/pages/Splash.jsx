@@ -20,11 +20,11 @@ export default function Splash({ onEnter }) {
     // Spawn flame particles
     const newParticles = Array.from({ length: 28 }, (_, i) => ({
       id: i,
-      angle: (i / 28) * 360 + Math.random() * 20,
+      angle: i / 28 * 360 + Math.random() * 20,
       speed: 0.6 + Math.random() * 1.2,
       size: 18 + Math.random() * 36,
       delay: Math.random() * 0.4,
-      drift: (Math.random() - 0.5) * 60,
+      drift: (Math.random() - 0.5) * 60
     }));
     setParticles(newParticles);
 
@@ -43,9 +43,9 @@ export default function Splash({ onEnter }) {
       style={{
         background: "#000",
         opacity: phase === "fading" ? 0 : 1,
-        transition: phase === "fading" ? "opacity 1s ease-in-out" : "none",
-      }}
-    >
+        transition: phase === "fading" ? "opacity 1s ease-in-out" : "none"
+      }}>
+      
       {/* Background video */}
       <video
         autoPlay
@@ -53,8 +53,8 @@ export default function Splash({ onEnter }) {
         muted
         playsInline
         className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-        style={{ opacity: 0.7 }}
-      >
+        style={{ opacity: 0.7 }}>
+        
         <source src={BG_VIDEO} type="video/mp4" />
       </video>
       {/* Dark overlay for depth */}
@@ -73,9 +73,9 @@ export default function Splash({ onEnter }) {
         style={{
           width: "45%",
           opacity: 0.6,
-          filter: "drop-shadow(0 0 20px rgba(40,120,255,0.2))",
-        }}
-      />
+          filter: "drop-shadow(0 0 20px rgba(40,120,255,0.2))"
+        }} />
+      
       {/* Temple Walls — full scene */}
       <img
         src={WALLS}
@@ -85,9 +85,9 @@ export default function Splash({ onEnter }) {
           opacity: 0.92,
           transform: "scale(1.05)",
           transformOrigin: "bottom center",
-          filter: "drop-shadow(0 0 30px rgba(40,120,255,0.3))",
-        }}
-      />
+          filter: "drop-shadow(0 0 30px rgba(40,120,255,0.3))"
+        }} />
+      
 
       {/* Ground fog */}
       <div className="absolute bottom-0 left-0 right-0 h-40 pointer-events-none" style={{
@@ -104,9 +104,9 @@ export default function Splash({ onEnter }) {
           left: "calc(50% - 320px)",
           top: "38%",
           filter: "drop-shadow(0 0 24px rgba(50,200,255,0.9)) drop-shadow(0 0 8px rgba(100,220,255,0.6))",
-          animation: "lanternFloat 3s ease-in-out infinite",
-        }}
-      />
+          animation: "lanternFloat 3s ease-in-out infinite"
+        }} />
+      
       {/* Right lantern */}
       <img
         src={LANTERN}
@@ -117,9 +117,9 @@ export default function Splash({ onEnter }) {
           right: "calc(50% - 320px)",
           top: "38%",
           filter: "drop-shadow(0 0 24px rgba(50,200,255,0.9)) drop-shadow(0 0 8px rgba(100,220,255,0.6))",
-          animation: "lanternFloat 3.4s ease-in-out infinite reverse",
-        }}
-      />
+          animation: "lanternFloat 3.4s ease-in-out infinite reverse"
+        }} />
+      
 
       {/* Ambient lantern glow blobs */}
       <div className="absolute pointer-events-none" style={{
@@ -127,14 +127,14 @@ export default function Splash({ onEnter }) {
         width: 200, height: 200,
         background: "radial-gradient(circle, rgba(50,180,255,0.15) 0%, transparent 70%)",
         transform: "translate(-50%, -50%)",
-        animation: "pulseGlow 3s ease-in-out infinite",
+        animation: "pulseGlow 3s ease-in-out infinite"
       }} />
       <div className="absolute pointer-events-none" style={{
         right: "calc(50% - 320px)", top: "38%",
         width: 200, height: 200,
         background: "radial-gradient(circle, rgba(50,180,255,0.15) 0%, transparent 70%)",
         transform: "translate(50%, -50%)",
-        animation: "pulseGlow 3.4s ease-in-out infinite reverse",
+        animation: "pulseGlow 3.4s ease-in-out infinite reverse"
       }} />
 
       {/* Center content */}
@@ -142,7 +142,7 @@ export default function Splash({ onEnter }) {
 
         {/* Spirit fire particles — appear on click */}
         {phase !== "idle" && particles.map((p) => {
-          const rad = (p.angle * Math.PI) / 180;
+          const rad = p.angle * Math.PI / 180;
           const tx = Math.cos(rad) * 130 * p.speed + p.drift;
           const ty = Math.sin(rad) * 130 * p.speed - 80;
           return (
@@ -159,23 +159,23 @@ export default function Splash({ onEnter }) {
                 transform: "translate(-50%, -50%)",
                 animation: `flameShoot 1.2s cubic-bezier(0.2,0,0.8,1) ${p.delay}s forwards`,
                 "--tx": `${tx}px`,
-                "--ty": `${ty}px`,
-              }}
-            />
-          );
+                "--ty": `${ty}px`
+              }} />);
+
+
         })}
 
         {/* Clock glow aura */}
         <div className="absolute pointer-events-none" style={{
           width: 420, height: 420,
-          background: phase === "igniting"
-            ? "radial-gradient(circle, rgba(80,200,255,0.35) 0%, rgba(40,100,255,0.2) 40%, transparent 70%)"
-            : "radial-gradient(circle, rgba(40,80,200,0.12) 0%, transparent 65%)",
+          background: phase === "igniting" ?
+          "radial-gradient(circle, rgba(80,200,255,0.35) 0%, rgba(40,100,255,0.2) 40%, transparent 70%)" :
+          "radial-gradient(circle, rgba(40,80,200,0.12) 0%, transparent 65%)",
           borderRadius: "50%",
           transition: "background 0.3s",
           animation: phase === "igniting" ? "igniteGlow 1.4s ease-out forwards" : "clockAura 4s ease-in-out infinite",
           top: "50%", left: "50%",
-          transform: "translate(-50%, -50%)",
+          transform: "translate(-50%, -50%)"
         }} />
 
         {/* Clock video (transparent webm) */}
@@ -186,14 +186,14 @@ export default function Splash({ onEnter }) {
           playsInline
           style={{
             width: "min(400px, 82vw)",
-            filter: phase === "igniting"
-              ? "drop-shadow(0 0 60px rgba(80,200,255,1)) drop-shadow(0 0 20px rgba(100,160,255,0.8)) brightness(1.2)"
-              : "drop-shadow(0 0 20px rgba(60,100,255,0.5)) drop-shadow(0 0 6px rgba(80,140,255,0.3))",
+            filter: phase === "igniting" ?
+            "drop-shadow(0 0 60px rgba(80,200,255,1)) drop-shadow(0 0 20px rgba(100,160,255,0.8)) brightness(1.2)" :
+            "drop-shadow(0 0 20px rgba(60,100,255,0.5)) drop-shadow(0 0 6px rgba(80,140,255,0.3))",
             animation: "clockFloat 5s ease-in-out infinite",
             transition: "filter 0.3s",
-            mixBlendMode: "normal",
-          }}
-        >
+            mixBlendMode: "normal"
+          }}>
+          
           <source src={CLOCK_VIDEO} type="video/webm" />
           {/* Fallback to static image */}
           <img src={CLOCK} alt="The Clock" style={{ width: "min(380px, 80vw)" }} />
@@ -207,9 +207,9 @@ export default function Splash({ onEnter }) {
           <h1 className="text-4xl md:text-5xl font-bold mb-1" style={{
             fontFamily: "var(--font-heading)",
             color: "#fff",
-            textShadow: "0 0 40px rgba(80,160,255,0.6), 0 2px 4px rgba(0,0,0,0.8)",
+            textShadow: "0 0 40px rgba(80,160,255,0.6), 0 2px 4px rgba(0,0,0,0.8)"
           }}>
-            foxfam.faith
+            Foxfam.Faith
           </h1>
           <p className="text-sm mt-2" style={{ color: "rgba(140,180,255,0.45)", fontFamily: "var(--font-heading)", letterSpacing: "0.15em" }}>
             — Veri's Shrine —
@@ -224,7 +224,7 @@ export default function Splash({ onEnter }) {
             letterSpacing: "0.3em",
             textTransform: "uppercase",
             fontFamily: "var(--font-heading)",
-            animation: "breathe 2.5s ease-in-out infinite",
+            animation: "breathe 2.5s ease-in-out infinite"
           }}>
             ✦ Click to Enter ✦
           </p>
@@ -232,19 +232,19 @@ export default function Splash({ onEnter }) {
       </div>
 
       {/* Stone altar bottom */}
-      <img
-        src={STONE_TABLE}
-        alt=""
-        className="absolute pointer-events-none"
-        style={{
-          bottom: 0,
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: "min(400px, 70vw)",
-          opacity: 0.7,
-          filter: "drop-shadow(0 0 12px rgba(40,80,200,0.4))",
-        }}
-      />
+      <img src="https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/3ade0b749_stonetable.png"
+
+      alt="" className="absolute pointer-events-none"
+
+      style={{
+        bottom: 0,
+        left: "50%",
+        transform: "translateX(-50%)",
+        width: "min(400px, 70vw)",
+        opacity: 0.7,
+        filter: "drop-shadow(0 0 12px rgba(40,80,200,0.4))"
+      }} />
+      
 
       {/* CSS Animations */}
       <style>{`
@@ -279,6 +279,6 @@ export default function Splash({ onEnter }) {
           100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0); opacity: 0; }
         }
       `}</style>
-    </div>
-  );
+    </div>);
+
 }
