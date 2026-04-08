@@ -12,6 +12,7 @@ import {
   Handshake,
   Map,
   Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 
 const navItems = [
@@ -22,6 +23,7 @@ const navItems = [
   { path: "/prayer", label: "Prayer Wall", icon: Flame },
   { path: "/collabs", label: "Collab Requests", icon: Handshake },
   { path: "/blessings", label: "Blessings", icon: Sparkles },
+  { path: "/admin", label: "Admin Panel", icon: ShieldCheck, adminOnly: true },
   { path: "/roadmap", label: "Roadmap", icon: Map },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
@@ -38,6 +40,7 @@ export default function Sidebar({ onClose }) {
 
   const visibleNavItems = navItems.filter((item) => {
     if (item.path === "/collabs") return isMod;
+    if (item.adminOnly) return isMod;
     return true;
   });
 
