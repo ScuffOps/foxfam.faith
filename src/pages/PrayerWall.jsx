@@ -203,35 +203,10 @@ export default function PrayerWall() {
                 <p className="text-sm leading-relaxed mb-3 whitespace-pre-line" style={{ color: "rgba(210,220,245,0.85)" }}>
                   {prayer.message}
                 </p>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center">
                   <span className="text-xs" style={{ color: "rgba(100,140,200,0.4)" }}>
                     {prayer.is_anonymous ? "🕊️ Anonymous" : (prayer.author_name || "A community member")}
                   </span>
-                  <button
-                    onClick={() => handlePray(prayer)}
-                    className="flex items-center gap-1.5 rounded px-3 py-1 text-xs transition-all"
-                    style={{
-                      background: "rgba(255,120,50,0.06)",
-                      border: "1px solid rgba(255,120,50,0.18)",
-                      color: "rgba(255,160,80,0.6)",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = "rgba(255,120,50,0.12)";
-                      e.currentTarget.style.color = "rgba(255,160,80,0.9)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "rgba(255,120,50,0.06)";
-                      e.currentTarget.style.color = "rgba(255,160,80,0.6)";
-                    }}
-                  >
-                    <Flame className="h-3.5 w-3.5" />
-                    Thank her with a Prayer
-                    {prayer.support_count > 0 && (
-                      <span className="ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold" style={{ background: "rgba(255,120,50,0.12)", color: "rgba(255,160,80,0.8)" }}>
-                        {prayer.support_count}
-                      </span>
-                    )}
-                  </button>
                 </div>
               </div>
             ))}
