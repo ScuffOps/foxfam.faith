@@ -11,6 +11,7 @@ import EventFormDialog from "../components/calendar/EventFormDialog";
 export default function Calendar() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState("month");
   const [showForm, setShowForm] = useState(false);
@@ -20,12 +21,15 @@ export default function Calendar() {
 
   const loadEvents = async () => {
     setLoading(true);
+    try { const me = await base44.auth.me(); setUser(me); } catch {}
     const all = await base44.entities.Event.filter({ status: "active" });
     setEvents(all);
     setLoading(false);
   };
 
   useEffect(() => { loadEvents(); }, []);
+
+  const isMod = user?.role === "mod" || user?.role === "admin";
 
   const filteredEvents = filterCategory === "all"
     ? events
@@ -40,10 +44,12 @@ export default function Calendar() {
   const handleToday = () => setCurrentDate(new Date());
 
   const handleEventClick = (ev) => {
+    if (!isMod) return;
     setEditingEvent(ev);
     setShowForm(true);
   };
   const handleDateClick = (day) => {
+    if (!isMod) return;
     setEditingEvent(null);
     setShowForm(true);
   };
@@ -86,9 +92,11 @@ export default function Calendar() {
           <Button variant="outline" onClick={() => setShowCollabBooking(!showCollabBooking)} className="gap-2">
             <Users className="h-4 w-4" /> {showCollabBooking ? "Hide Booking" : "Book a Collab"}
           </Button>
-          <Button onClick={() => { setEditingEvent(null); setShowForm(true); }} className="gap-2">
-            <Plus className="h-4 w-4" /> New Event
-          </Button>
+          {isMod && (
+            <Button onClick={() => { setEditingEvent(null); setShowForm(true); }} className="gap-2">
+              <Plus className="h-4 w-4" /> New Event
+            </Button>
+          )}
         </div>
       </div>
 

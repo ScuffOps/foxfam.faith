@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, X } from "lucide-react";
 
-export default function PostForm({ open, onOpenChange, onCreated }) {
+export default function PostForm({ open, onOpenChange, onCreated, isMod = false }) {
   const { profile } = useGuestProfile();
   const [form, setForm] = useState({ title: "", description: "", type: "idea" });
   const [pollOptions, setPollOptions] = useState(["", ""]);
@@ -68,7 +68,7 @@ export default function PostForm({ open, onOpenChange, onCreated }) {
               <SelectTrigger className="mt-1.5 bg-secondary"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="idea">Idea / Suggestion</SelectItem>
-                <SelectItem value="poll">Poll</SelectItem>
+                {isMod && <SelectItem value="poll">Poll</SelectItem>}
                 <SelectItem value="feedback">Feedback</SelectItem>
               </SelectContent>
             </Select>
