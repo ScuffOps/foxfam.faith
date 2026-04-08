@@ -53,7 +53,7 @@ export default function Splash({ onEnter }) {
         muted
         playsInline
         className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-        style={{ opacity: 0.7 }}
+        style={{ opacity: 0.7, transform: "scaleX(-1)" }}
       >
         <source src={BG_VIDEO} type="video/mp4" />
       </video>
