@@ -74,7 +74,6 @@ export default function Splash({ onEnter }) {
           width: "45%",
           opacity: 0.6,
           filter: "drop-shadow(0 0 20px rgba(40,120,255,0.2))",
-          transform: "scaleX(-1)",
         }}
       />
       {/* Temple Walls — full scene */}
