@@ -94,7 +94,7 @@ export default function Splash({ onEnter }) {
         playsInline
         ref={(el) => { if (el) el.playbackRate = 0.85; }}
         className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-        style={{ zIndex: 0, opacity: 1 }}
+        style={{ zIndex: 0, opacity: 1, transform: "scale(1.25)", transformOrigin: "center center" }}
       >
         <source src="https://video.wixstatic.com/video/13471a_24a7d3ed1ea64b63979b84f451561b83/1080p/mp4/file.mp4" type="video/mp4" />
       </video>
