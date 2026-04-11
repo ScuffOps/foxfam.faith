@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 
 const LAYERS = [
-  // back → front: [src, depthMultiplier, css positioning]
+  // back → front
   {
     src: "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/6066c0983_scenelayer-grass.png",
     depth: 0.008,
@@ -18,11 +18,6 @@ const LAYERS = [
     style: { bottom: 0, left: 0, width: "100%", opacity: 0.55, mixBlendMode: "multiply" },
   },
   {
-    src: "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/b09341c6f_scenelayer-altar.png",
-    depth: 0.022,
-    style: { bottom: 0, left: "50%", transform: "translateX(-50%)", width: "min(700px, 80vw)", opacity: 1 },
-  },
-  {
     src: "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/809268ef7_scenelayer-frontgrass.png",
     depth: 0.03,
     style: { bottom: 0, left: 0, width: "100%", opacity: 1 },
@@ -32,10 +27,17 @@ const LAYERS = [
     depth: 0.04,
     style: { bottom: 0, left: 0, width: "40%", opacity: 1 },
   },
+  // altar - 3rd from top
+  {
+    src: "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/b09341c6f_scenelayer-altar.png",
+    depth: 0.048,
+    style: { bottom: 0, left: "50%", transform: "translateX(-50%)", width: "min(760px, 88vw)", opacity: 1 },
+  },
+  // lantern - sits on top of altar (frontmost)
   {
     src: "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/a5db5756d_scenelayer-lantern.png",
     depth: 0.055,
-    style: { bottom: "22%", left: "50%", transform: "translateX(-50%)", width: "min(140px, 18vw)", opacity: 1 },
+    style: { bottom: "12%", left: "50%", transform: "translateX(-50%)", width: "min(220px, 26vw)", opacity: 1 },
   },
 ];
 
@@ -111,14 +113,14 @@ export default function Splash({ onEnter }) {
 
       {/* Lantern glow ambient */}
       <div className="absolute pointer-events-none" style={{
-        bottom: "22%",
+        bottom: "12%",
         left: "50%",
         transform: "translateX(-50%)",
-        width: 220,
-        height: 220,
-        background: "radial-gradient(circle, rgba(60,160,255,0.25) 0%, transparent 70%)",
+        width: 300,
+        height: 300,
+        background: "radial-gradient(circle, rgba(60,160,255,0.3) 0%, transparent 70%)",
         borderRadius: "50%",
-        filter: "blur(8px)",
+        filter: "blur(12px)",
         animation: "pulseGlow 3s ease-in-out infinite",
       }} />
 
