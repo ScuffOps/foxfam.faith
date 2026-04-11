@@ -86,19 +86,6 @@ export default function Splash({ onEnter }) {
         transition: phase === "fading" ? "opacity 1s ease-in-out" : "none",
       }}
     >
-      {/* Background video */}
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        ref={(el) => { if (el) el.playbackRate = 0.85; }}
-        className="absolute pointer-events-none"
-        style={{ zIndex: 0, opacity: 1, top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "100%", height: "140%", objectFit: "cover" }}
-      >
-        <source src="https://video.wixstatic.com/video/13471a_24a7d3ed1ea64b63979b84f451561b83/1080p/mp4/file.mp4" type="video/mp4" />
-      </video>
-
       {/* Parallax scene layers */}
       {LAYERS.map((layer, i) => {
         const tx = mouse.x * layer.depth;
