@@ -93,15 +93,37 @@ export default function Splash({ onEnter }) {
         muted
         playsInline
         className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-        style={{ opacity: 0.85 }}
+        style={{ opacity: 0.85, zIndex: 0 }}
         ref={el => { if (el) el.playbackRate = 0.85; }}
       >
         <source src="https://video.wixstatic.com/video/13471a_24a7d3ed1ea64b63979b84f451561b83/1080p/mp4/file.mp4" type="video/mp4" />
       </video>
 
       {/* Parallax scene layers */}
+      {LAYERS.map((layer, i) => {
+        const tx = mouse.x * layer.depth;
+        const ty = mouse.y * layer.depth;
+        return (
+          <img
+            key={i}
+            src={layer.src}
+            alt=""
+            className="absolute pointer-events-none"
+            style={{
+              ...layer.style,
+              transform: `${layer.style.transform || ""} translate(${tx}px, ${ty}px)`,
+              transition: "transform 0.12s ease-out",
+              willChange: "transform",
+              zIndex: i + 1,
+            }}
+          />
+        );
+      })}
+
+      {/* Dark gradient overlay for depth */}
       <div className="absolute inset-0 pointer-events-none" style={{
-        background: "radial-gradient(ellipse at 50% 100%, rgba(10,20,60,0.3) 0%, transparent 70%)"
+        background: "radial-gradient(ellipse at 50% 100%, rgba(10,20,60,0.3) 0%, transparent 70%)",
+        zIndex: 8,
       }} />
 
       {/* Lantern glow ambient */}
@@ -115,6 +137,7 @@ export default function Splash({ onEnter }) {
         borderRadius: "50%",
         filter: "blur(12px)",
         animation: "pulseGlow 3s ease-in-out infinite",
+        zIndex: 9,
       }} />
 
       {/* Center content */}
