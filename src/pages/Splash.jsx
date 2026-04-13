@@ -37,7 +37,7 @@ const LAYERS = [
   {
     src: "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/a5db5756d_scenelayer-lantern.png",
     depth: 0.055,
-    style: { bottom: "12%", left: "50%", transform: "translateX(-50%)", width: "min(220px, 26vw)", opacity: 1 },
+    style: { bottom: "10%", left: "50%", transform: "translateX(-50%)", width: "min(380px, 44vw)", opacity: 1 },
   },
 ];
 
@@ -128,15 +128,15 @@ export default function Splash({ onEnter }) {
 
       {/* Lantern glow ambient */}
       <div className="absolute pointer-events-none" style={{
-        bottom: "12%",
+        bottom: "15%",
         left: "50%",
         transform: "translateX(-50%)",
-        width: 300,
-        height: 300,
-        background: "radial-gradient(circle, rgba(60,160,255,0.3) 0%, transparent 70%)",
+        width: 520,
+        height: 520,
+        background: "radial-gradient(circle, rgba(80,190,255,0.6) 0%, rgba(40,130,255,0.3) 35%, transparent 70%)",
         borderRadius: "50%",
-        filter: "blur(12px)",
-        animation: "pulseGlow 3s ease-in-out infinite",
+        filter: "blur(20px)",
+        animation: "pulseGlow 4s ease-in-out infinite",
         zIndex: 9,
       }} />
 
@@ -204,8 +204,8 @@ export default function Splash({ onEnter }) {
           50% { opacity: 0.9; }
         }
         @keyframes pulseGlow {
-          0%, 100% { opacity: 0.6; transform: translateX(-50%) scale(1); }
-          50% { opacity: 1; transform: translateX(-50%) scale(1.15); }
+          0%, 100% { opacity: 0.5; transform: translateX(-50%) scale(1); }
+          50% { opacity: 0.95; transform: translateX(-50%) scale(1.2); }
         }
         @keyframes flameShoot {
           0% { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
