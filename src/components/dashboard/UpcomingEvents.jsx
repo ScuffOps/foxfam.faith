@@ -11,14 +11,19 @@ export default function UpcomingEvents() {
 
   useEffect(() => {
     const load = async () => {
-      const all = await base44.entities.Event.filter({ status: "active" }, "-start_date", 50);
-      const now = new Date();
-      const upcoming = all
-        .filter((e) => isAfter(new Date(e.start_date), now))
-        .sort((a, b) => new Date(a.start_date) - new Date(b.start_date))
-        .slice(0, 5);
-      setEvents(upcoming);
-      setLoading(false);
+      try {
+        const all = await base44.entities.Event.filter({ status: "active" }, "-start_date", 50);
+        const now = new Date();
+        const upcoming = all
+          .filter((e) => isAfter(new Date(e.start_date), now))
+          .sort((a, b) => new Date(a.start_date) - new Date(b.start_date))
+          .slice(0, 5);
+        setEvents(upcoming);
+      } catch {
+        setEvents([]);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, []);

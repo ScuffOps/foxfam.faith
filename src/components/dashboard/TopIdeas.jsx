@@ -9,9 +9,14 @@ export default function TopIdeas() {
 
   useEffect(() => {
     const load = async () => {
-      const all = await base44.entities.CommunityPost.filter({ type: "idea", status: "approved" }, "-upvotes", 5);
-      setIdeas(all);
-      setLoading(false);
+      try {
+        const all = await base44.entities.CommunityPost.filter({ type: "idea", status: "approved" }, "-upvotes", 5);
+        setIdeas(all);
+      } catch {
+        setIdeas([]);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, []);

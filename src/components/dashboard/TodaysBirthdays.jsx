@@ -9,16 +9,21 @@ export default function TodaysBirthdays() {
 
   useEffect(() => {
     const load = async () => {
-      const all = await base44.entities.Birthday.filter({ status: "approved" });
-      const today = new Date();
-      const todayMonth = today.getMonth();
-      const todayDay = today.getDate();
-      const todays = all.filter((b) => {
-        const d = new Date(b.birthday_date);
-        return d.getMonth() === todayMonth && d.getDate() === todayDay;
-      });
-      setBirthdays(todays);
-      setLoading(false);
+      try {
+        const all = await base44.entities.Birthday.filter({ status: "approved" });
+        const today = new Date();
+        const todayMonth = today.getMonth();
+        const todayDay = today.getDate();
+        const todays = all.filter((b) => {
+          const d = new Date(b.birthday_date);
+          return d.getMonth() === todayMonth && d.getDate() === todayDay;
+        });
+        setBirthdays(todays);
+      } catch {
+        setBirthdays([]);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, []);

@@ -9,18 +9,23 @@ export default function QuickStats() {
 
   useEffect(() => {
     const load = async () => {
-      const [events, birthdays, posts] = await Promise.all([
-        base44.entities.Event.filter({ status: "active" }),
-        base44.entities.Birthday.filter({ status: "approved" }),
-        base44.entities.CommunityPost.filter({ status: "approved" }),
-      ]);
-      setStats({
-        events: events.length,
-        birthdays: birthdays.length,
-        ideas: posts.filter((p) => p.type === "idea").length,
-        polls: posts.filter((p) => p.type === "poll").length,
-      });
-      setLoading(false);
+      try {
+        const [events, birthdays, posts] = await Promise.all([
+          base44.entities.Event.filter({ status: "active" }),
+          base44.entities.Birthday.filter({ status: "approved" }),
+          base44.entities.CommunityPost.filter({ status: "approved" }),
+        ]);
+        setStats({
+          events: events.length,
+          birthdays: birthdays.length,
+          ideas: posts.filter((p) => p.type === "idea").length,
+          polls: posts.filter((p) => p.type === "poll").length,
+        });
+      } catch {
+        // silently fail, keep default zeros
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, []);
