@@ -6,12 +6,18 @@ import GlassCard from "../GlassCard";
 export default function TopIdeas() {
   const [ideas, setIdeas] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const [upvoting, setUpvoting] = useState(null);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const all = await base44.entities.CommunityPost.filter({ type: "idea", status: "approved" }, "-upvotes", 5);
+        const [all, me] = await Promise.all([
+          base44.entities.CommunityPost.filter({ type: "idea", status: "approved" }, "-upvotes", 5),
+          base44.auth.me().catch(() => null),
+        ]);
         setIdeas(all);
+        setUser(me);
       } catch {
         setIdeas([]);
       } finally {
@@ -20,6 +26,35 @@ export default function TopIdeas() {
     };
     load();
   }, []);
+
+  const handleUpvote = async (idea) => {
+    if (!user?.email || upvoting) return;
+    const upvotedBy = idea.upvoted_by || [];
+    const hasUpvoted = upvotedBy.includes(user.email);
+    setUpvoting(idea.id);
+
+    const updated = {
+      upvotes: hasUpvoted ? Math.max((idea.upvotes || 0) - 1, 0) : (idea.upvotes || 0) + 1,
+      upvoted_by: hasUpvoted
+        ? upvotedBy.filter((e) => e !== user.email)
+        : [...upvotedBy, user.email],
+    };
+
+    // Optimistic update
+    setIdeas((prev) =>
+      prev.map((i) => (i.id === idea.id ? { ...i, ...updated } : i))
+        .sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0))
+    );
+
+    try {
+      await base44.entities.CommunityPost.update(idea.id, updated);
+    } catch {
+      // revert on failure
+      setIdeas((prev) => prev.map((i) => (i.id === idea.id ? idea : i)));
+    } finally {
+      setUpvoting(null);
+    }
+  };
 
   return (
     <GlassCard className="h-full">
@@ -37,18 +72,29 @@ export default function TopIdeas() {
         <p className="py-4 text-center text-sm text-muted-foreground">No ideas yet</p>
       ) : (
         <div className="space-y-2.5">
-          {ideas.map((idea) => (
-            <div key={idea.id} className="flex items-center gap-3 rounded-lg bg-secondary/50 px-3 py-2.5">
-              <div className="flex flex-col items-center gap-0.5">
-                <ArrowUp className="h-3.5 w-3.5 text-chart-4" />
-                <span className="text-xs font-bold text-chart-4">{idea.upvotes || 0}</span>
+          {ideas.map((idea) => {
+            const hasUpvoted = (idea.upvoted_by || []).includes(user?.email);
+            return (
+              <div key={idea.id} className="flex items-center gap-3 rounded-lg bg-secondary/50 px-3 py-2.5">
+                <button
+                  onClick={() => handleUpvote(idea)}
+                  disabled={!user?.email || upvoting === idea.id}
+                  className={`flex flex-col items-center gap-0.5 rounded-md px-1.5 py-1 transition-colors ${
+                    hasUpvoted
+                      ? "text-chart-4 bg-chart-4/15"
+                      : "text-muted-foreground hover:text-chart-4 hover:bg-chart-4/10"
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <ArrowUp className="h-3.5 w-3.5" />
+                  <span className="text-xs font-bold">{idea.upvotes || 0}</span>
+                </button>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{idea.title}</p>
+                  <p className="text-xs text-muted-foreground">by {idea.submitted_by_name || "Anonymous"}</p>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{idea.title}</p>
-                <p className="text-xs text-muted-foreground">by {idea.submitted_by_name || "Anonymous"}</p>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </GlassCard>
