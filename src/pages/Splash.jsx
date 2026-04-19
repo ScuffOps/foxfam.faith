@@ -97,7 +97,7 @@ export default function Splash({ onEnter }) {
         );
       })}
 
-      {/* Lantern — absolutely positioned, large, explicit px size */}
+      {/* Lantern — focal point, large and centered */}
       {(() => {
         const depth = 0.055;
         const tx = mouse.x * depth;
@@ -108,15 +108,16 @@ export default function Splash({ onEnter }) {
             alt=""
             className="absolute pointer-events-none"
             style={{
-              bottom: "18%",
+              bottom: "12%",
               left: "50%",
-              width: 260,
+              width: 420,
               height: "auto",
               transform: `translateX(-50%) translate(${tx}px, ${ty}px)`,
               transition: "transform 0.15s ease-out",
               willChange: "transform",
               zIndex: 7,
               imageRendering: "auto",
+              filter: "drop-shadow(0 0 40px rgba(80,190,255,0.7)) drop-shadow(0 0 80px rgba(40,130,255,0.4))",
             }}
           />
         );
@@ -143,8 +144,8 @@ export default function Splash({ onEnter }) {
         willChange: "opacity, transform",
       }} />
 
-      {/* Center content */}
-      <div className="relative flex flex-col items-center" style={{ zIndex: 10, marginTop: "-10%" }}>
+      {/* Center content — positioned near the top dark area */}
+      <div className="absolute flex flex-col items-center" style={{ zIndex: 10, top: "8%", left: "50%", transform: "translateX(-50%)", width: "100%" }}>
         {phase !== "idle" && particles.map((p) => {
           const rad = (p.angle * Math.PI) / 180;
           const tx = Math.cos(rad) * 130 * p.speed + p.drift;
