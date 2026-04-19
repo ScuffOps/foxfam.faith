@@ -11,7 +11,7 @@
 
     --background: 230 60% 8%;
     --foreground: 220 100% 99%;
-    --card: 230 39% 22%;
+    --card: 230 22% 9%;
     --card-foreground: 220 20% 95%;
     --popover: 230 22% 11%;
     --popover-foreground: 220 20% 95%;
@@ -50,7 +50,7 @@
   .dark {
     --background: 230 25% 7%;
     --foreground: 220 20% 95%;
-    --card: 230 22% 11%;
+    --card: 230 22% 8%;
     --card-foreground: 220 20% 95%;
     --popover: 230 22% 11%;
     --popover-foreground: 220 20% 95%;
@@ -111,13 +111,24 @@
 
 /* Glassmorphism utility */
 .glass {
-  background: hsl(230 22% 11% / 0.6);
-  backdrop-filter: blur(16px);
-  border: 1px solid hsl(230 18% 18% / 0.5);
+  background: rgba(17, 17, 20, 0.65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .glass-card {
-  background: linear-gradient(135deg, hsl(230 22% 13% / 0.8), hsl(230 22% 9% / 0.6));
-  backdrop-filter: blur(12px);
-  border: 1px solid hsl(230 18% 20% / 0.4);
+  background: rgba(17, 17, 20, 0.65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Primary card style — matches Veri portal aesthetic */
+.foxcard {
+  background: rgba(15, 14, 26, 0.70);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
