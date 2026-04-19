@@ -126,9 +126,35 @@
 
 /* Primary card style — matches Veri portal aesthetic */
 .foxcard {
+  position: relative;
   background: rgba(15, 14, 26, 0.70);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.09);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+  --shine-x: 50%;
+  --shine-y: 50%;
+  --shine-opacity: 0;
+}
+
+.foxcard::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    280px circle at var(--shine-x) var(--shine-y),
+    rgba(140, 100, 255, 0.13) 0%,
+    rgba(80, 180, 255, 0.07) 40%,
+    transparent 70%
+  );
+  opacity: var(--shine-opacity);
+  transition: opacity 0.25s ease;
+  z-index: 0;
+}
+
+.foxcard > * {
+  position: relative;
+  z-index: 1;
 }
