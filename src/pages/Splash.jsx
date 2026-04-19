@@ -108,9 +108,9 @@ export default function Splash({ onEnter }) {
             alt=""
             className="absolute pointer-events-none"
             style={{
-              bottom: "12%",
+              bottom: "14%",
               left: "50%",
-              width: 420,
+              width: "clamp(320px, 35vw, 600px)",
               height: "auto",
               transform: `translateX(-50%) translate(${tx}px, ${ty}px)`,
               transition: "transform 0.15s ease-out",
