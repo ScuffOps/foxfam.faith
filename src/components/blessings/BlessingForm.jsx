@@ -33,7 +33,7 @@ export default function BlessingForm({ open, onOpenChange, user, onCreated }) {
     await base44.entities.Blessing.create({
       ...form,
       media_url,
-      author_name: user?.full_name || user?.email || "Veri",
+      author_name: user?.display_name || user?.full_name || user?.email || "Veri",
       upvotes: 0,
       upvoted_by: [],
       comment_count: 0,

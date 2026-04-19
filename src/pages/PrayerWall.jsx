@@ -37,7 +37,7 @@ export default function PrayerWall() {
     setSubmitting(true);
     await base44.entities.Prayer.create({
       message: message.trim(),
-      author_name: isAnonymous ? "" : (authorName.trim() || user?.full_name || ""),
+      author_name: isAnonymous ? "" : (authorName.trim() || user?.display_name || user?.full_name || ""),
       is_anonymous: isAnonymous,
       support_count: 0,
     });

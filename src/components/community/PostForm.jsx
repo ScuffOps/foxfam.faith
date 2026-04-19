@@ -23,7 +23,7 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
     let submitterName = "Anonymous";
     try {
       const user = await base44.auth.me();
-      submitterName = user.full_name || user.email;
+      submitterName = user.display_name || user.full_name || user.email;
     } catch {
       if (profile.name) submitterName = profile.name + (profile.discordId ? ` (${profile.discordId})` : "");
     }

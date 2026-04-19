@@ -90,7 +90,7 @@ export default function Settings() {
           <div className="mb-4 flex items-center gap-3">
             <AvatarUpload avatarUrl={avatar} onUploaded={handleAvatarUploaded} size="lg" />
             <div>
-              <h3 className="font-heading text-sm font-semibold">{user?.full_name || "Profile"}</h3>
+              <h3 className="font-heading text-sm font-semibold">{user?.display_name || user?.full_name || "Profile"}</h3>
               <p className="text-xs text-muted-foreground">{user?.email}</p>
             </div>
           </div>
@@ -98,7 +98,7 @@ export default function Settings() {
             <div className="flex items-center justify-between rounded-lg bg-secondary/50 px-4 py-3">
               <div>
                 <p className="text-sm font-medium">Name</p>
-                <p className="text-xs text-muted-foreground">{user?.full_name || "Not set"}</p>
+                <p className="text-xs text-muted-foreground">{user?.display_name || user?.full_name || "Not set"}</p>
               </div>
             </div>
             <div className="flex items-center justify-between rounded-lg bg-secondary/50 px-4 py-3">
