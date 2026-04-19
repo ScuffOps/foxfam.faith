@@ -124,6 +124,7 @@ export default function PrayerOrb({ prayer, onPray }) {
   const rand = seededRand(seed);
   const breatheDur = (3.5 + rand() * 2.5).toFixed(1);
   const floatDelay = (rand() * 2).toFixed(1);
+  const isHeld = (prayer.support_count || 0) > 0;
 
   const preview = prayer.message.length > 60
     ? prayer.message.slice(0, 57) + "…"
@@ -152,6 +153,10 @@ export default function PrayerOrb({ prayer, onPray }) {
           0%  { filter: blur(1.5px); opacity:.72; }
           100%{ filter: blur(0px);   opacity:1; }
         }
+        @keyframes heldShimmer {
+          0%,100% { opacity: 0.18; }
+          50%     { opacity: 0.38; }
+        }
       `}</style>
 
       {/* ── Sigil tile ── */}
@@ -167,13 +172,27 @@ export default function PrayerOrb({ prayer, onPray }) {
           position: "absolute",
           width: 70, height: 70,
           borderRadius: "50%",
-          background: hovered ? glow : dim,
-          filter: "blur(14px)",
+          background: hovered ? glow : isHeld ? `${primary}33` : dim,
+          filter: `blur(${isHeld ? "18px" : "14px"})`,
           transition: "background 0.4s, transform 0.4s",
-          transform: hovered ? "scale(1.3)" : "scale(1)",
+          transform: hovered ? "scale(1.3)" : isHeld ? "scale(1.15)" : "scale(1)",
           top: "4px", left: "8px",
           zIndex: 0,
         }} />
+
+        {/* "Held" shimmer ring — only when support_count > 0 */}
+        {isHeld && (
+          <div style={{
+            position: "absolute",
+            width: 82, height: 82,
+            borderRadius: "50%",
+            border: `1px solid ${primary}`,
+            top: "2px", left: "2px",
+            zIndex: 2,
+            animation: "heldShimmer 2.8s ease-in-out infinite",
+            pointerEvents: "none",
+          }} />
+        )}
 
         {/* SVG sigil */}
         <div style={{
@@ -222,7 +241,7 @@ export default function PrayerOrb({ prayer, onPray }) {
           color: primary,
           fontSize: 8,
           letterSpacing: "0.18em",
-          opacity: hovered ? 0.9 : 0.4,
+          opacity: hovered ? 0.9 : isHeld ? 0.65 : 0.4,
           textTransform: "uppercase",
           fontFamily: "var(--font-heading)",
           marginTop: 4,
@@ -230,6 +249,20 @@ export default function PrayerOrb({ prayer, onPray }) {
         }}>
           {prayer.is_anonymous ? "anon" : (prayer.author_name?.split(" ")[0] || "soul")}
         </span>
+
+        {/* Held indicator */}
+        {isHeld && (
+          <span style={{
+            fontSize: 7,
+            letterSpacing: "0.2em",
+            color: primary,
+            opacity: 0.5,
+            fontFamily: "var(--font-heading)",
+            marginTop: 1,
+          }}>
+            held
+          </span>
+        )}
       </div>
 
       {/* ── Expanded modal ── */}
@@ -258,9 +291,16 @@ export default function PrayerOrb({ prayer, onPray }) {
             </div>
 
             {/* Tone */}
-            <p style={{ color: primary, fontSize: 9, letterSpacing: "0.35em", textAlign: "center", marginBottom: 18, opacity: 0.65, textTransform: "uppercase", fontFamily: "var(--font-heading)" }}>
+            <p style={{ color: primary, fontSize: 9, letterSpacing: "0.35em", textAlign: "center", marginBottom: isHeld ? 6 : 18, opacity: 0.65, textTransform: "uppercase", fontFamily: "var(--font-heading)" }}>
               ✦ {label} ✦
             </p>
+
+            {/* Held badge */}
+            {isHeld && (
+              <p style={{ color: primary, fontSize: 8, letterSpacing: "0.25em", textAlign: "center", marginBottom: 16, opacity: 0.45, fontFamily: "var(--font-heading)" }}>
+                ✦ seen · held · {prayer.support_count} {prayer.support_count === 1 ? "soul" : "souls"} ✦
+              </p>
+            )}
 
             {/* Message */}
             <p className="text-sm leading-relaxed text-center whitespace-pre-line mb-6" style={{ color: "rgba(215,220,255,0.9)" }}>
