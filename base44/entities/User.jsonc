@@ -21,6 +21,10 @@
       "type": "boolean",
       "default": false,
       "description": "Whether the user has completed onboarding"
+    },
+    "avatar_url": {
+      "type": "string",
+      "description": "Profile avatar image URL"
     }
   },
   "required": []

@@ -1,5 +1,7 @@
+import { useState, useEffect } from "react";
 import { format, differenceInDays, setYear } from "date-fns";
 import { Cake, Check, X } from "lucide-react";
+import { base44 } from "@/api/base44Client";
 
 function getDaysUntil(birthday_date) {
   const today = new Date();
@@ -19,6 +21,18 @@ const AVATAR_COLORS = [
 ];
 
 export default function BirthdayList({ birthdays, isAdmin, onApprove, onReject }) {
+  const [avatarMap, setAvatarMap] = useState({});
+
+  useEffect(() => {
+    const emails = [...new Set(birthdays.map((b) => b.submitted_by_email).filter(Boolean))];
+    if (emails.length === 0) return;
+    base44.entities.User.list().then((users) => {
+      const map = {};
+      users.forEach((u) => { if (u.avatar_url) map[u.email] = u.avatar_url; });
+      setAvatarMap(map);
+    }).catch(() => {});
+  }, [birthdays]);
+
   if (birthdays.length === 0) {
     return (
       <div className="rounded-xl border border-border bg-card p-8 text-center">
@@ -40,6 +54,7 @@ export default function BirthdayList({ birthdays, isAdmin, onApprove, onReject }
             const daysUntil = getDaysUntil(b.birthday_date);
             const colorClass = AVATAR_COLORS[i % AVATAR_COLORS.length];
             const initials = b.display_name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+            const avatarUrl = avatarMap[b.submitted_by_email];
             const isToday = daysUntil === 0;
             const isSoon = daysUntil <= 7;
             return (
@@ -58,8 +73,10 @@ export default function BirthdayList({ birthdays, isAdmin, onApprove, onReject }
                     🎂 Today!
                   </span>
                 )}
-                <div className={`mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br ${colorClass} text-lg font-bold text-foreground border border-border`}>
-                  {initials}
+                <div className={`mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br ${colorClass} text-lg font-bold text-foreground border border-border overflow-hidden`}>
+                  {avatarUrl
+                    ? <img src={avatarUrl} alt={b.display_name} className="h-full w-full object-cover" />
+                    : initials}
                 </div>
                 <p className="font-heading font-semibold text-sm leading-tight mb-1">{b.display_name}</p>
                 <p className="text-[10px] text-muted-foreground mb-2">

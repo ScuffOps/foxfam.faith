@@ -11,6 +11,10 @@ export default function AvatarUpload({ avatarUrl, onUploaded, size = "md" }) {
     const file = e.target.files?.[0];
     if (!file) return;
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    // Persist to User entity so others can see it
+    try {
+      await base44.auth.updateMe({ avatar_url: file_url });
+    } catch {}
     onUploaded(file_url);
   };
 
