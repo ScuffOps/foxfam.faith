@@ -111,7 +111,7 @@ export default function Calendar() {
           <iframe
             src="https://calendar.app.google/QhFmUCXPxe7FZKEy9"
             className="w-full"
-            style={{ height: "600px", border: "none" }}
+            style={{ height: "600px", border: "none", filter: "invert(1) hue-rotate(180deg) sepia(0.15) brightness(0.88)" }}
             title="Collab Availability Booking"
           />
         </div>
