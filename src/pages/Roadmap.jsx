@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { ArrowUp, Zap, CheckCircle2, Clock, Lightbulb } from "lucide-react";
+import { ArrowUp, Zap, CheckCircle2, Clock, Lightbulb, Plus, Pencil, Trash2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 const STAGES = [
   { key: "planned", label: "Planned", icon: Clock, color: "text-chart-4", bg: "bg-chart-4/10", border: "border-chart-4/20" },
@@ -12,6 +17,10 @@ export default function Roadmap() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingPost, setEditingPost] = useState(null);
+  const [form, setForm] = useState({ title: "", description: "", roadmap_status: "planned" });
+  const [saving, setSaving] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -30,6 +39,44 @@ export default function Roadmap() {
     loadData();
   };
 
+  const openAdd = () => {
+    setEditingPost(null);
+    setForm({ title: "", description: "", roadmap_status: "planned" });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (post) => {
+    setEditingPost(post);
+    setForm({ title: post.title, description: post.description || "", roadmap_status: post.roadmap_status || "planned" });
+    setDialogOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.title.trim()) return;
+    setSaving(true);
+    if (editingPost) {
+      await base44.entities.CommunityPost.update(editingPost.id, {
+        title: form.title,
+        description: form.description,
+        roadmap_status: form.roadmap_status,
+      });
+    } else {
+      await base44.entities.CommunityPost.create({
+        title: form.title,
+        description: form.description,
+        type: "idea",
+        status: "approved",
+        roadmap_status: form.roadmap_status,
+        upvotes: 0,
+        upvoted_by: [],
+        submitted_by_name: user?.display_name || user?.full_name || "Staff",
+      });
+    }
+    setSaving(false);
+    setDialogOpen(false);
+    loadData();
+  };
+
   const handleUpvote = async (post) => {
     if (!user?.email) return;
     const upvotedBy = post.upvoted_by || [];
@@ -43,9 +90,16 @@ export default function Roadmap() {
 
   return (
     <div className="mx-auto max-w-6xl animate-fade-in">
-      <div className="mb-8">
-        <h1 className="font-heading text-2xl font-bold md:text-3xl">Roadmap</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Community-driven feature requests and what's coming next</p>
+      <div className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-2xl font-bold md:text-3xl">Roadmap</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Community-driven feature requests and what's coming next</p>
+        </div>
+        {isAdmin && (
+          <Button onClick={openAdd} size="sm" className="shrink-0 gap-1.5">
+            <Plus className="h-4 w-4" /> Add Feature
+          </Button>
+        )}
       </div>
 
       {loading ? (
@@ -89,10 +143,15 @@ export default function Roadmap() {
                             </button>
 
                             <div className="min-w-0 flex-1">
-                              <div className="flex items-start gap-2">
-                                <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-chart-4" />
-                                <h4 className="text-sm font-medium leading-snug">{post.title}</h4>
-                              </div>
+                               <div className="flex items-start gap-2">
+                                 <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-chart-4" />
+                                 <h4 className="text-sm font-medium leading-snug flex-1">{post.title}</h4>
+                                 {isAdmin && (
+                                   <button onClick={() => openEdit(post)} className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
+                                     <Pencil className="h-3.5 w-3.5" />
+                                   </button>
+                                 )}
+                               </div>
                               {post.description && (
                                 <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{post.description}</p>
                               )}
@@ -127,6 +186,47 @@ export default function Roadmap() {
           })}
         </div>
       )}
+
+      {/* Add / Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="border-border bg-card sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-heading">{editingPost ? "Edit Feature" : "Add Feature"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <Label>Title *</Label>
+              <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Feature name" className="mt-1.5 bg-secondary" />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Describe this feature..." className="mt-1.5 bg-secondary resize-none" rows={3} />
+            </div>
+            <div>
+              <Label>Stage</Label>
+              <div className="mt-1.5 flex gap-2">
+                {STAGES.map((s) => (
+                  <button
+                    key={s.key}
+                    onClick={() => setForm((f) => ({ ...f, roadmap_status: s.key }))}
+                    className={`flex-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors ${
+                      form.roadmap_status === s.key ? `${s.bg} ${s.border} ${s.color}` : "border-border bg-secondary text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSave} disabled={saving || !form.title.trim()}>
+                {saving ? "Saving..." : editingPost ? "Save Changes" : "Add to Roadmap"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {!loading && posts.length === 0 && (
         <div className="rounded-xl border border-dashed border-border bg-card/30 p-16 text-center">
