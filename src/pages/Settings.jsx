@@ -6,12 +6,14 @@ import AccentColorPicker from "../components/AccentColorPicker";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import GlassCard from "../components/GlassCard";
+import RankBadge from "../components/RankBadge";
 
 const CONNECTOR_ID = "69d2b6bfc53ce38433398132"; // Foxfam Calendar
 
 export default function Settings() {
   const { toast } = useToast();
   const [user, setUser] = useState(null);
+  const [userPoints, setUserPoints] = useState(0);
   const [loading, setLoading] = useState(true);
   const [avatar, setAvatar] = useState(() => localStorage.getItem('commhub_user_avatar') || '');
 
@@ -61,6 +63,8 @@ export default function Settings() {
       try {
         const me = await base44.auth.me();
         setUser(me);
+        const levels = await base44.entities.UserLevel.filter({ user_email: me.email });
+        if (levels.length > 0) setUserPoints(levels[0].points || 0);
       } catch {}
       setLoading(false);
     };
@@ -89,9 +93,10 @@ export default function Settings() {
         <GlassCard>
           <div className="mb-4 flex items-center gap-3">
             <AvatarUpload avatarUrl={avatar} onUploaded={handleAvatarUploaded} size="lg" />
-            <div>
+            <div className="flex flex-col gap-1.5">
               <h3 className="font-heading text-sm font-semibold">{user?.display_name || user?.full_name || "Profile"}</h3>
               <p className="text-xs text-muted-foreground">{user?.email}</p>
+              <RankBadge points={userPoints} showProgress />
             </div>
           </div>
           <div className="space-y-3">

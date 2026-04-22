@@ -1,0 +1,56 @@
+{
+  "name": "UserLevel",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "The user's email \u2014 unique identifier"
+    },
+    "display_name": {
+      "type": "string",
+      "description": "Cached display name for leaderboard"
+    },
+    "avatar_url": {
+      "type": "string",
+      "description": "Cached avatar URL"
+    },
+    "points": {
+      "type": "number",
+      "default": 0,
+      "description": "Total activity points"
+    },
+    "points_from_blessings": {
+      "type": "number",
+      "default": 0
+    },
+    "points_from_upvotes": {
+      "type": "number",
+      "default": 0
+    },
+    "points_from_polls": {
+      "type": "number",
+      "default": 0
+    },
+    "points_from_posts": {
+      "type": "number",
+      "default": 0
+    },
+    "points_from_comments": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "user_email"
+  ],
+  "rls": {
+    "create": true,
+    "read": true,
+    "update": true,
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

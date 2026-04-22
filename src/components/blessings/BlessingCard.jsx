@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { ArrowUp, MessageCircle, ExternalLink, Trash2, ChevronDown, ChevronUp, Send } from "lucide-react";
+import { awardPoints } from "@/hooks/usePoints";
 
 export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
   const [showComments, setShowComments] = useState(false);
@@ -18,6 +19,7 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
       upvotes: hasUpvoted ? Math.max((blessing.upvotes || 0) - 1, 0) : (blessing.upvotes || 0) + 1,
       upvoted_by: hasUpvoted ? upvotedBy.filter((e) => e !== user.email) : [...upvotedBy, user.email],
     });
+    if (!hasUpvoted) awardPoints(user, "upvote_blessing");
     onRefresh();
   };
 
@@ -45,6 +47,7 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
     await base44.entities.Blessing.update(blessing.id, {
       comment_count: (blessing.comment_count || 0) + 1,
     });
+    awardPoints(user, "post_blessing_comment");
     setCommentText("");
     setSubmitting(false);
     loadComments();

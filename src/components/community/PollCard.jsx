@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { BarChart3, Check, X, CalendarPlus } from "lucide-react";
+import { awardPoints } from "@/hooks/usePoints";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "../StatusBadge";
 import GlassCard from "../GlassCard";
@@ -21,6 +22,7 @@ export default function PollCard({ post, isAdmin, userEmail, onRefresh }) {
       return o;
     });
     await base44.entities.CommunityPost.update(post.id, { poll_options: updated });
+    base44.auth.me().then((u) => awardPoints(u, "vote_poll")).catch(() => {});
     setVoting(false);
     onRefresh();
   };

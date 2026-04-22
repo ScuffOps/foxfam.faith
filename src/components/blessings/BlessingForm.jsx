@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ImagePlus, Loader2 } from "lucide-react";
+import { awardPoints } from "@/hooks/usePoints";
 
 export default function BlessingForm({ open, onOpenChange, user, onCreated }) {
   const [form, setForm] = useState({ title: "", content: "", link_url: "", link_preview_title: "" });
@@ -38,6 +39,7 @@ export default function BlessingForm({ open, onOpenChange, user, onCreated }) {
       upvoted_by: [],
       comment_count: 0,
     });
+    if (user) awardPoints(user, "post_blessing");
     setSaving(false);
     setForm({ title: "", content: "", link_url: "", link_preview_title: "" });
     setMediaFile(null);

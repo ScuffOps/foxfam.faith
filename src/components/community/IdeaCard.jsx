@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { ArrowUp, Check, X, CalendarPlus, Lightbulb, MessageSquare, Map } from "lucide-react";
+import { awardPoints } from "@/hooks/usePoints";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "../StatusBadge";
 import GlassCard from "../GlassCard";
@@ -33,6 +34,7 @@ export default function IdeaCard({ post, isAdmin, userEmail, onRefresh }) {
         upvotes: (post.upvotes || 0) + 1,
         upvoted_by: [...upvotedBy, userEmail],
       });
+      base44.auth.me().then((u) => awardPoints(u, "upvote_idea")).catch(() => {});
     }
     setUpvoting(false);
     onRefresh();

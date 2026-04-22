@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, X } from "lucide-react";
+import { awardPoints } from "@/hooks/usePoints";
 
 export default function PostForm({ open, onOpenChange, onCreated, isMod = false }) {
   const { profile } = useGuestProfile();
@@ -48,6 +49,7 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
     }
 
     await base44.entities.CommunityPost.create(data);
+    try { const u = await base44.auth.me(); awardPoints(u, "submit_post"); } catch {}
     setSaving(false);
     setForm({ title: "", description: "", type: "idea" });
     setPollOptions(["", ""]);

@@ -2,6 +2,7 @@ import QuickStats from "../components/dashboard/QuickStats";
 import TodaysBirthdays from "../components/dashboard/TodaysBirthdays";
 import UpcomingEvents from "../components/dashboard/UpcomingEvents";
 import TopIdeas from "../components/dashboard/TopIdeas";
+import Leaderboard from "../components/dashboard/Leaderboard";
 
 export default function Dashboard() {
   return (
@@ -19,6 +20,7 @@ export default function Dashboard() {
         <TodaysBirthdays />
         <UpcomingEvents />
         <TopIdeas />
+        <Leaderboard />
       </div>
     </div>
   );
