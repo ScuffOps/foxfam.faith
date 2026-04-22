@@ -1,0 +1,82 @@
+{
+  "name": "Thread",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "body": {
+      "type": "string",
+      "description": "Opening message / discussion prompt"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "general",
+        "prayer",
+        "blessings",
+        "gaming",
+        "creative"
+      ],
+      "default": "general"
+    },
+    "author_name": {
+      "type": "string"
+    },
+    "reply_count": {
+      "type": "number",
+      "default": 0
+    },
+    "upvotes": {
+      "type": "number",
+      "default": 0
+    },
+    "upvoted_by": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "is_pinned": {
+      "type": "boolean",
+      "default": false
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "closed"
+      ],
+      "default": "open"
+    }
+  },
+  "required": [
+    "title",
+    "body"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": true,
+    "update": true,
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "mod"
+          }
+        },
+        {
+          "created_by": "{{user.email}}"
+        }
+      ]
+    }
+  }
+}

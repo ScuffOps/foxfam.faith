@@ -1,0 +1,91 @@
+{
+  "name": "Contest",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "theme": {
+      "type": "string",
+      "description": "e.g. 'Write a blessing poem'"
+    },
+    "entry_type": {
+      "type": "string",
+      "enum": [
+        "poem",
+        "artwork",
+        "prayer",
+        "story",
+        "any"
+      ],
+      "default": "any"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "voting",
+        "closed"
+      ],
+      "default": "active"
+    },
+    "ends_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "winner_entry_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "mod"
+          }
+        }
+      ]
+    },
+    "read": true,
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "mod"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "mod"
+          }
+        }
+      ]
+    }
+  }
+}

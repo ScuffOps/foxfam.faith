@@ -13,6 +13,8 @@ import {
   Map,
   Sparkles,
   ShieldCheck,
+  MessageCircleMore,
+  Trophy,
 } from "lucide-react";
 
 const navItems = [
@@ -20,6 +22,8 @@ const navItems = [
   { path: "/calendar", label: "Calendar", icon: CalendarDays },
   { path: "/birthdays", label: "Birthdays", icon: Cake },
   { path: "/community", label: "Community", icon: MessageSquare },
+  { path: "/forums", label: "Forums", icon: MessageCircleMore },
+  { path: "/contests", label: "Contests", icon: Trophy },
   { path: "/prayer", label: "Prayer Wall", icon: Flame },
   { path: "/collabs", label: "Collab Requests", icon: Handshake },
   { path: "/blessings", label: "Blessings", icon: Sparkles },
