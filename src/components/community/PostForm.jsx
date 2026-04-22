@@ -68,7 +68,7 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
               <SelectTrigger className="mt-1.5 bg-secondary"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="idea">Idea / Suggestion</SelectItem>
-                <SelectItem value="poll">Poll</SelectItem>
+                {isMod && <SelectItem value="poll">Poll</SelectItem>}
                 <SelectItem value="feedback">Feedback</SelectItem>
               </SelectContent>
             </Select>
