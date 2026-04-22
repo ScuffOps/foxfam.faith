@@ -1,6 +1,16 @@
 import { format, isAfter, isBefore, addMonths } from "date-fns";
 import CategoryBadge from "../CategoryBadge";
 import { Clock, MapPin } from "lucide-react";
+import { useMouseShine } from "@/hooks/useMouseShine";
+
+function ShineCard({ children, className = "" }) {
+  const { ref, onMouseMove, onMouseLeave } = useMouseShine();
+  return (
+    <div ref={ref} onMouseMove={onMouseMove} onMouseLeave={onMouseLeave} className={`foxcard rounded-xl overflow-hidden ${className}`}>
+      {children}
+    </div>
+  );
+}
 
 export default function ListView({ events, onEventClick }) {
   const now = new Date();
@@ -24,30 +34,30 @@ export default function ListView({ events, onEventClick }) {
 
   if (Object.keys(groups).length === 0) {
     return (
-      <div className="rounded-xl border border-border bg-card p-8 text-center">
+      <ShineCard className="p-8 text-center">
         <p className="text-sm text-muted-foreground">No upcoming events</p>
-      </div>
+      </ShineCard>
     );
   }
 
   return (
     <div className="space-y-4">
       {Object.entries(groups).map(([dateKey, dayEvents]) => (
-        <div key={dateKey} className="rounded-xl border border-border bg-card overflow-hidden">
-          <div className="border-b border-border bg-secondary/30 px-4 py-2.5">
+        <ShineCard key={dateKey}>
+          <div className="border-b border-border/60 bg-white/[0.03] px-4 py-2.5">
             <p className="text-sm font-semibold">
               {format(new Date(dateKey), "EEEE, MMMM d, yyyy")}
             </p>
           </div>
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-border/40">
             {dayEvents.map((ev) => (
               <div
                 key={ev.id}
                 onClick={() => onEventClick(ev)}
-                className="flex cursor-pointer items-start gap-4 px-4 py-3 transition-colors hover:bg-secondary/30"
+                className="group flex cursor-pointer items-start gap-4 px-4 py-3 transition-all duration-150 hover:bg-white/[0.04]"
               >
                 <div className="flex-1">
-                  <p className="font-medium">{ev.title}</p>
+                  <p className="font-medium transition-colors group-hover:text-primary">{ev.title}</p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-2">
                     <CategoryBadge category={ev.category} />
                     {!ev.all_day && (
@@ -68,7 +78,7 @@ export default function ListView({ events, onEventClick }) {
               </div>
             ))}
           </div>
-        </div>
+        </ShineCard>
       ))}
     </div>
   );
