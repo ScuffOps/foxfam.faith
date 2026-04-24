@@ -4,14 +4,19 @@ import UpcomingEvents from "../components/dashboard/UpcomingEvents";
 import TopIdeas from "../components/dashboard/TopIdeas";
 import Leaderboard from "../components/dashboard/Leaderboard";
 import ActivityChart from "../components/dashboard/ActivityChart";
+import BoopTheFox from "../components/dashboard/BoopTheFox";
+import VeriThought from "../components/dashboard/VeriThought";
+import HiddenEasterEgg from "../components/dashboard/HiddenEasterEgg";
 
 export default function Dashboard() {
   return (
     <div className="mx-auto max-w-6xl animate-fade-in">
       <div className="mb-8">
-        <h1 className="font-heading text-2xl font-bold md:text-3xl">Dashboard</h1>
+        <h1 className="font-heading text-2xl font-bold md:text-3xl">
+          Dashboard <HiddenEasterEgg index={0} />
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Your community at a glance
+          Your community at a glance <HiddenEasterEgg index={1} />
         </p>
       </div>
 
@@ -23,6 +28,15 @@ export default function Dashboard() {
         <UpcomingEvents />
         <TopIdeas />
         <Leaderboard />
+        <VeriThought />
+        {/* Boop card */}
+        <div className="foxcard rounded-xl p-5 flex flex-col items-center justify-center gap-1 relative">
+          <HiddenEasterEgg index={2} />
+          <p className="font-heading text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-1">
+            resident fox <HiddenEasterEgg index={3} />
+          </p>
+          <BoopTheFox />
+        </div>
       </div>
     </div>
   );
