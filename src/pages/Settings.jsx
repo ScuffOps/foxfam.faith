@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Settings2, Link2, User, Shield, LogOut, CheckCircle, Palette } from "lucide-react";
+import { Settings2, Link2, User, Shield, LogOut, CheckCircle, Palette, Bell } from "lucide-react";
+import AlertPreferences from "../components/settings/AlertPreferences";
 import AvatarUpload from "../components/AvatarUpload";
 import AccentColorPicker from "../components/AccentColorPicker";
 import { Button } from "@/components/ui/button";
@@ -172,6 +173,17 @@ export default function Settings() {
               </p>
             )}
           </div>
+        </GlassCard>
+
+        {/* Alert Preferences */}
+        <GlassCard>
+          <div className="mb-4 flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15">
+              <Bell className="h-4 w-4 text-primary" />
+            </div>
+            <h3 className="font-heading text-sm font-semibold">Alert Preferences</h3>
+          </div>
+          <AlertPreferences />
         </GlassCard>
 
         {/* App Settings */}
