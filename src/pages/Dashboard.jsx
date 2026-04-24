@@ -3,6 +3,7 @@ import TodaysBirthdays from "../components/dashboard/TodaysBirthdays";
 import UpcomingEvents from "../components/dashboard/UpcomingEvents";
 import TopIdeas from "../components/dashboard/TopIdeas";
 import Leaderboard from "../components/dashboard/Leaderboard";
+import ActivityChart from "../components/dashboard/ActivityChart";
 
 export default function Dashboard() {
   return (
@@ -17,6 +18,7 @@ export default function Dashboard() {
       <QuickStats />
 
       <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <ActivityChart />
         <TodaysBirthdays />
         <UpcomingEvents />
         <TopIdeas />
