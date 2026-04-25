@@ -5,10 +5,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EyeOff, Eye } from "lucide-react";
-import PrayerOrb from "@/components/prayer/PrayerOrb";
+import PrayerOrb, { CATEGORIES, detectCategory } from "@/components/prayer/PrayerOrb";
 
-const STONE_WALL = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/e26532a76_prayerwall2.png";
 const STAINED_GLASS = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/21eb9949e_StainedGlassFull.png";
+const STONE_WALL    = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/e26532a76_prayerwall2.png";
 
 export default function PrayerWall() {
   const [prayers, setPrayers] = useState([]);
@@ -17,6 +17,7 @@ export default function PrayerWall() {
   const [message, setMessage] = useState("");
   const [authorName, setAuthorName] = useState("");
   const [isAnonymous, setIsAnonymous] = useState(false);
+  const [category, setCategory] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [user, setUser] = useState(null);
 
@@ -35,15 +36,19 @@ export default function PrayerWall() {
   const handleSubmit = async () => {
     if (!message.trim()) return;
     setSubmitting(true);
+    const cat = category || detectCategory(message);
     await base44.entities.Prayer.create({
       message: message.trim(),
       author_name: isAnonymous ? "" : (authorName.trim() || user?.display_name || user?.full_name || ""),
       is_anonymous: isAnonymous,
       support_count: 0,
+      is_read: false,
+      category: cat,
     });
     sendToDiscord({ message: message.trim(), author_name: authorName.trim(), is_anonymous: isAnonymous }).catch(() => {});
     setMessage("");
     setAuthorName("");
+    setCategory("");
     setSubmitted(true);
     setSubmitting(false);
     loadPrayers();
@@ -54,6 +59,13 @@ export default function PrayerWall() {
     await base44.entities.Prayer.update(prayer.id, { support_count: (prayer.support_count || 0) + 1 });
     setPrayers((prev) => prev.map((p) => p.id === prayer.id ? { ...p, support_count: (p.support_count || 0) + 1 } : p));
   };
+
+  const handleMarkRead = async (prayer) => {
+    await base44.entities.Prayer.update(prayer.id, { is_read: true });
+    setPrayers((prev) => prev.map((p) => p.id === prayer.id ? { ...p, is_read: true } : p));
+  };
+
+  const isAdmin = user?.role === "admin";
 
   return (
     <div className="min-h-screen" style={{ background: "linear-gradient(180deg, #060810 0%, #080d1c 60%, #06080f 100%)" }}>
@@ -71,8 +83,7 @@ export default function PrayerWall() {
         </div>
       </div>
 
-      {/* Stone Wall — Orbs float over it */}
-      <div className="relative mx-auto" style={{ maxWidth: 900 }}>
+      <div className="relative mx-auto" style={{ maxWidth: 960 }}>
 
         {/* Submit form */}
         <div className="px-4 mb-10">
@@ -99,6 +110,29 @@ export default function PrayerWall() {
                 style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(80,140,255,0.15)", color: "rgba(220,230,255,0.9)" }}
               />
               <div className="text-right text-[10px] text-cyan-900/50">{message.length}/500</div>
+
+              {/* Category picker */}
+              <div>
+                <Label className="text-xs text-cyan-300/45 mb-2 block">Category (optional — we'll detect it otherwise)</Label>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(CATEGORIES).map(([key, { label, emoji, primary }]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setCategory(category === key ? "" : key)}
+                      className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs transition-all"
+                      style={{
+                        border: `1px solid ${category === key ? primary : "rgba(100,120,180,0.18)"}`,
+                        background: category === key ? `${primary}18` : "rgba(255,255,255,0.02)",
+                        color: category === key ? primary : "rgba(150,160,200,0.55)",
+                        boxShadow: category === key ? `0 0 10px ${primary}40` : "none",
+                      }}
+                    >
+                      {emoji} {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               {!isAnonymous && (
                 <div>
@@ -146,58 +180,65 @@ export default function PrayerWall() {
         </div>
 
         {/* Section label */}
-        <div className="flex items-center gap-3 mb-6 px-4">
+        <div className="flex items-center gap-3 mb-4 px-4">
           <div className="flex-1 h-px" style={{ background: "linear-gradient(to right, transparent, rgba(80,140,255,0.18))" }} />
           <span className="text-[10px] tracking-[0.3em] font-heading" style={{ color: "rgba(100,160,255,0.28)" }}>THE WALL OF PRAYERS</span>
           <div className="flex-1 h-px" style={{ background: "linear-gradient(to left, transparent, rgba(80,140,255,0.18))" }} />
         </div>
 
-        {/* Stone wall with floating orbs */}
-        <div className="relative mx-4 rounded-2xl overflow-hidden mb-12" style={{ minHeight: 400 }}>
-          {/* Stone wall background */}
-          <img
-            src={STONE_WALL}
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover"
-            style={{ opacity: 0.55, filter: "brightness(0.5) saturate(0.7)" }}
-          />
-          {/* Dark overlay so orbs pop */}
-          <div className="absolute inset-0" style={{ background: "rgba(4,6,18,0.55)" }} />
+        {/* Admin note */}
+        {isAdmin && (
+          <p className="text-center text-[10px] tracking-widest mb-4 font-heading" style={{ color: "rgba(140,200,140,0.35)" }}>
+            ✦ ADMIN · CLICK ANY PRAYER TO MARK AS READ ✦
+          </p>
+        )}
+      </div>
 
-          {loading ? (
-            <div className="relative z-10 flex justify-center py-20">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-900 border-t-cyan-500" />
-            </div>
-          ) : prayers.length === 0 ? (
-            <div className="relative z-10 flex flex-col items-center justify-center py-20">
-              <p className="text-sm" style={{ color: "rgba(100,140,200,0.35)" }}>Be the first to leave a prayer. 🤍</p>
-            </div>
-          ) : (
-            <div className="relative z-10 flex flex-wrap gap-8 justify-center items-end p-10 pb-14">
-              {prayers.map((prayer) => (
-                <PrayerOrb key={prayer.id} prayer={prayer} onPray={handlePray} />
-              ))}
-            </div>
-          )}
+      {/* Stone wall — full bleed */}
+      <div className="relative w-full overflow-hidden mb-12" style={{ minHeight: 420 }}>
+        <img
+          src={STONE_WALL}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ opacity: 0.55, filter: "brightness(0.5) saturate(0.7)" }}
+        />
+        <div className="absolute inset-0" style={{ background: "rgba(4,6,18,0.52)" }} />
 
-          {/* Bottom vignette */}
-          <div className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(6,8,16,0.8), transparent)" }} />
-        </div>
+        {loading ? (
+          <div className="relative z-10 flex justify-center py-20">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-900 border-t-cyan-500" />
+          </div>
+        ) : prayers.length === 0 ? (
+          <div className="relative z-10 flex flex-col items-center justify-center py-20">
+            <p className="text-sm" style={{ color: "rgba(100,140,200,0.35)" }}>Be the first to leave a prayer. 🤍</p>
+          </div>
+        ) : (
+          <div className="relative z-10 flex flex-wrap gap-8 justify-center items-end px-8 py-12 pb-16">
+            {prayers.map((prayer) => (
+              <PrayerOrb
+                key={prayer.id}
+                prayer={prayer}
+                onPray={handlePray}
+                onMarkRead={isAdmin ? handleMarkRead : undefined}
+                isAdmin={isAdmin}
+              />
+            ))}
+          </div>
+        )}
 
-        {/* Legend */}
-        <div className="flex flex-wrap justify-center gap-4 px-4 pb-12">
-          {[
-            { tone: "Gratitude", color: "rgba(255,200,80,0.7)" },
-            { tone: "Sadness", color: "rgba(80,180,255,0.7)" },
-            { tone: "Seeking", color: "rgba(160,80,255,0.7)" },
-            { tone: "Affection", color: "rgba(255,120,200,0.7)" },
-          ].map(({ tone, color }) => (
-            <div key={tone} className="flex items-center gap-2">
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: color, boxShadow: `0 0 8px 2px ${color}` }} />
-              <span className="text-[10px] tracking-widest font-heading" style={{ color: "rgba(160,180,220,0.35)", textTransform: "uppercase" }}>{tone}</span>
-            </div>
-          ))}
-        </div>
+        <div className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(6,8,16,0.8), transparent)" }} />
+      </div>
+
+      {/* Legend — all 8 categories */}
+      <div className="flex flex-wrap justify-center gap-4 px-4 pb-12">
+        {Object.entries(CATEGORIES).map(([key, { label, emoji, primary }]) => (
+          <div key={key} className="flex items-center gap-1.5">
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: primary, boxShadow: `0 0 6px 1px ${primary}88` }} />
+            <span className="text-[10px] tracking-widest font-heading" style={{ color: "rgba(160,180,220,0.35)", textTransform: "uppercase" }}>
+              {emoji} {label}
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   );

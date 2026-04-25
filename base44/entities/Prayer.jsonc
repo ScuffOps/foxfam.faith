@@ -18,9 +18,58 @@
       "type": "number",
       "default": 0,
       "description": "Number of community prayers sent in support"
+    },
+    "is_read": {
+      "type": "boolean",
+      "default": false,
+      "description": "Marked by admin once the prayer has been seen and held"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "gratitude",
+        "grief",
+        "hope",
+        "healing",
+        "guidance",
+        "celebration",
+        "peace",
+        "strength"
+      ],
+      "description": "Prayer category \u2014 drives orb color"
     }
   },
   "required": [
     "message"
-  ]
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": true,
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "created_by": "{{user.email}}"
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "created_by": "{{user.email}}"
+        }
+      ]
+    }
+  }
 }
