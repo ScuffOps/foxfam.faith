@@ -18,6 +18,7 @@ export default function PrayerWall() {
   const [authorName, setAuthorName] = useState("");
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [category, setCategory] = useState("");
+  const [customColor, setCustomColor] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [user, setUser] = useState(null);
 
@@ -44,11 +45,13 @@ export default function PrayerWall() {
       support_count: 0,
       is_read: false,
       category: cat,
+      custom_color: customColor || undefined,
     });
     sendToDiscord({ message: message.trim(), author_name: authorName.trim(), is_anonymous: isAnonymous }).catch(() => {});
     setMessage("");
     setAuthorName("");
     setCategory("");
+    setCustomColor("");
     setSubmitted(true);
     setSubmitting(false);
     loadPrayers();
@@ -115,7 +118,7 @@ export default function PrayerWall() {
               <div>
                 <Label className="text-xs text-cyan-300/45 mb-2 block">Category (optional — we'll detect it otherwise)</Label>
                 <div className="flex flex-wrap gap-2">
-                  {Object.entries(CATEGORIES).map(([key, { label, emoji, primary }]) => (
+                  {Object.entries(CATEGORIES).map(([key, { label, primary }]) => (
                     <button
                       key={key}
                       type="button"
@@ -128,9 +131,53 @@ export default function PrayerWall() {
                         boxShadow: category === key ? `0 0 10px ${primary}40` : "none",
                       }}
                     >
-                      {emoji} {label}
+                      {label}
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Custom orb color */}
+              <div>
+                <Label className="text-xs text-cyan-300/45 mb-2 block">Orb color (optional — pick your own)</Label>
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap gap-2">
+                    {["#ffc940","#50b4ff","#6ee7b7","#ff78c8","#b060ff","#fb923c","#a3c4f3","#f87171","#e879f9","#34d399","#f59e0b","#60a5fa"].map((hex) => (
+                      <button
+                        key={hex}
+                        type="button"
+                        onClick={() => setCustomColor(customColor === hex ? "" : hex)}
+                        className="rounded-full transition-all"
+                        style={{
+                          width: 22, height: 22,
+                          background: hex,
+                          boxShadow: customColor === hex ? `0 0 10px 3px ${hex}88` : "none",
+                          border: customColor === hex ? "2px solid rgba(255,255,255,0.7)" : "2px solid transparent",
+                          transform: customColor === hex ? "scale(1.2)" : "scale(1)",
+                        }}
+                      />
+                    ))}
+                  </div>
+                  {/* Native hex picker for anything custom */}
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="color"
+                      value={customColor || "#b060ff"}
+                      onChange={(e) => setCustomColor(e.target.value)}
+                      className="rounded cursor-pointer"
+                      style={{ width: 28, height: 28, border: "1px solid rgba(100,120,180,0.25)", background: "transparent", padding: 2 }}
+                    />
+                    {customColor && (
+                      <button
+                        type="button"
+                        onClick={() => setCustomColor("")}
+                        className="text-[10px]"
+                        style={{ color: "rgba(150,150,180,0.45)" }}
+                      >
+                        clear
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -231,11 +278,11 @@ export default function PrayerWall() {
 
       {/* Legend — all 8 categories */}
       <div className="flex flex-wrap justify-center gap-4 px-4 pb-12">
-        {Object.entries(CATEGORIES).map(([key, { label, emoji, primary }]) => (
+        {Object.entries(CATEGORIES).map(([key, { label, primary }]) => (
           <div key={key} className="flex items-center gap-1.5">
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: primary, boxShadow: `0 0 6px 1px ${primary}88` }} />
             <span className="text-[10px] tracking-widest font-heading" style={{ color: "rgba(160,180,220,0.35)", textTransform: "uppercase" }}>
-              {emoji} {label}
+              {label}
             </span>
           </div>
         ))}

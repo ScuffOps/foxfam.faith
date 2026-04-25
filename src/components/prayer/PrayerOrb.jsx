@@ -2,14 +2,14 @@ import { useState } from "react";
 
 // ── Categories & tones ──────────────────────────────────────────
 export const CATEGORIES = {
-  gratitude:   { primary: "#ffc940", glow: "rgba(255,190,40,0.6)",  dim: "rgba(255,190,40,0.15)", label: "Gratitude",   emoji: "✨" },
-  grief:       { primary: "#50b4ff", glow: "rgba(60,140,255,0.6)",  dim: "rgba(60,140,255,0.15)", label: "Grief",       emoji: "🌊" },
-  hope:        { primary: "#6ee7b7", glow: "rgba(52,211,153,0.6)",  dim: "rgba(52,211,153,0.15)", label: "Hope",        emoji: "🌱" },
-  healing:     { primary: "#ff78c8", glow: "rgba(255,80,160,0.6)",  dim: "rgba(255,80,160,0.15)", label: "Healing",     emoji: "🤍" },
-  guidance:    { primary: "#b060ff", glow: "rgba(140,60,240,0.6)",  dim: "rgba(140,60,240,0.15)", label: "Guidance",    emoji: "🔮" },
-  celebration: { primary: "#f97316", glow: "rgba(249,115,22,0.6)",  dim: "rgba(249,115,22,0.15)", label: "Celebration", emoji: "🎉" },
-  peace:       { primary: "#a3c4f3", glow: "rgba(163,196,243,0.6)", dim: "rgba(163,196,243,0.15)",label: "Peace",       emoji: "🕊️" },
-  strength:    { primary: "#f87171", glow: "rgba(248,113,113,0.6)", dim: "rgba(248,113,113,0.15)",label: "Strength",    emoji: "🔥" },
+  gratitude: { primary: "#ffc940", glow: "rgba(255,190,40,0.6)",  dim: "rgba(255,190,40,0.15)", label: "Gratitude" },
+  grief:     { primary: "#50b4ff", glow: "rgba(60,140,255,0.6)",  dim: "rgba(60,140,255,0.15)", label: "Grief"     },
+  hope:      { primary: "#6ee7b7", glow: "rgba(52,211,153,0.6)",  dim: "rgba(52,211,153,0.15)", label: "Hope"      },
+  healing:   { primary: "#ff78c8", glow: "rgba(255,80,160,0.6)",  dim: "rgba(255,80,160,0.15)", label: "Healing"   },
+  guidance:  { primary: "#b060ff", glow: "rgba(140,60,240,0.6)",  dim: "rgba(140,60,240,0.15)", label: "Guidance"  },
+  advice:    { primary: "#fb923c", glow: "rgba(251,146,60,0.6)",  dim: "rgba(251,146,60,0.15)", label: "Advice"    },
+  peace:     { primary: "#a3c4f3", glow: "rgba(163,196,243,0.6)", dim: "rgba(163,196,243,0.15)",label: "Peace"     },
+  strength:  { primary: "#f87171", glow: "rgba(248,113,113,0.6)", dim: "rgba(248,113,113,0.15)",label: "Strength"  },
 };
 
 export function detectCategory(message) {
@@ -19,7 +19,7 @@ export function detectCategory(message) {
   if (/hope|wish|dream|future|believ|maybe someday/.test(t)) return "hope";
   if (/heal|recover|sick|health|better|restore/.test(t)) return "healing";
   if (/guide|direction|show me|lost|path|wisdom|sign/.test(t)) return "guidance";
-  if (/celebrat|excit|win|amazing|woohoo|congrat|happy/.test(t)) return "celebration";
+  if (/advice|suggest|what should|help me decide|opinion|recommend/.test(t)) return "advice";
   if (/peace|calm|rest|still|quiet|serene|gentle/.test(t)) return "peace";
   if (/strong|strength|fight|keep going|power|survive|courage/.test(t)) return "strength";
   return "guidance"; // default
@@ -121,7 +121,19 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin }) {
   const [markingRead, setMarkingRead] = useState(false);
 
   const cat = prayer.category || detectCategory(prayer.message);
-  const { primary, glow, dim, label, emoji } = CATEGORIES[cat] || CATEGORIES.guidance;
+  const catDef = CATEGORIES[cat] || CATEGORIES.guidance;
+  // custom_color overrides the category palette
+  const rawColor = prayer.custom_color || catDef.primary;
+  // derive glow/dim from the raw color (works for any hex)
+  const hexToRgb = (hex) => {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return `${r},${g},${b}`;
+  };
+  const rgb = rawColor.startsWith("#") ? hexToRgb(rawColor) : null;
+  const primary = rawColor;
+  const glow = rgb ? `rgba(${rgb},0.6)` : catDef.glow;
+  const dim  = rgb ? `rgba(${rgb},0.15)` : catDef.dim;
+  const label = catDef.label;
 
   const isRead = !!prayer.is_read;
   const isHeld = (prayer.support_count || 0) > 0;
@@ -276,7 +288,7 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin }) {
             boxShadow: isRead ? "none" : `0 0 16px 2px ${glow}`,
           }}>
             <p style={{ color: isRead ? "rgba(140,140,180,0.6)" : primary, fontSize: 8, letterSpacing: "0.25em", textTransform: "uppercase", marginBottom: 4, fontFamily: "var(--font-heading)" }}>
-              {emoji} {label}{isRead ? " · read" : ""}
+              {label}{isRead ? " · read" : ""}
             </p>
             <p style={{ color: isRead ? "rgba(160,165,190,0.55)" : "rgba(220,225,255,0.85)", fontSize: 11, lineHeight: 1.5 }}>
               {preview}
@@ -372,7 +384,7 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin }) {
               {/* Category + read badge */}
               <div className="flex items-center justify-center gap-2 mb-3">
                 <p style={{ color: isRead ? "rgba(120,120,150,0.45)" : primary, fontSize: 9, letterSpacing: "0.35em", opacity: isRead ? 1 : 0.65, textTransform: "uppercase", fontFamily: "var(--font-heading)" }}>
-                  {emoji} {label}
+                  {label}
                 </p>
                 {isRead && (
                   <span style={{

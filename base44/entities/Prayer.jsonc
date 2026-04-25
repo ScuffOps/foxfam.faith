@@ -32,11 +32,15 @@
         "hope",
         "healing",
         "guidance",
-        "celebration",
+        "advice",
         "peace",
         "strength"
       ],
       "description": "Prayer category \u2014 drives orb color"
+    },
+    "custom_color": {
+      "type": "string",
+      "description": "Optional hex color chosen by the user for their orb"
     }
   },
   "required": [
