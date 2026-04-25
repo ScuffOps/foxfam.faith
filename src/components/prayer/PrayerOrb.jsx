@@ -38,76 +38,108 @@ function seededRand(seed) {
   };
 }
 
-// ── Sigil generator ────────────────────────────────────────────
+// ── Rune / sigil generator ─────────────────────────────────────
 function generateSigil(id, color, isRead) {
   const rand = seededRand(id || "default");
-  const cx = 50, cy = 50, r = 28;
-  const pointCount = 5 + Math.floor(rand() * 5);
-  const pts = Array.from({ length: pointCount }, (_, i) => {
-    const angle = (i / pointCount) * Math.PI * 2 - Math.PI / 2;
-    const pr = r * (0.65 + rand() * 0.35);
-    return [cx + Math.cos(angle) * pr, cy + Math.sin(angle) * pr];
-  });
-  const lines = [];
-  for (let i = 0; i < pts.length; i++) {
-    for (let j = i + 2; j < pts.length; j++) {
-      if (rand() > 0.42) {
-        lines.push(<line key={`l${i}-${j}`} x1={pts[i][0]} y1={pts[i][1]} x2={pts[j][0]} y2={pts[j][1]}
-          stroke={color} strokeWidth={0.9 + rand() * 0.7} strokeLinecap="round" opacity={isRead ? 0.25 : (0.55 + rand() * 0.45)} />);
-      }
-    }
-  }
-  const dots = pts.map(([x, y], i) => (
-    <circle key={`d${i}`} cx={x} cy={y} r={rand() > 0.5 ? 1.8 : 1.1}
-      fill={color} opacity={isRead ? 0.2 : (0.7 + rand() * 0.3)} />
-  ));
-  const flourishes = [];
-  const fl = 1 + Math.floor(rand() * 2);
-  for (let f = 0; f < fl; f++) {
-    const fx = cx + (rand() - 0.5) * 14;
-    const fy = cy + (rand() - 0.5) * 14;
-    const fs = 3 + rand() * 4;
-    if (rand() > 0.5) {
-      flourishes.push(
-        <path key={`f${f}`}
-          d={`M${fx},${fy-fs} L${fx+fs/2},${fy} L${fx},${fy+fs} L${fx-fs/2},${fy} Z`}
-          fill="none" stroke={color} strokeWidth={0.8} opacity={isRead ? 0.18 : 0.5} />
-      );
-    } else {
-      flourishes.push(
-        <circle key={`fc${f}`} cx={fx} cy={fy} r={fs / 2}
-          fill="none" stroke={color} strokeWidth={0.7} opacity={isRead ? 0.15 : 0.45} />
+  const cx = 50, cy = 50;
+  const op = (base) => isRead ? base * 0.3 : base;
+  const sw = (base) => base + rand() * 0.6;
+  const elements = [];
+
+  // ── Central vertical spine (every rune has one) ──
+  const spineX = cx + (rand() - 0.5) * 6;
+  const spineTop = cy - 28 - rand() * 6;
+  const spineBot = cy + 28 + rand() * 6;
+  elements.push(
+    <line key="spine" x1={spineX} y1={spineTop} x2={spineX} y2={spineBot}
+      stroke={color} strokeWidth={sw(1.6)} strokeLinecap="round" opacity={op(0.9)} />
+  );
+
+  // ── 2-4 crossbars / diagonal branches off the spine ──
+  const branchCount = 2 + Math.floor(rand() * 3);
+  for (let i = 0; i < branchCount; i++) {
+    const by = spineTop + (i + 1) * ((spineBot - spineTop) / (branchCount + 1));
+    const dir = rand() > 0.5 ? 1 : -1;
+    const len = 10 + rand() * 14;
+    const angle = (rand() > 0.4 ? 0 : (rand() - 0.5) * 0.9); // mostly horizontal, some diagonal
+    const ex = spineX + dir * len * Math.cos(angle);
+    const ey = by + dir * len * Math.sin(angle);
+    elements.push(
+      <line key={`b${i}`} x1={spineX} y1={by} x2={ex} y2={ey}
+        stroke={color} strokeWidth={sw(1.2)} strokeLinecap="round" opacity={op(0.75 + rand() * 0.2)} />
+    );
+    // occasional second branch mirrored
+    if (rand() > 0.55) {
+      const ex2 = spineX - dir * (len * 0.6) * Math.cos(angle * 0.7);
+      const ey2 = by - dir * (len * 0.6) * Math.sin(angle * 0.7);
+      elements.push(
+        <line key={`b${i}m`} x1={spineX} y1={by} x2={ex2} y2={ey2}
+          stroke={color} strokeWidth={sw(0.9)} strokeLinecap="round" opacity={op(0.55)} />
       );
     }
   }
-  const startAngle = rand() * Math.PI;
-  const sweep = Math.PI * (0.55 + rand() * 0.9);
-  const x1 = cx + Math.cos(startAngle) * (r + 4);
-  const y1 = cy + Math.sin(startAngle) * (r + 4);
-  const x2 = cx + Math.cos(startAngle + sweep) * (r + 4);
-  const y2 = cy + Math.sin(startAngle + sweep) * (r + 4);
-  const largeArc = sweep > Math.PI ? 1 : 0;
+
+  // ── Occasional arc or half-circle bowls (like B, D runes) ──
+  if (rand() > 0.45) {
+    const arcY = spineTop + rand() * 20;
+    const arcR = 8 + rand() * 8;
+    const arcSide = rand() > 0.5 ? 1 : -1;
+    const ax1 = spineX; const ay1 = arcY;
+    const ax2 = spineX; const ay2 = arcY + arcR * 2;
+    elements.push(
+      <path key="arc" d={`M${ax1},${ay1} A${arcR},${arcR} 0 0,${arcSide > 0 ? 1 : 0} ${ax2},${ay2}`}
+        fill="none" stroke={color} strokeWidth={sw(1.1)} strokeLinecap="round" opacity={op(0.65)} />
+    );
+  }
+
+  // ── Serifs / terminal ticks at top & bottom ──
+  if (rand() > 0.4) {
+    const tickLen = 4 + rand() * 4;
+    elements.push(
+      <line key="topt" x1={spineX - tickLen} y1={spineTop} x2={spineX + tickLen} y2={spineTop}
+        stroke={color} strokeWidth={sw(1.0)} strokeLinecap="round" opacity={op(0.6)} />
+    );
+  }
+  if (rand() > 0.4) {
+    const tickLen = 4 + rand() * 4;
+    elements.push(
+      <line key="bott" x1={spineX - tickLen} y1={spineBot} x2={spineX + tickLen} y2={spineBot}
+        stroke={color} strokeWidth={sw(1.0)} strokeLinecap="round" opacity={op(0.6)} />
+    );
+  }
+
+  // ── Small binding circle at centre ──
+  elements.push(
+    <circle key="ctr" cx={spineX} cy={cy} r={2.5 + rand() * 1.5}
+      fill="none" stroke={color} strokeWidth={sw(0.8)} opacity={op(0.7)} />
+  );
+
+  // ── Outer partial ring (weathered containment circle) ──
+  const startA = rand() * Math.PI * 2;
+  const sweep = Math.PI * (0.6 + rand() * 1.1);
+  const ringR = 32 + rand() * 4;
+  const rx1 = cx + Math.cos(startA) * ringR, ry1 = cy + Math.sin(startA) * ringR;
+  const rx2 = cx + Math.cos(startA + sweep) * ringR, ry2 = cy + Math.sin(startA + sweep) * ringR;
+  elements.push(
+    <path key="ring" d={`M${rx1},${ry1} A${ringR},${ringR} 0 ${sweep > Math.PI ? 1 : 0},1 ${rx2},${ry2}`}
+      fill="none" stroke={color} strokeWidth={sw(0.7)} strokeLinecap="round" opacity={op(0.28)} />
+  );
 
   return (
     <svg viewBox="0 0 100 100" width="100%" height="100%" style={{ overflow: "visible" }}>
       <defs>
-        <filter id={`glow-${id}`} x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation={isRead ? "1" : "2.5"} result="blur" />
+        <filter id={`glow-${id}`} x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation={isRead ? "1" : "3"} result="blur" />
           <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
         </filter>
         {isRead && (
           <filter id={`grey-${id}`}>
-            <feColorMatrix type="saturate" values="0.15" />
+            <feColorMatrix type="saturate" values="0.1" />
           </filter>
         )}
       </defs>
-      <g filter={isRead ? `url(#grey-${id})` : `url(#glow-${id})`} opacity={isRead ? 0.38 : 1}>
-        <path d={`M${x1},${y1} A${r+4},${r+4} 0 ${largeArc},1 ${x2},${y2}`}
-          fill="none" stroke={color} strokeWidth={0.8} opacity={isRead ? 0.2 : 0.35} strokeLinecap="round" />
-        {lines}
-        {flourishes}
-        {dots}
-        <circle cx={cx} cy={cy} r={2.2} fill={color} opacity={isRead ? 0.3 : 0.9} />
+      <g filter={isRead ? `url(#grey-${id})` : `url(#glow-${id})`}>
+        {elements}
       </g>
     </svg>
   );

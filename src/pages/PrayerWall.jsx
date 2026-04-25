@@ -100,39 +100,49 @@ export default function PrayerWall() {
         </p>
       )}
 
-      {/* Stone wall — full bleed with new ivy image */}
-      <div className="relative w-full overflow-hidden mb-8" style={{ minHeight: 480 }}>
-        <img
-          src={STONE_WALL}
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover object-center"
-          style={{ opacity: 0.7, filter: "brightness(0.6) saturate(0.85)" }}
-        />
-        <div className="absolute inset-0" style={{ background: "rgba(4,6,18,0.45)" }} />
+      {/* Stone wall — ivy image as visual frame, prayers sit on top */}
+      <div className="relative w-full mb-8">
+        {/* The wall image — not covering the prayers, just a backdrop */}
+        <div className="relative w-full" style={{ minHeight: 500 }}>
+          {/* Stone texture background */}
+          <div className="absolute inset-0" style={{
+            backgroundImage: `url(${STONE_WALL})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center 30%",
+            filter: "brightness(0.45) saturate(0.7)",
+          }} />
+          {/* Dark vignette to help prayers read */}
+          <div className="absolute inset-0" style={{
+            background: "radial-gradient(ellipse 80% 70% at 50% 50%, rgba(4,6,18,0.2) 0%, rgba(4,6,18,0.65) 100%)",
+          }} />
 
-        {loading ? (
-          <div className="relative z-10 flex justify-center py-20">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-900 border-t-cyan-500" />
-          </div>
-        ) : prayers.length === 0 ? (
-          <div className="relative z-10 flex flex-col items-center justify-center py-20">
-            <p className="text-sm" style={{ color: "rgba(100,140,200,0.35)" }}>Be the first to leave a prayer. 🤍</p>
-          </div>
-        ) : (
-          <div className="relative z-10 flex flex-wrap gap-8 justify-center items-end px-8 py-12 pb-16">
-            {prayers.map((prayer) => (
-              <PrayerOrb
-                key={prayer.id}
-                prayer={prayer}
-                onPray={handlePray}
-                onMarkRead={isAdmin ? handleMarkRead : undefined}
-                isAdmin={isAdmin}
-              />
-            ))}
-          </div>
-        )}
+          {loading ? (
+            <div className="relative z-10 flex justify-center py-24">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-900 border-t-cyan-500" />
+            </div>
+          ) : prayers.length === 0 ? (
+            <div className="relative z-10 flex flex-col items-center justify-center py-24">
+              <p className="text-sm" style={{ color: "rgba(100,140,200,0.35)" }}>Be the first to leave a prayer. 🤍</p>
+            </div>
+          ) : (
+            <div className="relative z-10 flex flex-wrap gap-6 justify-center items-center px-12 py-14">
+              {prayers.map((prayer) => (
+                <PrayerOrb
+                  key={prayer.id}
+                  prayer={prayer}
+                  onPray={handlePray}
+                  onMarkRead={isAdmin ? handleMarkRead : undefined}
+                  isAdmin={isAdmin}
+                />
+              ))}
+            </div>
+          )}
 
-        <div className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(6,8,16,0.8), transparent)" }} />
+          {/* Fade bottom into page */}
+          <div className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(6,8,16,1), transparent)" }} />
+          {/* Fade top */}
+          <div className="absolute top-0 left-0 right-0 h-12 pointer-events-none" style={{ background: "linear-gradient(to bottom, rgba(6,8,16,0.7), transparent)" }} />
+        </div>
       </div>
 
       {/* Legend — all 8 categories */}
