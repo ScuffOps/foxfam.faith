@@ -8,7 +8,7 @@ import { EyeOff, Eye } from "lucide-react";
 import PrayerOrb, { CATEGORIES, detectCategory } from "@/components/prayer/PrayerOrb";
 
 const STAINED_GLASS = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/21eb9949e_StainedGlassFull.png";
-const STONE_WALL    = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/e26532a76_prayerwall2.png";
+const STONE_WALL    = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/bde055a3d_prayerwall3.png";
 
 export default function PrayerWall() {
   const [prayers, setPrayers] = useState([]);
@@ -86,170 +86,29 @@ export default function PrayerWall() {
         </div>
       </div>
 
-      <div className="relative mx-auto" style={{ maxWidth: 960 }}>
-
-        {/* Submit form */}
-        <div className="px-4 mb-10">
-          <div
-            className="rounded-xl p-6 relative"
-            style={{
-              background: "linear-gradient(135deg, rgba(12,15,35,0.97) 0%, rgba(8,10,24,0.98) 100%)",
-              border: "1px solid rgba(100,140,255,0.15)",
-              boxShadow: "0 0 40px rgba(60,100,200,0.06)",
-            }}
-          >
-            <span className="absolute top-3 left-3 text-cyan-500/20 text-lg select-none">✦</span>
-            <span className="absolute top-3 right-3 text-cyan-500/20 text-lg select-none">✦</span>
-            <p className="text-center text-xs text-cyan-400/45 tracking-[0.2em] uppercase mb-5 font-heading">
-              Leave a prayer or word of light
-            </p>
-            <div className="space-y-3">
-              <Textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Write your prayer or encouraging words here..."
-                maxLength={500}
-                className="resize-none min-h-[90px] text-sm"
-                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(80,140,255,0.15)", color: "rgba(220,230,255,0.9)" }}
-              />
-              <div className="text-right text-[10px] text-cyan-900/50">{message.length}/500</div>
-
-              {/* Category picker */}
-              <div>
-                <Label className="text-xs text-cyan-300/45 mb-2 block">Category (optional — we'll detect it otherwise)</Label>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(CATEGORIES).map(([key, { label, primary }]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setCategory(category === key ? "" : key)}
-                      className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs transition-all"
-                      style={{
-                        border: `1px solid ${category === key ? primary : "rgba(100,120,180,0.18)"}`,
-                        background: category === key ? `${primary}18` : "rgba(255,255,255,0.02)",
-                        color: category === key ? primary : "rgba(150,160,200,0.55)",
-                        boxShadow: category === key ? `0 0 10px ${primary}40` : "none",
-                      }}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Custom orb color */}
-              <div>
-                <Label className="text-xs text-cyan-300/45 mb-2 block">Orb color (optional — pick your own)</Label>
-                <div className="flex items-center gap-3">
-                  <div className="flex flex-wrap gap-2">
-                    {["#ffc940","#50b4ff","#6ee7b7","#ff78c8","#b060ff","#fb923c","#a3c4f3","#f87171","#e879f9","#34d399","#f59e0b","#60a5fa"].map((hex) => (
-                      <button
-                        key={hex}
-                        type="button"
-                        onClick={() => setCustomColor(customColor === hex ? "" : hex)}
-                        className="rounded-full transition-all"
-                        style={{
-                          width: 22, height: 22,
-                          background: hex,
-                          boxShadow: customColor === hex ? `0 0 10px 3px ${hex}88` : "none",
-                          border: customColor === hex ? "2px solid rgba(255,255,255,0.7)" : "2px solid transparent",
-                          transform: customColor === hex ? "scale(1.2)" : "scale(1)",
-                        }}
-                      />
-                    ))}
-                  </div>
-                  {/* Native hex picker for anything custom */}
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="color"
-                      value={customColor || "#b060ff"}
-                      onChange={(e) => setCustomColor(e.target.value)}
-                      className="rounded cursor-pointer"
-                      style={{ width: 28, height: 28, border: "1px solid rgba(100,120,180,0.25)", background: "transparent", padding: 2 }}
-                    />
-                    {customColor && (
-                      <button
-                        type="button"
-                        onClick={() => setCustomColor("")}
-                        className="text-[10px]"
-                        style={{ color: "rgba(150,150,180,0.45)" }}
-                      >
-                        clear
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {!isAnonymous && (
-                <div>
-                  <Label className="text-xs text-cyan-300/45">Your name (optional)</Label>
-                  <Input
-                    value={authorName}
-                    onChange={(e) => setAuthorName(e.target.value)}
-                    placeholder={user?.full_name || "Leave blank to go unnamed"}
-                    className="mt-1 h-8 text-sm"
-                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(80,140,255,0.12)", color: "rgba(220,230,255,0.85)" }}
-                  />
-                </div>
-              )}
-
-              <button
-                onClick={() => setIsAnonymous(!isAnonymous)}
-                className="flex items-center gap-2 text-xs transition-colors"
-                style={{ color: "rgba(100,160,255,0.4)" }}
-              >
-                {isAnonymous ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                {isAnonymous ? "Post publicly instead" : "Post anonymously"}
-              </button>
-
-              {submitted && (
-                <p className="text-xs text-cyan-400 text-center py-1 tracking-wide">
-                  🕊️ Your prayer has been placed on the wall.
-                </p>
-              )}
-
-              <button
-                onClick={handleSubmit}
-                disabled={!message.trim() || submitting}
-                className="w-full py-2.5 rounded font-heading text-sm tracking-widest uppercase transition-all disabled:opacity-40"
-                style={{
-                  background: "linear-gradient(135deg, rgba(50,80,180,0.55) 0%, rgba(80,50,160,0.55) 100%)",
-                  border: "1px solid rgba(100,160,255,0.22)",
-                  color: "rgba(200,220,255,0.9)",
-                  boxShadow: "0 0 20px rgba(80,120,255,0.08)",
-                }}
-              >
-                {submitting ? "Sending..." : "✦ Send Prayer ✦"}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Section label */}
-        <div className="flex items-center gap-3 mb-4 px-4">
-          <div className="flex-1 h-px" style={{ background: "linear-gradient(to right, transparent, rgba(80,140,255,0.18))" }} />
-          <span className="text-[10px] tracking-[0.3em] font-heading" style={{ color: "rgba(100,160,255,0.28)" }}>THE WALL OF PRAYERS</span>
-          <div className="flex-1 h-px" style={{ background: "linear-gradient(to left, transparent, rgba(80,140,255,0.18))" }} />
-        </div>
-
-        {/* Admin note */}
-        {isAdmin && (
-          <p className="text-center text-[10px] tracking-widest mb-4 font-heading" style={{ color: "rgba(140,200,140,0.35)" }}>
-            ✦ ADMIN · CLICK ANY PRAYER TO MARK AS READ ✦
-          </p>
-        )}
+      {/* Section label */}
+      <div className="relative mx-auto flex items-center gap-3 mb-4 px-4" style={{ maxWidth: 960 }}>
+        <div className="flex-1 h-px" style={{ background: "linear-gradient(to right, transparent, rgba(80,140,255,0.18))" }} />
+        <span className="text-[10px] tracking-[0.3em] font-heading" style={{ color: "rgba(100,160,255,0.28)" }}>THE WALL OF PRAYERS</span>
+        <div className="flex-1 h-px" style={{ background: "linear-gradient(to left, transparent, rgba(80,140,255,0.18))" }} />
       </div>
 
-      {/* Stone wall — full bleed */}
-      <div className="relative w-full overflow-hidden mb-12" style={{ minHeight: 420 }}>
+      {/* Admin note */}
+      {isAdmin && (
+        <p className="text-center text-[10px] tracking-widest mb-4 font-heading" style={{ color: "rgba(140,200,140,0.35)" }}>
+          ✦ ADMIN · CLICK ANY PRAYER TO MARK AS READ ✦
+        </p>
+      )}
+
+      {/* Stone wall — full bleed with new ivy image */}
+      <div className="relative w-full overflow-hidden mb-8" style={{ minHeight: 480 }}>
         <img
           src={STONE_WALL}
           alt=""
-          className="absolute inset-0 w-full h-full object-cover"
-          style={{ opacity: 0.55, filter: "brightness(0.5) saturate(0.7)" }}
+          className="absolute inset-0 w-full h-full object-cover object-center"
+          style={{ opacity: 0.7, filter: "brightness(0.6) saturate(0.85)" }}
         />
-        <div className="absolute inset-0" style={{ background: "rgba(4,6,18,0.52)" }} />
+        <div className="absolute inset-0" style={{ background: "rgba(4,6,18,0.45)" }} />
 
         {loading ? (
           <div className="relative z-10 flex justify-center py-20">
@@ -277,7 +136,7 @@ export default function PrayerWall() {
       </div>
 
       {/* Legend — all 8 categories */}
-      <div className="flex flex-wrap justify-center gap-4 px-4 pb-12">
+      <div className="flex flex-wrap justify-center gap-4 px-4 mb-10">
         {Object.entries(CATEGORIES).map(([key, { label, primary }]) => (
           <div key={key} className="flex items-center gap-1.5">
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: primary, boxShadow: `0 0 6px 1px ${primary}88` }} />
@@ -286,6 +145,143 @@ export default function PrayerWall() {
             </span>
           </div>
         ))}
+      </div>
+
+      {/* Submit form — moved to bottom */}
+      <div className="relative mx-auto px-4 pb-16" style={{ maxWidth: 960 }}>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="flex-1 h-px" style={{ background: "linear-gradient(to right, transparent, rgba(80,140,255,0.18))" }} />
+          <span className="text-[10px] tracking-[0.3em] font-heading" style={{ color: "rgba(100,160,255,0.28)" }}>LEAVE A PRAYER</span>
+          <div className="flex-1 h-px" style={{ background: "linear-gradient(to left, transparent, rgba(80,140,255,0.18))" }} />
+        </div>
+        <div
+          className="rounded-xl p-6 relative"
+          style={{
+            background: "linear-gradient(135deg, rgba(12,15,35,0.97) 0%, rgba(8,10,24,0.98) 100%)",
+            border: "1px solid rgba(100,140,255,0.15)",
+            boxShadow: "0 0 40px rgba(60,100,200,0.06)",
+          }}
+        >
+          <span className="absolute top-3 left-3 text-cyan-500/20 text-lg select-none">✦</span>
+          <span className="absolute top-3 right-3 text-cyan-500/20 text-lg select-none">✦</span>
+          <p className="text-center text-xs text-cyan-400/45 tracking-[0.2em] uppercase mb-5 font-heading">
+            Leave a prayer or word of light
+          </p>
+          <div className="space-y-3">
+            <Textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Write your prayer or encouraging words here..."
+              maxLength={500}
+              className="resize-none min-h-[90px] text-sm"
+              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(80,140,255,0.15)", color: "rgba(220,230,255,0.9)" }}
+            />
+            <div className="text-right text-[10px] text-cyan-900/50">{message.length}/500</div>
+
+            {/* Category picker */}
+            <div>
+              <Label className="text-xs text-cyan-300/45 mb-2 block">Category (optional — we'll detect it otherwise)</Label>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(CATEGORIES).map(([key, { label, primary }]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setCategory(category === key ? "" : key)}
+                    className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs transition-all"
+                    style={{
+                      border: `1px solid ${category === key ? primary : "rgba(100,120,180,0.18)"}`,
+                      background: category === key ? `${primary}18` : "rgba(255,255,255,0.02)",
+                      color: category === key ? primary : "rgba(150,160,200,0.55)",
+                      boxShadow: category === key ? `0 0 10px ${primary}40` : "none",
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom orb color */}
+            <div>
+              <Label className="text-xs text-cyan-300/45 mb-2 block">Orb color (optional — pick your own)</Label>
+              <div className="flex items-center gap-3">
+                <div className="flex flex-wrap gap-2">
+                  {["#ffc940","#50b4ff","#6ee7b7","#ff78c8","#b060ff","#fb923c","#a3c4f3","#f87171","#e879f9","#34d399","#f59e0b","#60a5fa"].map((hex) => (
+                    <button
+                      key={hex}
+                      type="button"
+                      onClick={() => setCustomColor(customColor === hex ? "" : hex)}
+                      className="rounded-full transition-all"
+                      style={{
+                        width: 22, height: 22,
+                        background: hex,
+                        boxShadow: customColor === hex ? `0 0 10px 3px ${hex}88` : "none",
+                        border: customColor === hex ? "2px solid rgba(255,255,255,0.7)" : "2px solid transparent",
+                        transform: customColor === hex ? "scale(1.2)" : "scale(1)",
+                      }}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="color"
+                    value={customColor || "#b060ff"}
+                    onChange={(e) => setCustomColor(e.target.value)}
+                    className="rounded cursor-pointer"
+                    style={{ width: 28, height: 28, border: "1px solid rgba(100,120,180,0.25)", background: "transparent", padding: 2 }}
+                  />
+                  {customColor && (
+                    <button type="button" onClick={() => setCustomColor("")} className="text-[10px]" style={{ color: "rgba(150,150,180,0.45)" }}>
+                      clear
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {!isAnonymous && (
+              <div>
+                <Label className="text-xs text-cyan-300/45">Your name (optional)</Label>
+                <Input
+                  value={authorName}
+                  onChange={(e) => setAuthorName(e.target.value)}
+                  placeholder={user?.full_name || "Leave blank to go unnamed"}
+                  className="mt-1 h-8 text-sm"
+                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(80,140,255,0.12)", color: "rgba(220,230,255,0.85)" }}
+                />
+              </div>
+            )}
+
+            <button
+              onClick={() => setIsAnonymous(!isAnonymous)}
+              className="flex items-center gap-2 text-xs transition-colors"
+              style={{ color: "rgba(100,160,255,0.4)" }}
+            >
+              {isAnonymous ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+              {isAnonymous ? "Post publicly instead" : "Post anonymously"}
+            </button>
+
+            {submitted && (
+              <p className="text-xs text-cyan-400 text-center py-1 tracking-wide">
+                🕊️ Your prayer has been placed on the wall.
+              </p>
+            )}
+
+            <button
+              onClick={handleSubmit}
+              disabled={!message.trim() || submitting}
+              className="w-full py-2.5 rounded font-heading text-sm tracking-widest uppercase transition-all disabled:opacity-40"
+              style={{
+                background: "linear-gradient(135deg, rgba(50,80,180,0.55) 0%, rgba(80,50,160,0.55) 100%)",
+                border: "1px solid rgba(100,160,255,0.22)",
+                color: "rgba(200,220,255,0.9)",
+                boxShadow: "0 0 20px rgba(80,120,255,0.08)",
+              }}
+            >
+              {submitting ? "Sending..." : "✦ Send Prayer ✦"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
