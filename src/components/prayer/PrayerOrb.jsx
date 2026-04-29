@@ -42,7 +42,7 @@ function seededRand(seed) {
 function generateSigil(id, color, isRead) {
   const rand = seededRand(id || "default");
   const cx = 50, cy = 50;
-  const op = (base) => isRead ? base * 0.3 : base;
+  const op = (base) => isRead ? base * 0.75 : base;
   const sw = (base) => base + rand() * 0.6;
   const elements = [];
 
@@ -208,14 +208,15 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin }) {
           0%,100% { opacity: 0.18; }
           50%     { opacity: 0.38; }
         }
-        @keyframes readFade {
-          from { opacity: 1; transform: scale(1); }
-          to   { opacity: 0.38; transform: scale(0.9); }
+        @keyframes readGlow {
+          0%,100% { opacity: 0.45; transform: scale(1); }
+          50%     { opacity: 0.7;  transform: scale(1.08); }
         }
-        @keyframes readRipple {
-          0%   { transform: scale(0.8); opacity: 0.6; }
-          100% { transform: scale(2.2); opacity: 0; }
-        }
+        @keyframes particle0 { 0% { transform: translateY(0) translateX(0px) scale(1); opacity:0.7; } 100% { transform: translateY(-38px) translateX(-4px) scale(0.3); opacity:0; } }
+        @keyframes particle1 { 0% { transform: translateY(0) translateX(0px) scale(1); opacity:0.6; } 100% { transform: translateY(-44px) translateX(5px) scale(0.2); opacity:0; } }
+        @keyframes particle2 { 0% { transform: translateY(0) translateX(0px) scale(1); opacity:0.8; } 100% { transform: translateY(-32px) translateX(-7px) scale(0.4); opacity:0; } }
+        @keyframes particle3 { 0% { transform: translateY(0) translateX(0px) scale(1); opacity:0.5; } 100% { transform: translateY(-50px) translateX(3px) scale(0.2); opacity:0; } }
+        @keyframes particle4 { 0% { transform: translateY(0) translateX(0px) scale(1); opacity:0.65; } 100% { transform: translateY(-36px) translateX(6px) scale(0.3); opacity:0; } }
       `}</style>
 
       {/* ── Sigil tile ── */}
@@ -226,16 +227,17 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin }) {
         onMouseLeave={() => setHovered(false)}
         onClick={() => setExpanded(true)}
       >
-        {/* Read indicator — faint settled halo */}
+        {/* Read indicator — soft glowing halo ring */}
         {isRead && (
           <div style={{
             position: "absolute",
-            inset: -4,
+            inset: -5,
             borderRadius: "50%",
-            background: "rgba(255,255,255,0.03)",
-            border: "1px dashed rgba(255,255,255,0.07)",
+            border: `1px solid ${primary}55`,
+            boxShadow: `0 0 10px 2px ${primary}44, inset 0 0 8px ${primary}22`,
             zIndex: 0,
             pointerEvents: "none",
+            animation: "readGlow 3s ease-in-out infinite",
           }} />
         )}
 
@@ -245,13 +247,14 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin }) {
           width: 70, height: 70,
           borderRadius: "50%",
           background: isRead
-            ? "rgba(100,100,120,0.08)"
+            ? glow
             : hovered ? glow : isHeld ? `${primary}33` : dim,
-          filter: `blur(${isRead ? "8px" : isHeld ? "18px" : "14px"})`,
+          filter: `blur(${isRead ? "16px" : isHeld ? "18px" : "14px"})`,
           transition: "background 0.4s, transform 0.4s",
-          transform: hovered && !isRead ? "scale(1.3)" : "scale(1)",
+          transform: isRead ? "scale(1)" : hovered ? "scale(1.3)" : "scale(1)",
           top: "4px", left: "8px",
           zIndex: 0,
+          animation: isRead ? "readGlow 3s ease-in-out infinite" : "none",
         }} />
 
         {/* Held shimmer ring */}
@@ -268,18 +271,40 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin }) {
           }} />
         )}
 
+        {/* Drifting particles for read prayers */}
+        {isRead && [0,1,2,3,4].map((i) => {
+          const px = 18 + rand() * 50;
+          const py = 55 + rand() * 20;
+          const dur = (2.5 + rand() * 2.5).toFixed(1);
+          const delay = (rand() * 3).toFixed(1);
+          const size = 1.5 + rand() * 2;
+          return (
+            <div key={`p${i}`} style={{
+              position: "absolute",
+              left: px, top: py,
+              width: size, height: size,
+              borderRadius: "50%",
+              background: primary,
+              boxShadow: `0 0 4px 1px ${primary}`,
+              zIndex: 3,
+              pointerEvents: "none",
+              animation: `particle${i} ${dur}s ease-out ${delay}s infinite`,
+            }} />
+          );
+        })}
+
         {/* SVG sigil */}
         <div style={{
           width: 86, height: 86,
           position: "relative", zIndex: 1,
           animation: isRead
-            ? "none"
+            ? `sigilBreathe ${breatheDur}s ease-in-out ${floatDelay}s infinite`
             : hovered
               ? "none"
               : `sigilBreathe ${breatheDur}s ease-in-out ${floatDelay}s infinite`,
-          opacity: isRead ? 0.38 : 1,
+          opacity: isRead ? 0.8 : 1,
           transition: "opacity 0.6s, filter 0.3s",
-          filter: isRead ? "grayscale(0.85) brightness(0.6)" : hovered ? "blur(0)" : "blur(0.4px)",
+          filter: isRead ? "brightness(0.85)" : hovered ? "blur(0)" : "blur(0.4px)",
         }}>
           {generateSigil(seed, primary, isRead)}
         </div>
