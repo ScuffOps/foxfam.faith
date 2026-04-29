@@ -16,6 +16,7 @@ import CollabRequests from './pages/CollabRequests';
 import Roadmap from './pages/Roadmap';
 import Blessings from './pages/Blessings';
 import Admin from './pages/Admin';
+import Codex from './pages/Codex';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -53,6 +54,7 @@ const AuthenticatedApp = () => {
         <Route path="/collabs" element={<CollabRequests />} />
         <Route path="/roadmap" element={<Roadmap />} />
         <Route path="/blessings" element={<Blessings />} />
+        <Route path="/codex" element={<Codex />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>

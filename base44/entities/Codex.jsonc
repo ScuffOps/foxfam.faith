@@ -1,0 +1,87 @@
+{
+  "name": "Codex",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Title of the Codex entry"
+    },
+    "content": {
+      "type": "string",
+      "description": "Full content of the entry (rich text)"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "lore",
+        "milestone",
+        "inside_joke",
+        "faq",
+        "other"
+      ],
+      "default": "lore",
+      "description": "Category of the entry"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "Keywords for searching"
+    },
+    "author_name": {
+      "type": "string",
+      "description": "Display name of the creator"
+    },
+    "last_edited_by": {
+      "type": "string",
+      "description": "Display name of last editor"
+    },
+    "cover_emoji": {
+      "type": "string",
+      "description": "Optional emoji icon for the entry"
+    }
+  },
+  "required": [
+    "title",
+    "content",
+    "category"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "verified"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": true,
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "verified"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

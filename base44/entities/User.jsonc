@@ -5,27 +5,13 @@
     "role": {
       "type": "string",
       "enum": [
+        "user",
         "admin",
         "mod",
         "creator",
-        "foxfam",
-        "wanderer"
+        "verified"
       ],
-      "default": "wanderer"
-    },
-    "display_name": {
-      "type": "string",
-      "description": "User's preferred display name"
-    },
-    "onboarded": {
-      "type": "boolean",
-      "default": false,
-      "description": "Whether the user has completed onboarding"
-    },
-    "avatar_url": {
-      "type": "string",
-      "description": "Profile avatar image URL"
+      "default": "user"
     }
-  },
-  "required": []
+  }
 }
