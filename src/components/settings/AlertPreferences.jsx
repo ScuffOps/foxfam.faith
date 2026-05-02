@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, Cake, CalendarDays, Lightbulb, BarChart3, Heart, Sparkles } from "lucide-react";
+import { Cake, CalendarDays, Lightbulb, BarChart3, Heart, Sparkles } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 
 const STORAGE_KEY = "commhub_alert_prefs";

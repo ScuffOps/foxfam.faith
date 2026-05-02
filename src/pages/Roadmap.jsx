@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { ArrowUp, Zap, CheckCircle2, Clock, Lightbulb, Plus, Pencil, Trash2 } from "lucide-react";
+import { ArrowUp, Zap, CheckCircle2, Clock, Lightbulb, Plus, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

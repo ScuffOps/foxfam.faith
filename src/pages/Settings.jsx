@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Settings2, Link2, User, Shield, LogOut, CheckCircle, Palette, Bell } from "lucide-react";
+import { Settings2, Link2, Shield, LogOut, CheckCircle, Palette, Bell } from "lucide-react";
 import AlertPreferences from "../components/settings/AlertPreferences";
 import AvatarUpload from "../components/AvatarUpload";
 import AccentColorPicker from "../components/AccentColorPicker";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import GlassCard from "../components/GlassCard";
 import RankBadge from "../components/RankBadge";
+import ProgressionLoop from "../components/ProgressionLoop";
 
 const CONNECTOR_ID = "69d2b6bfc53ce38433398132"; // Foxfam Calendar
 
@@ -99,6 +100,9 @@ export default function Settings() {
               <p className="text-xs text-muted-foreground">{user?.email}</p>
               <RankBadge points={userPoints} showProgress />
             </div>
+          </div>
+          <div className="mb-4 rounded-lg border border-border bg-secondary/30 p-4">
+            <ProgressionLoop points={userPoints} compact framed={false} />
           </div>
           <div className="space-y-3">
             <div className="flex items-center justify-between rounded-lg bg-secondary/50 px-4 py-3">

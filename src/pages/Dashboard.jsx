@@ -7,10 +7,11 @@ import ActivityChart from "../components/dashboard/ActivityChart";
 import BoopTheFox from "../components/dashboard/BoopTheFox";
 import VeriThought from "../components/dashboard/VeriThought";
 import HiddenEasterEgg from "../components/dashboard/HiddenEasterEgg";
+import ProgressionLoop from "../components/ProgressionLoop";
 
 export default function Dashboard() {
   return (
-    <div className="mx-auto max-w-6xl animate-fade-in">
+    <div className="community-dashboard mx-auto max-w-6xl animate-fade-in">
       <div className="mb-8">
         <h1 className="font-heading text-2xl font-bold md:text-3xl">
           Dashboard <HiddenEasterEgg index={0} />
@@ -21,6 +22,10 @@ export default function Dashboard() {
       </div>
 
       <QuickStats />
+
+      <div className="mt-6">
+        <ProgressionLoop />
+      </div>
 
       <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <ActivityChart />

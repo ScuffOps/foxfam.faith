@@ -10,6 +10,37 @@ export const POINT_VALUES = {
   post_blessing: 8,          // posting a blessing (mods/admins)
 };
 
+export const PROGRESSION_ACTIONS = [
+  {
+    label: "Share an idea or feedback",
+    description: "Start a community post so others can vote on it.",
+    href: "/community",
+    cta: "New post",
+    points: POINT_VALUES.submit_post,
+  },
+  {
+    label: "Upvote an idea",
+    description: "Boost feedback you want the mod team to notice.",
+    href: "/community",
+    cta: "Vote on ideas",
+    points: POINT_VALUES.upvote_idea,
+  },
+  {
+    label: "Vote in a poll",
+    description: "Help steer what the community does next.",
+    href: "/community",
+    cta: "Find polls",
+    points: POINT_VALUES.vote_poll,
+  },
+  {
+    label: "React to blessings",
+    description: "Upvote or comment on a blessing when one speaks to you.",
+    href: "/blessings",
+    cta: "Visit blessings",
+    points: POINT_VALUES.post_blessing_comment,
+  },
+];
+
 // Rank tiers
 export const RANKS = [
   { name: "Wanderer",   min: 0,   color: "text-muted-foreground", bg: "bg-muted",           icon: "🌑" },
@@ -33,6 +64,35 @@ export function getNextRank(points) {
     if (points < r.min) return r;
   }
   return null; // max rank
+}
+
+export function getRankProgress(points) {
+  const safePoints = Math.max(0, Number(points) || 0);
+  const rank = getRank(safePoints);
+  const next = getNextRank(safePoints);
+
+  if (!next) {
+    return {
+      rank,
+      next,
+      percent: 100,
+      pointsToNext: 0,
+      pointsIntoRank: safePoints - rank.min,
+      pointsForRank: 0,
+    };
+  }
+
+  const pointsForRank = next.min - rank.min;
+  const pointsIntoRank = safePoints - rank.min;
+
+  return {
+    rank,
+    next,
+    percent: Math.min(100, Math.round((pointsIntoRank / pointsForRank) * 100)),
+    pointsToNext: next.min - safePoints,
+    pointsIntoRank,
+    pointsForRank,
+  };
 }
 
 /**

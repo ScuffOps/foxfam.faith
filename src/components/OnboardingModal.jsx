@@ -26,6 +26,7 @@ const STEPS = [
   {
     icon: <MessageSquare className="h-12 w-12 mx-auto" style={{ color: "#753243" }} />,
     title: "Feedback & Polls",
+    pointsHint: "Posting earns 5 points, poll votes earn 2, and upvotes earn 1 toward your next rank.",
     subtitle: "✦ IN LUMINE EIUS VIVIMUS ✦",
     description: "Submit ideas, feedback, or polls to the community & mod team. Upvote what you love — top ideas may become events!",
   },
@@ -38,18 +39,18 @@ const STEPS = [
   {
     icon: <Sparkles className="h-12 w-12 mx-auto" style={{ color: "#7c5cbf" }} />,
     title: "Join the Faith",
+    pointsHint: "Create an account to earn points, climb ranks, and show up on the leaderboard.",
     subtitle: "✦ EX RUINA, VERI SURGIT ✦",
     description: "Create your free account to post prayers, vote on ideas, submit birthdays, and become part of the Forsaken Faith community.",
     isSignUp: true,
   },
 ];
 
-export default function OnboardingModal({ onComplete, isGuest = false }) {
+export default function OnboardingModal({ onComplete, onGuestContinue, isGuest = false }) {
   const [step, setStep] = useState(0);
   const [displayName, setDisplayName] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const isNameStep = step === 1;
   const allSteps = isGuest ? STEPS : STEPS.filter((s) => !s.isSignUp);
   const isLast = step === allSteps.length - 1;
   const currentIsSignUp = isGuest && isLast;
@@ -73,9 +74,9 @@ export default function OnboardingModal({ onComplete, isGuest = false }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="glass-card w-full max-w-md rounded-2xl p-8 animate-fade-in">
+      <div className="glass-card flex h-[min(620px,calc(100vh-2rem))] w-full max-w-md flex-col rounded-2xl p-8 animate-fade-in">
         {/* Progress dots */}
-        <div className="flex justify-center gap-2 mb-8">
+        <div className="mb-8 flex shrink-0 justify-center gap-2">
           {allSteps.map((_, i) => (
             <span
               key={i}
@@ -86,31 +87,38 @@ export default function OnboardingModal({ onComplete, isGuest = false }) {
           ))}
         </div>
 
-        {/* Content */}
-        <div className="text-center mb-8">
-          <div className="mb-4">{current.icon}</div>
-          <h2 className="font-heading text-xl font-bold mb-2">{current.title}</h2>
-          {current.subtitle && (
-            <p className="text-xs font-medium tracking-widest text-primary/70 mb-2">{current.subtitle}</p>
+        <div className="flex-1 overflow-y-auto pr-1">
+          {/* Content */}
+          <div className="text-center">
+            <div className="mb-4">{current.icon}</div>
+            <h2 className="font-heading text-xl font-bold mb-2">{current.title}</h2>
+            {current.subtitle && (
+              <p className="text-xs font-medium tracking-widest text-primary/70 mb-2">{current.subtitle}</p>
+            )}
+            <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{current.description}</p>
+            {current.pointsHint && (
+              <p className="mt-3 rounded-lg border border-primary/20 bg-primary/10 px-3 py-2 text-xs font-medium text-primary">
+                {current.pointsHint}
+              </p>
+            )}
+          </div>
+
+          {/* Name input on step 0 */}
+          {step === 0 && (
+            <div className="mt-6">
+              <Label className="text-sm">What shall we call you? (optional)</Label>
+              <Input
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Nickname | Username"
+                className="mt-1.5 bg-secondary"
+              />
+            </div>
           )}
-          <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{current.description}</p>
         </div>
 
-        {/* Name input on step 0 */}
-        {step === 0 && (
-          <div className="mb-6">
-            <Label className="text-sm">What shall we call you? (optional)</Label>
-            <Input
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Nickname | Username"
-              className="mt-1.5 bg-secondary"
-            />
-          </div>
-        )}
-
         {/* Actions */}
-        <div className="flex items-center justify-between gap-3">
+        <div className="mt-6 flex min-h-9 shrink-0 items-center justify-between gap-3">
           {step > 0 ? (
             <button
               onClick={() => setStep((s) => s - 1)}
@@ -120,9 +128,14 @@ export default function OnboardingModal({ onComplete, isGuest = false }) {
             </button>
           ) : <div />}
           {currentIsSignUp ? (
-            <Button onClick={() => base44.auth.redirectToLogin()} className="gap-2 ml-auto">
-              <Sparkles className="h-4 w-4" /> Join the Faith
-            </Button>
+            <div className="ml-auto flex flex-wrap justify-end gap-2">
+              <Button variant="outline" onClick={onGuestContinue || onComplete}>
+                Look around
+              </Button>
+              <Button onClick={() => base44.auth.redirectToLogin()} className="gap-2">
+                <Sparkles className="h-4 w-4" /> Join the Faith
+              </Button>
+            </div>
           ) : (
             <Button onClick={handleNext} disabled={saving} className="gap-2 ml-auto">
               {isLast ? (

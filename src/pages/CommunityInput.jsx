@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import PostForm from "../components/community/PostForm";
 import IdeaCard from "../components/community/IdeaCard";
 import PollCard from "../components/community/PollCard";
+import ProgressionLoop from "../components/ProgressionLoop";
 
 const TABS = [
   { key: "feedback", label: "Feedback & Ideas" },
@@ -76,6 +77,10 @@ export default function CommunityInput() {
         <Button onClick={() => setShowForm(true)} className="gap-2">
           <Plus className="h-4 w-4" /> New Post
         </Button>
+      </div>
+
+      <div className="mb-5">
+        <ProgressionLoop compact />
       </div>
 
       {/* Tab bar */}

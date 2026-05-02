@@ -1,8 +1,8 @@
-import { Menu, Sparkles } from "lucide-react";
+import { Menu } from "lucide-react";
 
 export default function MobileNav({ onMenuClick }) {
   return (
-    <div className="flex items-center justify-between border-b border-border px-4 py-3 lg:hidden">
+    <div className="flex items-center justify-between border-b border-border px-4 py-3 md:hidden">
       <button
         onClick={onMenuClick}
         className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"

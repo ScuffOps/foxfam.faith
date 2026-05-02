@@ -6,6 +6,8 @@ import Splash from "../pages/Splash";
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 
+const GUEST_ONBOARDING_KEY = "commhub_guest_onboarding_seen";
+
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -25,24 +27,36 @@ export default function Layout() {
         setShowOnboarding(true);
       }
     }).catch(() => {
+      if (localStorage.getItem(GUEST_ONBOARDING_KEY)) return;
       // Not logged in — show onboarding with sign-up step
       setIsGuest(true);
       setShowOnboarding(true);
     });
   }, []);
 
+  const handleGuestContinue = () => {
+    localStorage.setItem(GUEST_ONBOARDING_KEY, "1");
+    setShowOnboarding(false);
+  };
+
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {showSplash && <Splash onEnter={handleEnterSite} />}
-      {showOnboarding && <OnboardingModal onComplete={() => setShowOnboarding(false)} isGuest={isGuest} />}
+      {showOnboarding && (
+        <OnboardingModal
+          onComplete={() => setShowOnboarding(false)}
+          onGuestContinue={handleGuestContinue}
+          isGuest={isGuest}
+        />
+      )}
       {/* Desktop Sidebar */}
-      <div className="hidden lg:block">
+      <div className="hidden md:block">
         <Sidebar />
       </div>
 
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 z-50 md:hidden">
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setSidebarOpen(false)}

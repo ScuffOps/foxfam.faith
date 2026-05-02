@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { toast } from "@/components/ui/use-toast";
 import { Sparkles } from "lucide-react";
 import GlassCard from "../GlassCard";
 

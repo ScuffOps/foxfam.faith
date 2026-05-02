@@ -3,7 +3,6 @@ import { base44 } from "@/api/base44Client";
 import { Check, X, ShieldAlert, Handshake, Lightbulb, Cake, BarChart3, CalendarPlus, Map } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import GlassCard from "../components/GlassCard";
-import StatusBadge from "../components/StatusBadge";
 
 const TABS = [
   { key: "ideas", label: "Ideas & Feedback", icon: Lightbulb },

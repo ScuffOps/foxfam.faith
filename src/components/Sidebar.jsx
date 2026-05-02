@@ -61,7 +61,7 @@ export default function Sidebar({ onClose }) {
           </div>
         </div>
         {onClose && (
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground lg:hidden">
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground md:hidden">
             <X className="h-5 w-5" />
           </button>
         )}
