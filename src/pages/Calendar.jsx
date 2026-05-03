@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { format, addMonths, subMonths, addWeeks, subWeeks } from "date-fns";
-import { ChevronLeft, ChevronRight, Plus, List, Grid3X3, CalendarDays, Users } from "lucide-react";
+import { format, addMonths, subMonths } from "date-fns";
+import { ChevronLeft, ChevronRight, Plus, List, Grid3X3, Kanban, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MonthView from "../components/calendar/MonthView";
-import WeekView from "../components/calendar/WeekView";
+import BoardView from "../components/calendar/BoardView";
 import ListView from "../components/calendar/ListView";
 import EventFormDialog from "../components/calendar/EventFormDialog";
 
@@ -35,12 +35,8 @@ export default function Calendar() {
     ? events
     : events.filter((e) => e.category === filterCategory);
 
-  const handlePrev = () => {
-    setCurrentDate(view === "week" ? subWeeks(currentDate, 1) : subMonths(currentDate, 1));
-  };
-  const handleNext = () => {
-    setCurrentDate(view === "week" ? addWeeks(currentDate, 1) : addMonths(currentDate, 1));
-  };
+  const handlePrev = () => setCurrentDate(subMonths(currentDate, 1));
+  const handleNext = () => setCurrentDate(addMonths(currentDate, 1));
   const handleToday = () => setCurrentDate(new Date());
 
   const handleEventClick = (ev) => {
@@ -69,7 +65,7 @@ export default function Calendar() {
 
   const viewButtons = [
     { key: "month", icon: Grid3X3, label: "Month" },
-    { key: "week", icon: CalendarDays, label: "Week" },
+    { key: "board", icon: Kanban, label: "Board" },
     { key: "list", icon: List, label: "List" },
   ];
 
@@ -128,7 +124,7 @@ export default function Calendar() {
             <ChevronRight className="h-4 w-4" />
           </Button>
           <h2 className="ml-2 font-heading text-lg font-semibold">
-            {format(currentDate, view === "week" ? "'Week of' MMM d, yyyy" : "MMMM yyyy")}
+            {format(currentDate, "MMMM yyyy")}
           </h2>
         </div>
         <div className="flex items-center gap-2">
@@ -178,12 +174,8 @@ export default function Calendar() {
               onEventClick={handleEventClick}
             />
           )}
-          {view === "week" && (
-            <WeekView
-              currentDate={currentDate}
-              events={filteredEvents}
-              onEventClick={handleEventClick}
-            />
+          {view === "board" && (
+            <BoardView events={filteredEvents} onEventClick={handleEventClick} />
           )}
           {view === "list" && (
             <ListView events={filteredEvents} onEventClick={handleEventClick} />
