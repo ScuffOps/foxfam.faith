@@ -4,7 +4,7 @@ import GlassCard from "../GlassCard";
 
 const EREN_AGENT_ID = "70Z2rf5rjOarYmwgh1nY";
 const WIDGET_SCRIPT_ID = "elevenlabs-convai-widget";
-const WIDGET_SRC = "https://elevenlabs.io/convai-widget/index.js";
+const WIDGET_SRC = "https://unpkg.com/@elevenlabs/convai-widget-embed";
 
 export default function ErenAgent() {
   const [status, setStatus] = useState("loading");
@@ -49,7 +49,18 @@ export default function ErenAgent() {
             Eren could not load right now. Try refreshing in a moment.
           </p>
         ) : status === "ready" ? (
-          <elevenlabs-convai agent-id={EREN_AGENT_ID}></elevenlabs-convai>
+          <elevenlabs-convai
+            agent-id={EREN_AGENT_ID}
+            variant="expanded"
+            avatar-orb-color-1="#7A4DE6"
+            avatar-orb-color-2="#00B8FF"
+            action-text="Need a shrine guide?"
+            start-call-text="Talk to Eren"
+            end-call-text="End call"
+            expand-text="Open Eren"
+            listening-text="Eren is listening..."
+            speaking-text="Eren is speaking..."
+          ></elevenlabs-convai>
         ) : (
           <p className="text-xs text-muted-foreground">summoning Eren...</p>
         )}
