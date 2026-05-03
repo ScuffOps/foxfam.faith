@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ImagePlus, Loader2 } from "lucide-react";
+import { ImagePlus, Loader2, BookOpen, X } from "lucide-react";
 import { awardPoints } from "@/hooks/usePoints";
 
 export default function BlessingForm({ open, onOpenChange, user, onCreated }) {
@@ -13,6 +13,16 @@ export default function BlessingForm({ open, onOpenChange, user, onCreated }) {
   const [mediaFile, setMediaFile] = useState(null);
   const [mediaPreview, setMediaPreview] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [codexEntries, setCodexEntries] = useState([]);
+  const [selectedCodex, setSelectedCodex] = useState(null);
+  const [codexSearch, setCodexSearch] = useState("");
+  const [showCodexPicker, setShowCodexPicker] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      base44.entities.Codex.list("-created_date", 100).then(setCodexEntries).catch(() => {});
+    }
+  }, [open]);
 
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -38,12 +48,17 @@ export default function BlessingForm({ open, onOpenChange, user, onCreated }) {
       upvotes: 0,
       upvoted_by: [],
       comment_count: 0,
+      codex_entry_id: selectedCodex?.id || "",
+      codex_entry_title: selectedCodex?.title || "",
+      codex_entry_emoji: selectedCodex?.cover_emoji || "",
     });
     if (user) awardPoints(user, "post_blessing");
     setSaving(false);
     setForm({ title: "", content: "", link_url: "", link_preview_title: "" });
     setMediaFile(null);
     setMediaPreview(null);
+    setSelectedCodex(null);
+    setCodexSearch("");
     onCreated?.();
     onOpenChange(false);
   };
@@ -90,6 +105,61 @@ export default function BlessingForm({ open, onOpenChange, user, onCreated }) {
               <Input value={form.link_preview_title} onChange={(e) => update("link_preview_title", e.target.value)} placeholder="e.g. Watch on Twitch" className="mt-1.5 bg-secondary" />
             </div>
           )}
+
+          {/* Codex Link */}
+          <div>
+            <Label>Link to Codex Entry (optional)</Label>
+            {selectedCodex ? (
+              <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+                <span className="text-base">{selectedCodex.cover_emoji || "📖"}</span>
+                <span className="flex-1 text-sm font-medium truncate">{selectedCodex.title}</span>
+                <button type="button" onClick={() => setSelectedCodex(null)} className="text-muted-foreground hover:text-foreground">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="mt-1.5">
+                <button
+                  type="button"
+                  onClick={() => setShowCodexPicker((v) => !v)}
+                  className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm text-muted-foreground hover:text-foreground w-full transition-colors"
+                >
+                  <BookOpen className="h-3.5 w-3.5 shrink-0" />
+                  Link a Codex entry...
+                </button>
+                {showCodexPicker && (
+                  <div className="mt-2 rounded-lg border border-border bg-card shadow-lg overflow-hidden">
+                    <input
+                      autoFocus
+                      value={codexSearch}
+                      onChange={(e) => setCodexSearch(e.target.value)}
+                      placeholder="Search entries..."
+                      className="w-full border-b border-border bg-secondary/50 px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none"
+                    />
+                    <div className="max-h-44 overflow-y-auto">
+                      {codexEntries
+                        .filter((e) => !codexSearch || e.title.toLowerCase().includes(codexSearch.toLowerCase()))
+                        .map((e) => (
+                          <button
+                            key={e.id}
+                            type="button"
+                            onClick={() => { setSelectedCodex(e); setShowCodexPicker(false); setCodexSearch(""); }}
+                            className="flex items-center gap-2.5 w-full px-3 py-2 text-sm hover:bg-secondary/60 transition-colors text-left"
+                          >
+                            <span>{e.cover_emoji || "📖"}</span>
+                            <span className="truncate">{e.title}</span>
+                            <span className="ml-auto text-[10px] text-muted-foreground capitalize shrink-0">{e.category?.replace("_", " ")}</span>
+                          </button>
+                        ))}
+                      {codexEntries.filter((e) => !codexSearch || e.title.toLowerCase().includes(codexSearch.toLowerCase())).length === 0 && (
+                        <p className="px-3 py-4 text-xs text-center text-muted-foreground">No entries found</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

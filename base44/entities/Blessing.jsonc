@@ -20,6 +20,18 @@
     "link_preview_title": {
       "type": "string"
     },
+    "codex_entry_id": {
+      "type": "string",
+      "description": "Optional linked Codex entry ID"
+    },
+    "codex_entry_title": {
+      "type": "string",
+      "description": "Cached title of the linked Codex entry"
+    },
+    "codex_entry_emoji": {
+      "type": "string",
+      "description": "Cached emoji of the linked Codex entry"
+    },
     "upvotes": {
       "type": "number",
       "default": 0

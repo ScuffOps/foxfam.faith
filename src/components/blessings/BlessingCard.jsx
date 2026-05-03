@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { ArrowUp, MessageCircle, ExternalLink, Trash2, ChevronDown, ChevronUp, Send } from "lucide-react";
+import { ArrowUp, MessageCircle, ExternalLink, Trash2, ChevronDown, ChevronUp, Send, BookOpen } from "lucide-react";
+import { Link } from "react-router-dom";
 import { awardPoints } from "@/hooks/usePoints";
 
 export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
@@ -77,6 +78,18 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
         <h3 className="font-heading font-semibold text-base">{blessing.title}</h3>
         {blessing.content && (
           <p className="mt-1.5 text-sm text-muted-foreground whitespace-pre-line leading-relaxed">{blessing.content}</p>
+        )}
+
+        {/* Codex link */}
+        {blessing.codex_entry_id && (
+          <Link
+            to="/codex"
+            className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/8 px-2.5 py-1 text-xs text-primary hover:bg-primary/15 transition-colors"
+          >
+            <BookOpen className="h-3 w-3 shrink-0" />
+            <span>{blessing.codex_entry_emoji || "📖"}</span>
+            <span className="truncate max-w-[160px]">{blessing.codex_entry_title}</span>
+          </Link>
         )}
 
         {/* Link */}
