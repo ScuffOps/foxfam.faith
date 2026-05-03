@@ -6,7 +6,7 @@ The Foxfam dashboard embeds the ElevenLabs Conversational AI widget for Eren.
 
 - Agent name: Eren
 - Agent ID: `70Z2rf5rjOarYmwgh1nY`
-- Public widget source: `https://unpkg.com/@elevenlabs/convai-widget-embed`
+- Public widget source: `https://elevenlabs.io/convai-widget/index.js`
 
 This path is safe for the portal because it does not expose an ElevenLabs API key.
 
