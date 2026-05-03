@@ -6,6 +6,7 @@ import Leaderboard from "../components/dashboard/Leaderboard";
 import ActivityChart from "../components/dashboard/ActivityChart";
 import BoopTheFox from "../components/dashboard/BoopTheFox";
 import VeriThought from "../components/dashboard/VeriThought";
+import ErenAgent from "../components/dashboard/ErenAgent";
 import HiddenEasterEgg from "../components/dashboard/HiddenEasterEgg";
 import ProgressionLoop from "../components/ProgressionLoop";
 
@@ -34,6 +35,7 @@ export default function Dashboard() {
         <TopIdeas />
         <Leaderboard />
         <VeriThought />
+        <ErenAgent />
         {/* Boop card */}
         <div className="foxcard rounded-xl p-5 flex flex-col items-center justify-center gap-1 relative">
           <HiddenEasterEgg index={2} />

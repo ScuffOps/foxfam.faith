@@ -98,30 +98,21 @@ export default function Splash({ onEnter }) {
       })}
 
       {/* Lantern — focal point, large and centered */}
-      {(() => {
-        const depth = 0.055;
-        const tx = mouse.x * depth;
-        const ty = mouse.y * depth;
-        return (
-          <img
-            src="https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/a5db5756d_scenelayer-lantern.png"
-            alt=""
-            className="absolute pointer-events-none"
-            style={{
-              bottom: "14%",
-              left: "50%",
-              width: "clamp(320px, 35vw, 600px)",
-              height: "auto",
-              transform: `translateX(-50%) translate(${tx}px, ${ty}px)`,
-              transition: "transform 0.15s ease-out",
-              willChange: "transform",
-              zIndex: 7,
-              imageRendering: "auto",
-              filter: "drop-shadow(0 0 40px rgba(80,190,255,0.7)) drop-shadow(0 0 80px rgba(40,130,255,0.4))",
-            }}
-          />
-        );
-      })()}
+      <img
+        src="/assets/lantern.png"
+        alt=""
+        className="absolute pointer-events-none"
+        style={{
+          bottom: "clamp(92px, 11vh, 130px)",
+          left: "50%",
+          width: "clamp(96px, 9vw, 150px)",
+          height: "auto",
+          transform: "translateX(-50%)",
+          zIndex: 7,
+          imageRendering: "auto",
+          filter: "drop-shadow(0 0 24px rgba(80,190,255,0.75)) drop-shadow(0 0 54px rgba(40,130,255,0.42))",
+        }}
+      />
 
       {/* Dark gradient overlay */}
       <div className="absolute inset-0 pointer-events-none" style={{
@@ -131,13 +122,13 @@ export default function Splash({ onEnter }) {
 
       {/* Lantern glow — isolated on its own layer, no blur on every frame */}
       <div className="absolute pointer-events-none" style={{
-        bottom: "20%",
+        bottom: "clamp(72px, 8vh, 104px)",
         left: "50%",
-        width: 480,
-        height: 480,
+        width: "clamp(190px, 18vw, 300px)",
+        height: "clamp(190px, 18vw, 300px)",
         background: "radial-gradient(circle, rgba(80,190,255,0.55) 0%, rgba(40,130,255,0.25) 40%, transparent 70%)",
         borderRadius: "50%",
-        filter: "blur(22px)",
+        filter: "blur(18px)",
         animation: "pulseGlow 4s ease-in-out infinite",
         transform: "translateX(-50%)",
         zIndex: 9,
