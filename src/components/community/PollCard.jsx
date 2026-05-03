@@ -2,11 +2,13 @@ import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { BarChart3, Check, X, CalendarPlus } from "lucide-react";
 import { awardPoints } from "@/hooks/usePoints";
+import { useLevelUpToast } from "@/hooks/useLevelUpToast";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "../StatusBadge";
 import GlassCard from "../GlassCard";
 
 export default function PollCard({ post, isAdmin, userEmail, onRefresh }) {
+  const checkLevelUp = useLevelUpToast();
   const [voting, setVoting] = useState(false);
   const options = post.poll_options || [];
   const totalVotes = options.reduce((sum, o) => sum + (o.votes || 0), 0);
@@ -22,7 +24,7 @@ export default function PollCard({ post, isAdmin, userEmail, onRefresh }) {
       return o;
     });
     await base44.entities.CommunityPost.update(post.id, { poll_options: updated });
-    base44.auth.me().then((u) => awardPoints(u, "vote_poll")).catch(() => {});
+    base44.auth.me().then((u) => awardPoints(u, "vote_poll").then(checkLevelUp)).catch(() => {});
     setVoting(false);
     onRefresh();
   };

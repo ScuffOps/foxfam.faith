@@ -3,8 +3,10 @@ import { base44 } from "@/api/base44Client";
 import { ArrowUp, MessageCircle, ExternalLink, Trash2, ChevronDown, ChevronUp, Send, BookOpen } from "lucide-react";
 import { Link } from "react-router-dom";
 import { awardPoints } from "@/hooks/usePoints";
+import { useLevelUpToast } from "@/hooks/useLevelUpToast";
 
 export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
+  const checkLevelUp = useLevelUpToast();
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState([]);
   const [loadingComments, setLoadingComments] = useState(false);
@@ -20,7 +22,7 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
       upvotes: hasUpvoted ? Math.max((blessing.upvotes || 0) - 1, 0) : (blessing.upvotes || 0) + 1,
       upvoted_by: hasUpvoted ? upvotedBy.filter((e) => e !== user.email) : [...upvotedBy, user.email],
     });
-    if (!hasUpvoted) awardPoints(user, "upvote_blessing");
+    if (!hasUpvoted) awardPoints(user, "upvote_blessing").then(checkLevelUp);
     onRefresh();
   };
 
@@ -48,7 +50,7 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
     await base44.entities.Blessing.update(blessing.id, {
       comment_count: (blessing.comment_count || 0) + 1,
     });
-    awardPoints(user, "post_blessing_comment");
+    awardPoints(user, "post_blessing_comment").then(checkLevelUp);
     setCommentText("");
     setSubmitting(false);
     loadComments();

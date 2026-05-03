@@ -7,8 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ImagePlus, Loader2, BookOpen, X } from "lucide-react";
 import { awardPoints } from "@/hooks/usePoints";
+import { useLevelUpToast } from "@/hooks/useLevelUpToast";
 
 export default function BlessingForm({ open, onOpenChange, user, onCreated }) {
+  const checkLevelUp = useLevelUpToast();
   const [form, setForm] = useState({ title: "", content: "", link_url: "", link_preview_title: "" });
   const [mediaFile, setMediaFile] = useState(null);
   const [mediaPreview, setMediaPreview] = useState(null);
@@ -52,7 +54,7 @@ export default function BlessingForm({ open, onOpenChange, user, onCreated }) {
       codex_entry_title: selectedCodex?.title || "",
       codex_entry_emoji: selectedCodex?.cover_emoji || "",
     });
-    if (user) awardPoints(user, "post_blessing");
+    if (user) awardPoints(user, "post_blessing").then(checkLevelUp);
     setSaving(false);
     setForm({ title: "", content: "", link_url: "", link_preview_title: "" });
     setMediaFile(null);

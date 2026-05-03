@@ -9,8 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, X } from "lucide-react";
 import { awardPoints } from "@/hooks/usePoints";
+import { useLevelUpToast } from "@/hooks/useLevelUpToast";
 
 export default function PostForm({ open, onOpenChange, onCreated, isMod = false }) {
+  const checkLevelUp = useLevelUpToast();
   const { profile } = useGuestProfile();
   const [form, setForm] = useState({ title: "", description: "", type: "idea" });
   const [pollOptions, setPollOptions] = useState(["", ""]);
@@ -49,7 +51,7 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
     }
 
     await base44.entities.CommunityPost.create(data);
-    try { const u = await base44.auth.me(); awardPoints(u, "submit_post"); } catch {}
+    try { const u = await base44.auth.me(); awardPoints(u, "submit_post").then(checkLevelUp); } catch {}
     setSaving(false);
     setForm({ title: "", description: "", type: "idea" });
     setPollOptions(["", ""]);

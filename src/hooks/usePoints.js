@@ -98,11 +98,12 @@ export function getRankProgress(points) {
 /**
  * Award points to the current user for a specific action.
  * Creates a UserLevel record if one doesn't exist yet.
+ * Returns { leveledUp: boolean, newRank: RankObject } so callers can fire a toast.
  */
 export async function awardPoints(user, action) {
-  if (!user?.email) return;
+  if (!user?.email) return { leveledUp: false, newRank: null };
   const pts = POINT_VALUES[action];
-  if (!pts) return;
+  if (!pts) return { leveledUp: false, newRank: null };
 
   const field = {
     post_blessing_comment: "points_from_comments",
@@ -115,10 +116,12 @@ export async function awardPoints(user, action) {
 
   const existing = await base44.entities.UserLevel.filter({ user_email: user.email });
 
+  let oldPoints = 0;
   if (existing.length > 0) {
     const record = existing[0];
+    oldPoints = record.points || 0;
     await base44.entities.UserLevel.update(record.id, {
-      points: (record.points || 0) + pts,
+      points: oldPoints + pts,
       [field]: (record[field] || 0) + pts,
       display_name: user.display_name || user.full_name || record.display_name,
       avatar_url: user.avatar_url || record.avatar_url,
@@ -132,4 +135,11 @@ export async function awardPoints(user, action) {
       [field]: pts,
     });
   }
+
+  const newPoints = oldPoints + pts;
+  const oldRank = getRank(oldPoints);
+  const newRank = getRank(newPoints);
+  const leveledUp = newRank.name !== oldRank.name;
+
+  return { leveledUp, newRank: leveledUp ? newRank : null };
 }
