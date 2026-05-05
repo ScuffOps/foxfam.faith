@@ -47,7 +47,7 @@ export default function MonthView({ currentDate, events, onDateClick, onEventCli
           return (
             <div
               key={i}
-              onClick={() => onDateClick(day)}
+              onClick={() => onDateClick(day, dayEvents)}
               className={`group min-h-[80px] cursor-pointer border-b border-r border-border/40 p-1.5 transition-all duration-200 hover:bg-white/[0.04] hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] md:min-h-[100px] md:p-2 ${
                 !inMonth ? "opacity-25" : ""
               }`}

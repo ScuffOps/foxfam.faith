@@ -38,6 +38,11 @@
     "points_from_comments": {
       "type": "number",
       "default": 0
+    },
+    "points_from_boops": {
+      "type": "number",
+      "default": 0,
+      "description": "Points earned from odd-number Boop the Fox rewards"
     }
   },
   "required": [

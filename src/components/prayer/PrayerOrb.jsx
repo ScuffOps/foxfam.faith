@@ -1,4 +1,5 @@
 import { useState } from "react";
+import UserMarkdown from "../UserMarkdown";
 
 // ── Categories & tones ──────────────────────────────────────────
 export const CATEGORIES = {
@@ -465,9 +466,9 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin }) {
               )}
 
               {/* Message */}
-              <p className="text-sm leading-relaxed text-center whitespace-pre-line mb-6" style={{ color: isRead ? "rgba(160,165,190,0.55)" : "rgba(215,220,255,0.9)" }}>
+              <UserMarkdown className="mb-6 text-center text-sm leading-relaxed" style={{ color: isRead ? "rgba(160,165,190,0.55)" : "rgba(215,220,255,0.9)" }}>
                 {prayer.message}
-              </p>
+              </UserMarkdown>
 
               {/* Footer */}
               <div className="flex items-center justify-between gap-2 flex-wrap">

@@ -26,7 +26,7 @@ export default function Dashboard() {
       <QuickStats />
 
       <div className="mt-6">
-        <ProgressionLoop />
+        <ProgressionLoop collapsible positionable />
       </div>
 
       {/* Irregular bento grid — 4-col base on large screens */}

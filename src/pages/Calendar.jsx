@@ -7,6 +7,7 @@ import MonthView from "../components/calendar/MonthView";
 import BoardView from "../components/calendar/BoardView";
 import ListView from "../components/calendar/ListView";
 import EventFormDialog from "../components/calendar/EventFormDialog";
+import EventDetailsPanel from "../components/calendar/EventDetailsPanel";
 
 export default function Calendar() {
   const [events, setEvents] = useState([]);
@@ -15,7 +16,9 @@ export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState("month");
   const [showForm, setShowForm] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState(null);
   const [filterCategory, setFilterCategory] = useState("all");
   const [showCollabBooking, setShowCollabBooking] = useState(false);
 
@@ -40,13 +43,23 @@ export default function Calendar() {
   const handleToday = () => setCurrentDate(new Date());
 
   const handleEventClick = (ev) => {
-    if (!isMod) return;
-    setEditingEvent(ev);
-    setShowForm(true);
+    setSelectedEvent(ev);
+    setShowDetails(true);
   };
-  const handleDateClick = (day) => {
+  const handleDateClick = (day, dayEvents = []) => {
+    if (dayEvents.length > 0) {
+      setSelectedEvent(dayEvents[0]);
+      setShowDetails(true);
+      return;
+    }
     if (!isMod) return;
     setEditingEvent(null);
+    setShowForm(true);
+  };
+  const handleEditSelected = () => {
+    if (!selectedEvent) return;
+    setEditingEvent(selectedEvent);
+    setShowDetails(false);
     setShowForm(true);
   };
   const handleSaved = () => {
@@ -192,6 +205,13 @@ export default function Calendar() {
           onSaved={handleSaved}
         />
       )}
+      <EventDetailsPanel
+        event={selectedEvent}
+        open={showDetails}
+        onOpenChange={(v) => { setShowDetails(v); if (!v) setSelectedEvent(null); }}
+        canEdit={isMod}
+        onEdit={handleEditSelected}
+      />
     </div>
   );
 }

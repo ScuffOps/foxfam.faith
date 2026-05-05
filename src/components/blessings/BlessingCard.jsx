@@ -4,6 +4,7 @@ import { ArrowUp, MessageCircle, ExternalLink, Trash2, ChevronDown, ChevronUp, S
 import { Link } from "react-router-dom";
 import { awardPoints } from "@/hooks/usePoints";
 import { useLevelUpToast } from "@/hooks/useLevelUpToast";
+import UserMarkdown from "../UserMarkdown";
 
 export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
   const checkLevelUp = useLevelUpToast();
@@ -79,7 +80,9 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
       <div className="p-4">
         <h3 className="font-heading font-semibold text-base">{blessing.title}</h3>
         {blessing.content && (
-          <p className="mt-1.5 text-sm text-muted-foreground whitespace-pre-line leading-relaxed">{blessing.content}</p>
+          <UserMarkdown className="mt-1.5 text-sm text-muted-foreground leading-relaxed">
+            {blessing.content}
+          </UserMarkdown>
         )}
 
         {/* Codex link */}
@@ -157,7 +160,9 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
                   </div>
                   <div className="flex-1 rounded-lg bg-secondary/50 px-3 py-2">
                     <span className="text-xs font-semibold text-foreground">{c.author_name || "Anonymous"} </span>
-                    <span className="text-xs text-muted-foreground">{c.message}</span>
+                    <UserMarkdown className="inline text-xs text-muted-foreground" inline>
+                      {c.message}
+                    </UserMarkdown>
                   </div>
                 </div>
               ))

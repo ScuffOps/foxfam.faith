@@ -83,7 +83,8 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
           </div>
           <div>
             <Label>Description</Label>
-            <Textarea value={form.description} onChange={(e) => update("description", e.target.value)} placeholder="Add some details..." className="mt-1.5 bg-secondary" rows={3} />
+            <Textarea value={form.description} onChange={(e) => update("description", e.target.value)} placeholder="Markdown supported: **bold**, _italic_, links, lists..." className="mt-1.5 bg-secondary" rows={3} />
+            <p className="mt-1 text-[10px] text-muted-foreground">Markdown supported for descriptions.</p>
           </div>
           {form.type === "poll" && (
             <div>
@@ -98,7 +99,7 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
                         next[i] = e.target.value;
                         setPollOptions(next);
                       }}
-                      placeholder={`Option ${i + 1}`}
+                      placeholder={`Option ${i + 1} — Markdown ok`}
                       className="bg-secondary"
                     />
                     {pollOptions.length > 2 && (
@@ -111,6 +112,7 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
                 <Button variant="outline" size="sm" className="gap-1" onClick={() => setPollOptions([...pollOptions, ""])}>
                   <Plus className="h-3 w-3" /> Add Option
                 </Button>
+                <p className="text-[10px] text-muted-foreground">Poll options support light Markdown too.</p>
               </div>
             </div>
           )}

@@ -6,6 +6,7 @@ import { useLevelUpToast } from "@/hooks/useLevelUpToast";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "../StatusBadge";
 import GlassCard from "../GlassCard";
+import UserMarkdown from "../UserMarkdown";
 
 const typeIcons = {
   idea: Lightbulb,
@@ -92,7 +93,9 @@ export default function IdeaCard({ post, isAdmin, userEmail, onRefresh }) {
           </div>
         </div>
         {post.description && (
-          <p className="mt-1.5 text-sm text-muted-foreground">{post.description}</p>
+          <UserMarkdown className="mt-1.5 text-sm text-muted-foreground">
+            {post.description}
+          </UserMarkdown>
         )}
         <div className="mt-2 flex items-center gap-3">
           <span className="text-xs text-muted-foreground">by {post.submitted_by_name || "Anonymous"}</span>

@@ -78,7 +78,8 @@ export default function BlessingForm({ open, onOpenChange, user, onCreated }) {
           </div>
           <div>
             <Label>Message</Label>
-            <Textarea value={form.content} onChange={(e) => update("content", e.target.value)} placeholder="Share something uplifting with the community..." className="mt-1.5 bg-secondary resize-none" rows={3} />
+            <Textarea value={form.content} onChange={(e) => update("content", e.target.value)} placeholder="Markdown supported: **bold**, _italic_, links, lists..." className="mt-1.5 bg-secondary resize-none" rows={3} />
+            <p className="mt-1 text-[10px] text-muted-foreground">Markdown supported for blessing messages.</p>
           </div>
 
           {/* Media Upload */}

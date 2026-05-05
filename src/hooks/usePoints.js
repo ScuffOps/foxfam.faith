@@ -114,6 +114,14 @@ export async function awardPoints(user, action) {
     post_blessing: "points_from_blessings",
   }[action];
 
+  return awardPointAmount(user, pts, field);
+}
+
+export async function awardPointAmount(user, points, field = "points_from_boops") {
+  if (!user?.email) return;
+  const pts = Math.max(0, Number(points) || 0);
+  if (!pts) return;
+
   const existing = await base44.entities.UserLevel.filter({ user_email: user.email });
 
   let oldPoints = 0;

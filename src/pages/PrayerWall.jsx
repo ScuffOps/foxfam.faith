@@ -181,12 +181,15 @@ export default function PrayerWall() {
             <Textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Write your prayer or encouraging words here..."
+              placeholder="Write your prayer or encouraging words here... Markdown supported."
               maxLength={500}
               className="resize-none min-h-[90px] text-sm"
               style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(80,140,255,0.15)", color: "rgba(220,230,255,0.9)" }}
             />
-            <div className="text-right text-[10px] text-cyan-900/50">{message.length}/500</div>
+            <div className="flex justify-between text-[10px] text-cyan-900/50">
+              <span>Markdown supported.</span>
+              <span>{message.length}/500</span>
+            </div>
 
             {/* Category picker */}
             <div>
