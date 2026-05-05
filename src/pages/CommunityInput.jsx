@@ -1,15 +1,18 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Plus, Search, ArrowUp, TrendingUp, Clock, BarChart3 } from "lucide-react";
+import { Plus, Search, ArrowUp, TrendingUp, Clock, BarChart3, Mailbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PostForm from "../components/community/PostForm";
 import IdeaCard from "../components/community/IdeaCard";
 import PollCard from "../components/community/PollCard";
+import SuggestionForm from "../components/community/SuggestionForm";
+import SuggestionCard from "../components/community/SuggestionCard";
 import ProgressionLoop from "../components/ProgressionLoop";
 
 const TABS = [
   { key: "feedback", label: "Feedback & Ideas" },
   { key: "polls", label: "Polls" },
+  { key: "suggestions", label: "Suggestion Box" },
 ];
 
 const SORT_OPTIONS = [
@@ -20,9 +23,11 @@ const SORT_OPTIONS = [
 
 export default function CommunityInput() {
   const [posts, setPosts] = useState([]);
+  const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [showSuggestionForm, setShowSuggestionForm] = useState(false);
   const [activeTab, setActiveTab] = useState("feedback");
   const [sort, setSort] = useState("top");
   const [search, setSearch] = useState("");
@@ -31,8 +36,12 @@ export default function CommunityInput() {
   const loadData = async () => {
     setLoading(true);
     try { const me = await base44.auth.me(); setUser(me); } catch {}
-    const all = await base44.entities.CommunityPost.list("-created_date", 200);
+    const [all, allSuggestions] = await Promise.all([
+      base44.entities.CommunityPost.list("-created_date", 200),
+      base44.entities.Suggestion.list("-created_date", 200),
+    ]);
     setPosts(all);
+    setSuggestions(allSuggestions);
     setLoading(false);
   };
 
@@ -74,9 +83,15 @@ export default function CommunityInput() {
           <h1 className="font-heading text-2xl font-bold md:text-3xl">Community</h1>
           <p className="mt-1 text-sm text-muted-foreground">Share ideas, feedback, and vote on what matters most</p>
         </div>
-        <Button onClick={() => setShowForm(true)} className="gap-2">
-          <Plus className="h-4 w-4" /> New Post
-        </Button>
+        {activeTab === "suggestions" ? (
+          <Button onClick={() => setShowSuggestionForm(true)} className="gap-2">
+            <Mailbox className="h-4 w-4" /> New Suggestion
+          </Button>
+        ) : (
+          <Button onClick={() => setShowForm(true)} className="gap-2">
+            <Plus className="h-4 w-4" /> New Post
+          </Button>
+        )}
       </div>
 
       <div className="mb-5">
@@ -100,8 +115,33 @@ export default function CommunityInput() {
         ))}
       </div>
 
-      {/* Toolbar */}
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {/* Suggestion Box tab content */}
+      {activeTab === "suggestions" && (
+        <div>
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
+            </div>
+          ) : suggestions.length === 0 ? (
+            <div className="rounded-xl border border-border bg-card p-12 text-center">
+              <Mailbox className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">No suggestions yet — be the first!</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {suggestions
+                .filter((s) => !search || s.title.toLowerCase().includes(search.toLowerCase()) || (s.description || "").toLowerCase().includes(search.toLowerCase()))
+                .map((s) => (
+                  <SuggestionCard key={s.id} suggestion={s} isAdmin={isAdmin} onRefresh={loadData} />
+                ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Toolbar — only for non-suggestion tabs */}
+      {activeTab !== "suggestions" && <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+
         {/* Sort */}
         <div className="flex items-center gap-1 rounded-lg border border-border bg-secondary/50 p-0.5">
           {SORT_OPTIONS.map(({ key, label, icon: Icon }) => (
@@ -148,10 +188,10 @@ export default function CommunityInput() {
             ))}
           </div>
         </div>
-      </div>
+      </div>}
 
-      {/* Posts */}
-      {loading ? (
+      {/* Posts — only for non-suggestion tabs */}
+      {activeTab !== "suggestions" && (loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
         </div>
@@ -170,9 +210,10 @@ export default function CommunityInput() {
             )
           )}
         </div>
-      )}
+      ))}
 
       <PostForm open={showForm} onOpenChange={setShowForm} onCreated={loadData} isMod={isAdmin} />
+      <SuggestionForm open={showSuggestionForm} onOpenChange={setShowSuggestionForm} onCreated={loadData} />
     </div>
   );
 }
