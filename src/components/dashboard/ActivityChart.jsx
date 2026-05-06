@@ -62,7 +62,7 @@ export default function ActivityChart() {
     <GlassCard className="col-span-full">
       <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15">
+          <div className="dashboard-icon-well flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
             <TrendingUp className="h-4 w-4 text-primary" />
           </div>
           <div>
@@ -70,14 +70,14 @@ export default function ActivityChart() {
             <p className="text-xs text-muted-foreground">Last 30 days</p>
           </div>
         </div>
-        <div className="flex gap-4 text-right">
-          <div>
+        <div className="flex gap-2 text-right sm:gap-3">
+          <div className="rounded-lg border border-border/60 bg-secondary/35 px-3 py-1.5">
             <p className="font-heading text-lg font-bold text-primary">{totalUpvotes}</p>
-            <p className="text-xs text-muted-foreground">Total Upvotes</p>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total Upvotes</p>
           </div>
-          <div>
+          <div className="rounded-lg border border-border/60 bg-secondary/35 px-3 py-1.5">
             <p className="font-heading text-lg font-bold text-accent">{totalContribs}</p>
-            <p className="text-xs text-muted-foreground">Contributions</p>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Contributions</p>
           </div>
         </div>
       </div>

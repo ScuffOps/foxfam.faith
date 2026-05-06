@@ -11,14 +11,24 @@ const COLLAPSED_KEY = "commhub_favor_collapsed";
 const LEGACY_COLLAPSED_KEY = "commhub_faith_progress_collapsed";
 const POSITION_KEY = "commhub_faith_progress_position";
 
+function sanitizeStoredPosition(position) {
+  if (typeof window === "undefined") return { x: 0, y: 0 };
+
+  const x = Number(position.x);
+  const y = Number(position.y);
+  const maxStoredOffset = Math.max(window.innerWidth, window.innerHeight, 1);
+
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return { x: 0, y: 0 };
+  if (Math.abs(x) > maxStoredOffset || Math.abs(y) > maxStoredOffset) return { x: 0, y: 0 };
+
+  return { x, y };
+}
+
 function readStoredPosition() {
   if (typeof window === "undefined") return { x: 0, y: 0 };
   try {
     const parsed = JSON.parse(localStorage.getItem(POSITION_KEY) || "{}");
-    return {
-      x: Number(parsed.x) || 0,
-      y: Number(parsed.y) || 0,
-    };
+    return sanitizeStoredPosition(parsed);
   } catch {
     return { x: 0, y: 0 };
   }

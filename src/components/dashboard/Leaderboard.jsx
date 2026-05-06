@@ -22,7 +22,7 @@ export default function Leaderboard() {
   return (
     <GlassCard>
       <div className="mb-4 flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-chart-4/15">
+        <div className="dashboard-icon-well flex h-8 w-8 items-center justify-center rounded-lg bg-chart-4/15 text-chart-4">
           <Trophy className="h-4 w-4 text-chart-4" />
         </div>
         <h3 className="font-heading text-sm font-semibold">Community Leaderboard</h3>
@@ -39,7 +39,7 @@ export default function Leaderboard() {
           {leaders.map((l, i) => {
             const rank = getRank(l.points || 0);
             return (
-              <div key={l.id} className="flex items-center gap-3 rounded-lg px-3 py-2 bg-secondary/40">
+              <div key={l.id} className="dashboard-list-row flex items-center gap-3 rounded-lg px-3 py-2">
                 <span className="w-5 text-center text-sm">{MEDALS[i] || `#${i + 1}`}</span>
 
                 {/* Avatar */}

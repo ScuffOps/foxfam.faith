@@ -31,7 +31,7 @@ export default function UpcomingEvents() {
   return (
     <GlassCard className="h-full">
       <div className="mb-4 flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/15">
+        <div className="dashboard-icon-well flex h-8 w-8 items-center justify-center rounded-lg bg-accent/15 text-accent">
           <CalendarDays className="h-4 w-4 text-accent" />
         </div>
         <h3 className="font-heading text-sm font-semibold">Upcoming Events</h3>
@@ -41,11 +41,11 @@ export default function UpcomingEvents() {
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-primary" />
         </div>
       ) : events.length === 0 ? (
-        <p className="py-4 text-center text-sm text-muted-foreground">No upcoming events</p>
+        <p className="dashboard-empty rounded-lg py-5 text-center text-sm text-muted-foreground">No upcoming events</p>
       ) : (
         <div className="space-y-2.5">
           {events.map((e) => (
-            <div key={e.id} className="flex items-start gap-3 rounded-lg bg-secondary/50 px-3 py-2.5">
+            <div key={e.id} className="dashboard-list-row flex items-start gap-3 rounded-lg px-3 py-2.5">
               <div className="mt-0.5 flex h-9 w-9 flex-shrink-0 flex-col items-center justify-center rounded-md bg-primary/10 text-primary">
                 <span className="text-[10px] font-medium uppercase leading-none">
                   {format(new Date(e.start_date), "MMM")}

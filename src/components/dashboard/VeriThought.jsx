@@ -54,7 +54,7 @@ export default function VeriThought() {
     <GlassCard className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-chart-5/15">
+          <div className="dashboard-icon-well flex h-8 w-8 items-center justify-center rounded-lg bg-chart-5/15 text-chart-5">
             <Sparkles className="h-4 w-4 text-chart-5" />
           </div>
           <h3 className="font-heading text-sm font-semibold">Veri Thoughts</h3>
@@ -62,7 +62,7 @@ export default function VeriThought() {
         <button
           onClick={fetchThought}
           disabled={loading}
-          className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:bg-primary/15 hover:text-primary disabled:opacity-40"
+          className="dashboard-action-button rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:bg-primary/15 hover:text-primary disabled:opacity-40"
         >
           {loading ? "thinking..." : thought ? "another one ✦" : "ask veri ✦"}
         </button>
@@ -81,7 +81,7 @@ export default function VeriThought() {
           </p>
         </div>
       ) : (
-        <div className="flex items-center justify-center rounded-lg border border-dashed border-border py-6">
+        <div className="dashboard-empty flex items-center justify-center rounded-lg py-6">
           <p className="text-xs text-muted-foreground">click "ask veri" for a random thought 🦊</p>
         </div>
       )}

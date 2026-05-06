@@ -34,7 +34,7 @@ export default function ErenAgent() {
   return (
     <GlassCard className="flex min-h-[220px] flex-col gap-4">
       <div className="flex items-center gap-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15">
+        <div className="dashboard-icon-well flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
           <Mic2 className="h-4 w-4 text-primary" />
         </div>
         <div>
@@ -43,7 +43,7 @@ export default function ErenAgent() {
         </div>
       </div>
 
-      <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border/80 p-4">
+      <div className="dashboard-empty flex flex-1 items-center justify-center rounded-lg p-4">
         {status === "error" ? (
           <p className="text-center text-xs text-muted-foreground">
             Eren could not load right now. Try refreshing in a moment.

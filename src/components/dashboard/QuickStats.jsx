@@ -40,12 +40,14 @@ export default function QuickStats() {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {items.map((item) => (
-        <GlassCard key={item.label} className="text-center">
-          <item.icon className={`mx-auto mb-2 h-5 w-5 ${item.color}`} />
+        <GlassCard key={item.label} className="dashboard-stat-card">
+          <div className={`dashboard-icon-well mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/60 ${item.color}`}>
+            <item.icon className="h-5 w-5" />
+          </div>
           {loading ? (
             <div className="mx-auto h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-primary" />
           ) : (
-            <p className="font-heading text-2xl font-bold">{item.value}</p>
+            <p className="dashboard-stat-value font-heading text-3xl font-bold leading-none">{item.value}</p>
           )}
           <p className="mt-0.5 text-xs text-muted-foreground">{item.label}</p>
         </GlassCard>

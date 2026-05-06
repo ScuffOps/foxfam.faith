@@ -25,7 +25,7 @@ export default function RecentCodexEntries() {
   return (
     <GlassCard className="h-full">
       <div className="mb-4 flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15">
+        <div className="dashboard-icon-well flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
           <BookOpen className="h-4 w-4 text-primary" />
         </div>
         <h3 className="font-heading text-sm font-semibold">Recent Codex Entries</h3>
@@ -42,7 +42,7 @@ export default function RecentCodexEntries() {
           {entries.map((entry) => {
             const meta = CATEGORY_META[entry.category] || CATEGORY_META.other;
             return (
-              <div key={entry.id} className="flex items-start gap-3 rounded-lg bg-secondary/50 px-3 py-2.5">
+              <div key={entry.id} className="dashboard-list-row flex items-start gap-3 rounded-lg px-3 py-2.5">
                 <span className="text-xl shrink-0 mt-0.5">{entry.cover_emoji || "📖"}</span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{entry.title}</p>

@@ -68,7 +68,7 @@ export default function Dashboard() {
         <div className="col-span-2 lg:col-span-4">
           <div className="foxcard rounded-xl p-5 flex flex-col items-center justify-center gap-1 relative">
             <HiddenEasterEgg index={2} />
-            <p className="font-heading text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-1">
+            <p className="dashboard-candle font-heading text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-1">
               resident fox <HiddenEasterEgg index={3} />
             </p>
             <BoopTheFox />

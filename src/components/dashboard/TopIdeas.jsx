@@ -59,7 +59,7 @@ export default function TopIdeas() {
   return (
     <GlassCard className="h-full">
       <div className="mb-4 flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-chart-4/15">
+        <div className="dashboard-icon-well flex h-8 w-8 items-center justify-center rounded-lg bg-chart-4/15 text-chart-4">
           <Lightbulb className="h-4 w-4 text-chart-4" />
         </div>
         <h3 className="font-heading text-sm font-semibold">Top Ideas</h3>
@@ -69,13 +69,13 @@ export default function TopIdeas() {
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-primary" />
         </div>
       ) : ideas.length === 0 ? (
-        <p className="py-4 text-center text-sm text-muted-foreground">No ideas yet</p>
+        <p className="dashboard-empty rounded-lg py-5 text-center text-sm text-muted-foreground">No ideas yet</p>
       ) : (
         <div className="space-y-2.5">
           {ideas.map((idea) => {
             const hasUpvoted = (idea.upvoted_by || []).includes(user?.email);
             return (
-              <div key={idea.id} className="flex items-center gap-3 rounded-lg bg-secondary/50 px-3 py-2.5">
+              <div key={idea.id} className="dashboard-list-row flex items-center gap-3 rounded-lg px-3 py-2.5">
                 <button
                   onClick={() => handleUpvote(idea)}
                   disabled={!user?.email || upvoting === idea.id}

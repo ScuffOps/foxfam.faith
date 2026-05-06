@@ -127,15 +127,28 @@
 /* Primary card style — matches Veri portal aesthetic */
 .foxcard {
   position: relative;
-  background: rgba(15, 14, 26, 0.70);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  background:
+    linear-gradient(145deg, rgba(22, 22, 39, 0.78), rgba(9, 11, 25, 0.68)),
+    rgba(15, 14, 26, 0.70);
+  backdrop-filter: blur(24px) saturate(1.16);
+  -webkit-backdrop-filter: blur(24px) saturate(1.16);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow:
+    0 16px 44px rgba(0, 0, 0, 0.46),
+    0 0 0 1px rgba(110, 170, 255, 0.035),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28);
   overflow: hidden;
   --shine-x: 50%;
   --shine-y: 50%;
   --shine-opacity: 0;
+  --card-lift: 0px;
+  transform: translateY(var(--card-lift));
+  transition:
+    transform 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    background 220ms ease;
 }
 
 .foxcard::before {
@@ -143,15 +156,35 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(
-    280px circle at var(--shine-x) var(--shine-y),
-    rgba(140, 100, 255, 0.13) 0%,
-    rgba(80, 180, 255, 0.07) 40%,
-    transparent 70%
-  );
+  background:
+    radial-gradient(
+      300px circle at var(--shine-x) var(--shine-y),
+      rgba(190, 220, 255, 0.18) 0%,
+      rgba(140, 100, 255, 0.13) 34%,
+      rgba(80, 180, 255, 0.07) 52%,
+      transparent 72%
+    );
   opacity: var(--shine-opacity);
   transition: opacity 0.25s ease;
   z-index: 0;
+}
+
+.foxcard::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.10), transparent 18%, transparent 78%, rgba(80, 180, 255, 0.07)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), transparent 42%);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+  padding: 1px;
+  opacity: 0.72;
 }
 
 .foxcard > * {
@@ -190,10 +223,123 @@
 }
 
 .community-dashboard .foxcard {
-  background: rgba(15, 14, 26, 0.65);
-  backdrop-filter: blur(22px) saturate(1.18);
-  -webkit-backdrop-filter: blur(22px) saturate(1.18);
-  border-color: rgba(160, 205, 255, 0.14);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(122, 77, 230, 0.18), transparent 36%),
+    radial-gradient(circle at 100% 8%, rgba(0, 170, 255, 0.10), transparent 34%),
+    linear-gradient(145deg, rgba(18, 21, 45, 0.76), rgba(8, 10, 22, 0.64));
+  backdrop-filter: blur(26px) saturate(1.28);
+  -webkit-backdrop-filter: blur(26px) saturate(1.28);
+  border-color: rgba(178, 213, 255, 0.16);
+  box-shadow:
+    0 18px 52px rgba(0, 0, 0, 0.48),
+    0 0 0 1px rgba(122, 77, 230, 0.08),
+    0 0 38px rgba(0, 102, 255, 0.055),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+}
+
+.community-dashboard .foxcard:hover {
+  --card-lift: -2px;
+  border-color: rgba(195, 225, 255, 0.26);
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.56),
+    0 0 0 1px rgba(148, 108, 255, 0.13),
+    0 0 46px rgba(0, 135, 255, 0.09),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.38);
+}
+
+.dashboard-stat-card {
+  min-height: 9.4rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+
+.dashboard-icon-well {
+  position: relative;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 8px 22px rgba(0, 0, 0, 0.28);
+}
+
+.dashboard-icon-well::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: inherit;
+  background: currentColor;
+  opacity: 0.07;
+  filter: blur(12px);
+  z-index: -1;
+}
+
+.dashboard-stat-value {
+  text-shadow: 0 0 18px rgba(190, 220, 255, 0.16);
+}
+
+.dashboard-list-row {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018)),
+    rgba(255, 255, 255, 0.025);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.dashboard-list-row:hover {
+  transform: translateX(2px);
+  border-color: rgba(170, 210, 255, 0.16);
+  background:
+    linear-gradient(135deg, rgba(122, 77, 230, 0.12), rgba(0, 170, 255, 0.055)),
+    rgba(255, 255, 255, 0.035);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 8px 22px rgba(0, 0, 0, 0.22);
+}
+
+.dashboard-empty {
+  border: 1px dashed rgba(170, 210, 255, 0.16);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(122, 77, 230, 0.12), transparent 48%),
+    rgba(255, 255, 255, 0.02);
+}
+
+.dashboard-action-button {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 18px rgba(0, 0, 0, 0.22);
+}
+
+.dashboard-action-button:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+.dashboard-candle {
+  animation: dashboard-candle 2.8s ease-in-out infinite;
+  filter: drop-shadow(0 0 9px rgba(124, 92, 191, 0.45));
+}
+
+@keyframes dashboard-candle {
+  0%, 100% { opacity: 0.78; transform: translateY(0) scale(1); }
+  50% { opacity: 1; transform: translateY(-1px) scale(1.03); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .foxcard,
+  .dashboard-list-row,
+  .dashboard-candle {
+    transition: none;
+    animation: none;
+    transform: none;
+  }
 }
 
 .favor-topline {
