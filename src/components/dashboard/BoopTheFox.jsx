@@ -45,7 +45,7 @@ export default function BoopTheFox() {
       .then((user) => awardPointAmount(user, reward.points, "points_from_boops"))
       .then(() => {
         toast({
-          title: `${reward.label}: +${reward.points} Faith ${reward.points === 1 ? "point" : "points"}`,
+          title: `${reward.label}: +${reward.points} Favor`,
           description: "Odd boops are blessed boops.",
           duration: 3000,
         });

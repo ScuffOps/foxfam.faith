@@ -1,11 +1,20 @@
+import { forwardRef } from "react";
 import { useMouseShine } from "@/hooks/useMouseShine";
 
-export default function GlassCard({ children, className = "", onClick, style }) {
+const GlassCard = forwardRef(function GlassCard({ children, className = "", onClick, style }, forwardedRef) {
   const { ref, onMouseMove, onMouseLeave } = useMouseShine();
+  const setRefs = (node) => {
+    ref.current = node;
+    if (typeof forwardedRef === "function") {
+      forwardedRef(node);
+    } else if (forwardedRef) {
+      forwardedRef.current = node;
+    }
+  };
 
   return (
     <div
-      ref={ref}
+      ref={setRefs}
       onClick={onClick}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
@@ -15,4 +24,6 @@ export default function GlassCard({ children, className = "", onClick, style }) 
       {children}
     </div>
   );
-}
+});
+
+export default GlassCard;

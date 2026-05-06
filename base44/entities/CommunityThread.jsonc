@@ -1,0 +1,87 @@
+{
+  "name": "CommunityThread",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "body": {
+      "type": "string",
+      "description": "Forum thread body in Markdown"
+    },
+    "category": {
+      "type": "string",
+      "default": "general"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "author_name": {
+      "type": "string"
+    },
+    "comment_count": {
+      "type": "number",
+      "default": 0
+    },
+    "reactions": {
+      "type": "number",
+      "default": 0
+    },
+    "reacted_by": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "is_locked": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "title",
+    "body"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "mod"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "vip"
+          }
+        }
+      ]
+    },
+    "read": true,
+    "update": true,
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "mod"
+          }
+        }
+      ]
+    }
+  }
+}

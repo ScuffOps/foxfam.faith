@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EyeOff, Eye } from "lucide-react";
 import PrayerOrb, { CATEGORIES, detectCategory } from "@/components/prayer/PrayerOrb";
+import ParticleOverlay from "@/components/ParticleOverlay";
+import ColorSwatchPicker from "@/components/ColorSwatchPicker";
 
 const STAINED_GLASS = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/21eb9949e_StainedGlassFull.png";
 const STONE_WALL    = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/bde055a3d_prayerwall3.png";
@@ -71,7 +73,8 @@ export default function PrayerWall() {
   const isAdmin = user?.role === "admin";
 
   return (
-    <div className="min-h-screen" style={{ background: "linear-gradient(180deg, #060810 0%, #080d1c 60%, #06080f 100%)" }}>
+    <div className="relative min-h-screen overflow-hidden" style={{ background: "linear-gradient(180deg, #060810 0%, #080d1c 60%, #06080f 100%)" }}>
+      <ParticleOverlay style={{ position: "fixed", zIndex: 0 }} />
 
       {/* Stained Glass Header */}
       <div className="relative w-full overflow-hidden" style={{ height: 200 }}>
@@ -217,39 +220,12 @@ export default function PrayerWall() {
             {/* Custom orb color */}
             <div>
               <Label className="text-xs text-cyan-300/45 mb-2 block">Orb color (optional — pick your own)</Label>
-              <div className="flex items-center gap-3">
-                <div className="flex flex-wrap gap-2">
-                  {["#ffc940","#50b4ff","#6ee7b7","#ff78c8","#b060ff","#fb923c","#a3c4f3","#f87171","#e879f9","#34d399","#f59e0b","#60a5fa"].map((hex) => (
-                    <button
-                      key={hex}
-                      type="button"
-                      onClick={() => setCustomColor(customColor === hex ? "" : hex)}
-                      className="rounded-full transition-all"
-                      style={{
-                        width: 22, height: 22,
-                        background: hex,
-                        boxShadow: customColor === hex ? `0 0 10px 3px ${hex}88` : "none",
-                        border: customColor === hex ? "2px solid rgba(255,255,255,0.7)" : "2px solid transparent",
-                        transform: customColor === hex ? "scale(1.2)" : "scale(1)",
-                      }}
-                    />
-                  ))}
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="color"
-                    value={customColor || "#b060ff"}
-                    onChange={(e) => setCustomColor(e.target.value)}
-                    className="rounded cursor-pointer"
-                    style={{ width: 28, height: 28, border: "1px solid rgba(100,120,180,0.25)", background: "transparent", padding: 2 }}
-                  />
-                  {customColor && (
-                    <button type="button" onClick={() => setCustomColor("")} className="text-[10px]" style={{ color: "rgba(150,150,180,0.45)" }}>
-                      clear
-                    </button>
-                  )}
-                </div>
-              </div>
+              <ColorSwatchPicker value={customColor} onChange={setCustomColor} size={32} />
+              {customColor && (
+                <button type="button" onClick={() => setCustomColor("")} className="mt-2 text-[10px]" style={{ color: "rgba(150,150,180,0.45)" }}>
+                  clear orb color
+                </button>
+              )}
             </div>
 
             {!isAnonymous && (

@@ -9,7 +9,7 @@ const STEPS = [
   {
     icon: <img src="https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/e241ead03_TenkoTokenrerwork.png" alt="Foxfam" className="h-16 w-16 rounded-xl object-cover mx-auto" />,
     title: "✦ EX RUINA, VERI SURGIT ✦",
-    description: "Welcome to the Forsaken Faith.\n\nWelcome home, FoxFam ♡ ⊹˚.ˑ\n\nYour community hub for everything Scuffox; events, polls, suggestions, prayers, collabs, birthdays, and shared ideas. Let's get you set up in a few quick steps..",
+    description: "Welcome to the Forsaken Faith.\n\nWelcome home, FoxFam 🕯 ⊹˚.ˑ\n\nYour community hub for everything Scuffox; events, polls, suggestions, prayers, collabs, birthdays, and shared ideas. Let's get you set up in a few quick steps..",
   },
   {
     icon: <CalendarDays className="h-12 w-12 text-primary mx-auto" />,

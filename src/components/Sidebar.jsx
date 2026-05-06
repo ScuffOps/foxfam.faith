@@ -14,6 +14,7 @@ import {
   Sparkles,
   ShieldCheck,
   BookOpen,
+  Feather,
 } from "lucide-react";
 
 const navItems = [
@@ -22,6 +23,7 @@ const navItems = [
   { path: "/birthdays", label: "Birthdays", icon: Cake },
   { path: "/community", label: "Community", icon: MessageSquare },
   { path: "/codex", label: "The Codex", icon: BookOpen },
+  { path: "/reliquary", label: "Reliquary", icon: Feather },
   { path: "/prayer", label: "Prayer Wall", icon: Flame },
   { path: "/collabs", label: "Collab Requests", icon: Handshake },
   { path: "/blessings", label: "Blessings", icon: Sparkles },

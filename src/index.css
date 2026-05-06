@@ -159,31 +159,34 @@
   z-index: 1;
 }
 
-.community-dashboard {
+.clockyboii-shell {
   position: relative;
   isolation: isolate;
 }
 
-.community-dashboard::before {
+.clockyboii-shell::before {
   content: "";
   position: absolute;
-  inset: -2rem;
-  z-index: -1;
+  inset: 0;
+  z-index: -2;
   pointer-events: none;
   background:
-    linear-gradient(180deg, rgba(3, 5, 15, 0.34), rgba(3, 5, 15, 0.7)),
-    url("/assets/clockyboii-redeux.png") center / cover no-repeat;
-  border-radius: 1.25rem;
+    linear-gradient(180deg, rgba(3, 5, 15, 0.34), rgba(3, 5, 15, 0.78)),
+    url("/assets/clockyboii-redeux.png") center top / clamp(960px, 78vw, 1500px) auto no-repeat;
 }
 
-.community-dashboard::after {
+.clockyboii-shell::after {
   content: "";
   position: absolute;
-  inset: -2rem;
+  inset: 0;
   z-index: -1;
   pointer-events: none;
   background: radial-gradient(circle at 50% 18%, rgba(0, 145, 255, 0.16), transparent 36%);
-  border-radius: 1.25rem;
+}
+
+.community-dashboard {
+  position: relative;
+  isolation: isolate;
 }
 
 .community-dashboard .foxcard {
@@ -191,4 +194,12 @@
   backdrop-filter: blur(22px) saturate(1.18);
   -webkit-backdrop-filter: blur(22px) saturate(1.18);
   border-color: rgba(160, 205, 255, 0.14);
+}
+
+.favor-topline {
+  grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr));
+}
+
+.favor-actions {
+  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
 }

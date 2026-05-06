@@ -8,6 +8,7 @@
         "user",
         "admin",
         "mod",
+        "vip",
         "creator",
         "verified"
       ],

@@ -14,7 +14,7 @@ export default function Blessings() {
   const loadData = async () => {
     setLoading(true);
     try { const me = await base44.auth.me(); setUser(me); } catch {}
-    const all = await base44.entities.Blessing.list("-created_date", 50);
+    const all = await base44.entities.Blessing.list("-created_date", 50).catch(() => []);
     setBlessings(all);
     setLoading(false);
   };

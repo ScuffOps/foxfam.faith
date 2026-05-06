@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, ChevronDown, ChevronUp, GripHorizontal, RotateCcw, Sparkles, Trophy } from "lucide-react";
 import { base44 } from "@/api/base44Client";
@@ -7,7 +7,8 @@ import { PROGRESSION_ACTIONS, getRankProgress } from "@/hooks/usePoints";
 import GlassCard from "./GlassCard";
 import RankBadge from "./RankBadge";
 
-const COLLAPSED_KEY = "commhub_faith_progress_collapsed";
+const COLLAPSED_KEY = "commhub_favor_collapsed";
+const LEGACY_COLLAPSED_KEY = "commhub_faith_progress_collapsed";
 const POSITION_KEY = "commhub_faith_progress_position";
 
 function readStoredPosition() {
@@ -44,7 +45,7 @@ function ProgressionContent({
           <Trophy className="h-4 w-4 text-primary" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate font-heading text-xs font-semibold">Faith</p>
+          <p className="truncate font-heading text-xs font-semibold">Favor</p>
           <p className="truncate text-[11px] text-muted-foreground">
             {currentPoints} pts
           </p>
@@ -55,7 +56,7 @@ function ProgressionContent({
               type="button"
               onPointerDown={onDragStart}
               className={`hidden h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground md:inline-flex ${dragging ? "bg-secondary text-primary" : ""}`}
-              title="Drag Faith Progress"
+              title="Drag Favor"
             >
               <GripHorizontal className="h-4 w-4" />
             </button>
@@ -65,7 +66,7 @@ function ProgressionContent({
               type="button"
               onClick={onToggleCollapse}
               className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              title="Expand Faith Progress"
+              title="Expand Favor"
             >
               <ChevronDown className="h-4 w-4" />
             </button>
@@ -77,14 +78,14 @@ function ProgressionContent({
 
   return (
     <>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="favor-topline grid gap-4">
         <div>
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15">
                 <Trophy className="h-4 w-4 text-primary" />
               </div>
-              <h3 className="font-heading text-sm font-semibold">Faith Progress</h3>
+              <h3 className="font-heading text-sm font-semibold">Favor</h3>
             </div>
             {(collapsible || positionable) && (
               <div className="flex items-center gap-1">
@@ -94,7 +95,7 @@ function ProgressionContent({
                       type="button"
                       onPointerDown={onDragStart}
                       className={`hidden h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground md:inline-flex ${dragging ? "bg-secondary text-primary" : ""}`}
-                      title="Drag Faith Progress"
+                      title="Drag Favor"
                     >
                       <GripHorizontal className="h-4 w-4" />
                     </button>
@@ -102,7 +103,7 @@ function ProgressionContent({
                       type="button"
                       onClick={onResetPosition}
                       className="hidden h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground md:inline-flex"
-                      title="Reset Faith Progress position"
+                      title="Reset Favor position"
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
                     </button>
@@ -113,7 +114,7 @@ function ProgressionContent({
                     type="button"
                     onClick={onToggleCollapse}
                     className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                    title={collapsed ? "Expand Faith Progress" : "Collapse Faith Progress"}
+                    title={collapsed ? "Expand Favor" : "Collapse Favor"}
                   >
                     {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
                   </button>
@@ -124,12 +125,12 @@ function ProgressionContent({
           <RankBadge points={currentPoints} showProgress />
         </div>
 
-        <div className="rounded-lg border border-border bg-secondary/40 px-4 py-3 sm:max-w-xs">
+        <div className="rounded-lg border border-border bg-secondary/40 px-4 py-3">
           {progress.next ? (
             <>
-              <p className="text-sm font-medium">{progress.pointsToNext} points to {progress.next.name}</p>
+              <p className="text-sm font-medium">{progress.pointsToNext} Favor to {progress.next.name}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Earn points by posting, voting, and reacting to community moments.
+                Earn Favor by posting, voting, and reacting to community moments.
               </p>
             </>
           ) : (
@@ -143,7 +144,7 @@ function ProgressionContent({
         </div>
       </div>
 
-      <div className={`${compact ? "mt-4" : "mt-5"} grid gap-2 sm:grid-cols-2`}>
+      <div className={`${compact ? "mt-4" : "mt-5"} favor-actions grid gap-2`}>
         {visibleActions.map((action) => (
           <Link
             key={action.label}
@@ -184,17 +185,37 @@ export default function ProgressionLoop({
   compact = false,
   framed = true,
   className = "",
-  collapsible = false,
+  collapsible = true,
   positionable = false,
 }) {
+  const cardRef = useRef(null);
   const [currentPoints, setCurrentPoints] = useState(typeof points === "number" ? points : 0);
   const [loading, setLoading] = useState(typeof points !== "number");
   const [collapsed, setCollapsed] = useState(() => {
     if (!collapsible || typeof window === "undefined") return false;
-    return localStorage.getItem(COLLAPSED_KEY) === "1";
+    return localStorage.getItem(COLLAPSED_KEY) === "1" || localStorage.getItem(LEGACY_COLLAPSED_KEY) === "1";
   });
   const [position, setPosition] = useState(() => readStoredPosition());
   const [dragging, setDragging] = useState(false);
+
+  const clampPosition = useCallback((nextPosition) => {
+    if (!positionable || typeof window === "undefined" || !cardRef.current) return nextPosition;
+
+    const rect = cardRef.current.getBoundingClientRect();
+    const baseLeft = rect.left - position.x;
+    const baseTop = rect.top - position.y;
+    const margin = 12;
+    const minX = margin - baseLeft;
+    const maxX = window.innerWidth - rect.width - margin - baseLeft;
+    const minY = margin - baseTop;
+    const maxY = window.innerHeight - rect.height - margin - baseTop;
+
+    const x = Math.min(Math.max(nextPosition.x, minX), Math.max(minX, maxX));
+    const y = Math.min(Math.max(nextPosition.y, minY), Math.max(minY, maxY));
+
+    if (x === nextPosition.x && y === nextPosition.y) return nextPosition;
+    return { x, y };
+  }, [position.x, position.y, positionable]);
 
   useEffect(() => {
     if (typeof points === "number") {
@@ -225,6 +246,7 @@ export default function ProgressionLoop({
   useEffect(() => {
     if (!collapsible || typeof window === "undefined") return;
     localStorage.setItem(COLLAPSED_KEY, collapsed ? "1" : "0");
+    localStorage.removeItem(LEGACY_COLLAPSED_KEY);
   }, [collapsed, collapsible]);
 
   useEffect(() => {
@@ -232,19 +254,44 @@ export default function ProgressionLoop({
     localStorage.setItem(POSITION_KEY, JSON.stringify(position));
   }, [position, positionable]);
 
+  useEffect(() => {
+    if (!positionable || typeof window === "undefined") return;
+    const handleResize = () => setPosition((value) => clampPosition(value));
+    window.addEventListener("resize", handleResize);
+    handleResize();
+    return () => window.removeEventListener("resize", handleResize);
+  }, [clampPosition, positionable]);
+
   const handleDragStart = (event) => {
     if (!positionable || event.pointerType === "touch") return;
     event.preventDefault();
     const startX = event.clientX;
     const startY = event.clientY;
     const startPosition = { ...position };
+    const rect = cardRef.current?.getBoundingClientRect();
+    const baseLeft = rect ? rect.left - startPosition.x : 0;
+    const baseTop = rect ? rect.top - startPosition.y : 0;
+    const width = rect?.width || 0;
+    const height = rect?.height || 0;
+    const margin = 12;
+    const clampDragPosition = (nextPosition) => {
+      if (!rect || typeof window === "undefined") return nextPosition;
+      const minX = margin - baseLeft;
+      const maxX = window.innerWidth - width - margin - baseLeft;
+      const minY = margin - baseTop;
+      const maxY = window.innerHeight - height - margin - baseTop;
+      return {
+        x: Math.min(Math.max(nextPosition.x, minX), Math.max(minX, maxX)),
+        y: Math.min(Math.max(nextPosition.y, minY), Math.max(minY, maxY)),
+      };
+    };
     setDragging(true);
 
     const handleMove = (moveEvent) => {
-      setPosition({
+      setPosition(clampDragPosition({
         x: startPosition.x + moveEvent.clientX - startX,
         y: startPosition.y + moveEvent.clientY - startY,
-      });
+      }));
     };
     const handleUp = () => {
       setDragging(false);
@@ -282,7 +329,8 @@ export default function ProgressionLoop({
 
   return (
     <GlassCard
-      className={`${className} ${positionable ? "md:relative md:z-10" : ""} ${collapsed ? "inline-flex w-auto max-w-full p-3" : ""}`}
+      ref={cardRef}
+      className={`${className} ${positionable ? "md:relative md:z-10" : ""} ${positionable && !collapsed ? "w-full max-w-[clamp(20rem,58vw,52rem)]" : ""} ${collapsed ? "inline-flex w-auto max-w-full p-3" : ""}`}
       style={positionable ? { transform: `translate(${position.x}px, ${position.y}px)` } : undefined}
     >
       {content}

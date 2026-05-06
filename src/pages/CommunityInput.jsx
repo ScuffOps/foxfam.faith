@@ -1,18 +1,21 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Plus, Search, ArrowUp, TrendingUp, Clock, BarChart3, Mailbox } from "lucide-react";
+import { Plus, Search, ArrowUp, TrendingUp, Clock, BarChart3, Mailbox, MessagesSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PostForm from "../components/community/PostForm";
 import IdeaCard from "../components/community/IdeaCard";
 import PollCard from "../components/community/PollCard";
 import SuggestionForm from "../components/community/SuggestionForm";
 import SuggestionCard from "../components/community/SuggestionCard";
+import ForumThreadForm from "../components/community/ForumThreadForm";
+import ForumThreadCard from "../components/community/ForumThreadCard";
 import ProgressionLoop from "../components/ProgressionLoop";
 
 const TABS = [
   { key: "feedback", label: "Feedback & Ideas" },
   { key: "polls", label: "Polls" },
   { key: "suggestions", label: "Suggestion Box" },
+  { key: "forum", label: "Forum" },
 ];
 
 const SORT_OPTIONS = [
@@ -24,10 +27,12 @@ const SORT_OPTIONS = [
 export default function CommunityInput() {
   const [posts, setPosts] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
+  const [threads, setThreads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [showSuggestionForm, setShowSuggestionForm] = useState(false);
+  const [showThreadForm, setShowThreadForm] = useState(false);
   const [activeTab, setActiveTab] = useState("feedback");
   const [sort, setSort] = useState("top");
   const [search, setSearch] = useState("");
@@ -36,18 +41,21 @@ export default function CommunityInput() {
   const loadData = async () => {
     setLoading(true);
     try { const me = await base44.auth.me(); setUser(me); } catch {}
-    const [all, allSuggestions] = await Promise.all([
-      base44.entities.CommunityPost.list("-created_date", 200),
-      base44.entities.Suggestion.list("-created_date", 200),
+    const [all, allSuggestions, allThreads] = await Promise.all([
+      base44.entities.CommunityPost.list("-created_date", 200).catch(() => []),
+      base44.entities.Suggestion.list("-created_date", 200).catch(() => []),
+      base44.entities.CommunityThread.list("-created_date", 100).catch(() => []),
     ]);
     setPosts(all);
     setSuggestions(allSuggestions);
+    setThreads(allThreads);
     setLoading(false);
   };
 
   useEffect(() => { loadData(); }, []);
 
   const isAdmin = user?.role === "admin" || user?.role === "mod";
+  const canCreateThreads = user?.role === "admin" || user?.role === "mod" || user?.role === "vip";
   const pendingCount = posts.filter((p) => p.status === "pending").length;
 
   const getSorted = (arr) => {
@@ -87,6 +95,16 @@ export default function CommunityInput() {
           <Button onClick={() => setShowSuggestionForm(true)} className="gap-2">
             <Mailbox className="h-4 w-4" /> New Suggestion
           </Button>
+        ) : activeTab === "forum" ? (
+          canCreateThreads ? (
+            <Button onClick={() => setShowThreadForm(true)} className="gap-2">
+              <MessagesSquare className="h-4 w-4" /> New Thread
+            </Button>
+          ) : (
+            <div className="rounded-lg border border-border bg-card/60 px-3 py-2 text-xs text-muted-foreground">
+              VIPs, mods, and admins can start threads.
+            </div>
+          )
         ) : (
           <Button onClick={() => setShowForm(true)} className="gap-2">
             <Plus className="h-4 w-4" /> New Post
@@ -139,8 +157,52 @@ export default function CommunityInput() {
         </div>
       )}
 
+      {/* Forum tab content */}
+      {activeTab === "forum" && (
+        <div>
+          <div className="mb-4 flex flex-col gap-2 rounded-xl border border-border bg-card/55 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-heading text-base font-semibold">Foxfam Forum</h2>
+              <p className="text-xs text-muted-foreground">VIPs, mods, and admins start threads; everyone can comment and react.</p>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search threads..."
+                className="h-8 w-full rounded-lg border border-border bg-secondary/50 pl-8 pr-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring sm:w-56"
+              />
+            </div>
+          </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
+            </div>
+          ) : threads.length === 0 ? (
+            <div className="rounded-xl border border-border bg-card p-12 text-center">
+              <MessagesSquare className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">No forum threads yet.</p>
+              {canCreateThreads && (
+                <Button className="mt-4 gap-2" onClick={() => setShowThreadForm(true)}>
+                  <Plus className="h-4 w-4" /> Start the first thread
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {threads
+                .filter((thread) => !search || thread.title.toLowerCase().includes(search.toLowerCase()) || (thread.body || "").toLowerCase().includes(search.toLowerCase()))
+                .map((thread) => (
+                  <ForumThreadCard key={thread.id} thread={thread} user={user} isAdmin={isAdmin} onRefresh={loadData} />
+                ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Toolbar — only for non-suggestion tabs */}
-      {activeTab !== "suggestions" && <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {activeTab !== "suggestions" && activeTab !== "forum" && <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
         {/* Sort */}
         <div className="flex items-center gap-1 rounded-lg border border-border bg-secondary/50 p-0.5">
@@ -191,7 +253,7 @@ export default function CommunityInput() {
       </div>}
 
       {/* Posts — only for non-suggestion tabs */}
-      {activeTab !== "suggestions" && (loading ? (
+      {activeTab !== "suggestions" && activeTab !== "forum" && (loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
         </div>
@@ -214,6 +276,7 @@ export default function CommunityInput() {
 
       <PostForm open={showForm} onOpenChange={setShowForm} onCreated={loadData} isMod={isAdmin} />
       <SuggestionForm open={showSuggestionForm} onOpenChange={setShowSuggestionForm} onCreated={loadData} />
+      <ForumThreadForm open={showThreadForm} onOpenChange={setShowThreadForm} user={user} onCreated={loadData} />
     </div>
   );
 }

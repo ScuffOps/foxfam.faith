@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import ParticleOverlay from "@/components/ParticleOverlay";
 
 const LAYERS = [
   { src: "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/6066c0983_scenelayer-grass.png", depth: 0.008, style: { bottom: 0, left: 0, width: "100%", opacity: 0.9 } },
@@ -119,6 +120,8 @@ export default function Splash({ onEnter }) {
         background: "radial-gradient(ellipse at 50% 100%, rgba(10,20,60,0.3) 0%, transparent 70%)",
         zIndex: 8,
       }} />
+
+      <ParticleOverlay style={{ zIndex: 8 }} />
 
       {/* Lantern glow — isolated on its own layer, no blur on every frame */}
       <div className="absolute pointer-events-none" style={{

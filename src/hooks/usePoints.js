@@ -3,7 +3,8 @@ import { base44 } from "@/api/base44Client";
 // Points awarded per action
 export const POINT_VALUES = {
   post_blessing_comment: 3,  // commenting on a blessing
-  upvote_blessing: 1,        // upvoting a blessing
+  post_reliquary_comment: 3, // commenting on a reliquary entry
+  upvote_blessing: 1,        // giving praise to a blessing
   upvote_idea: 1,            // upvoting a community idea/feedback
   vote_poll: 2,              // voting in a poll
   submit_post: 5,            // submitting a community idea/feedback
@@ -33,8 +34,8 @@ export const PROGRESSION_ACTIONS = [
     points: POINT_VALUES.vote_poll,
   },
   {
-    label: "React to blessings",
-    description: "Upvote or comment on a blessing when one speaks to you.",
+    label: "Give praise to blessings",
+    description: "Give praise or comment on a blessing when one speaks to you.",
     href: "/blessings",
     cta: "Visit blessings",
     points: POINT_VALUES.post_blessing_comment,
@@ -107,6 +108,7 @@ export async function awardPoints(user, action) {
 
   const field = {
     post_blessing_comment: "points_from_comments",
+    post_reliquary_comment: "points_from_comments",
     upvote_blessing: "points_from_upvotes",
     upvote_idea: "points_from_upvotes",
     vote_poll: "points_from_polls",
