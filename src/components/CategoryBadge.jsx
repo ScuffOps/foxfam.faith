@@ -1,4 +1,4 @@
-import { getCategoryColor } from "@/lib/categoryColors";
+import { getCategoryColor, getCategoryLabel } from "@/lib/categoryColors";
 
 export default function CategoryBadge({ category }) {
   const { hex, bg, border } = getCategoryColor(category);
@@ -8,7 +8,7 @@ export default function CategoryBadge({ category }) {
       style={{ background: bg, borderColor: border, color: hex }}
     >
       <span className="h-1.5 w-1.5 rounded-full" style={{ background: hex }} />
-      {category}
+      {getCategoryLabel(category)}
     </span>
   );
 }

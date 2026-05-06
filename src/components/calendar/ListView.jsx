@@ -15,8 +15,9 @@ function ShineCard({ children, className = "" }) {
 export default function ListView({ events, onEventClick }) {
   const now = new Date();
   const limit = addMonths(now, 2);
+  const safeEvents = Array.isArray(events) ? events : [];
   
-  const filtered = events
+  const filtered = safeEvents
     .filter((e) => {
       const d = new Date(e.start_date);
       return isAfter(d, now) || format(d, "yyyy-MM-dd") === format(now, "yyyy-MM-dd");

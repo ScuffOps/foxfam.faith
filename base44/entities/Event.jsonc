@@ -13,6 +13,7 @@
     "category": {
       "type": "string",
       "enum": [
+        "stream",
         "personal",
         "community",
         "collabs",
@@ -52,6 +53,10 @@
     },
     "location": {
       "type": "string"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Optional event image URL"
     },
     "google_event_id": {
       "type": "string",

@@ -8,6 +8,7 @@ import BoardView from "../components/calendar/BoardView";
 import ListView from "../components/calendar/ListView";
 import EventFormDialog from "../components/calendar/EventFormDialog";
 import EventDetailsPanel from "../components/calendar/EventDetailsPanel";
+import { EVENT_CATEGORY_OPTIONS, getCategoryColor } from "@/lib/categoryColors";
 
 export default function Calendar() {
   const [events, setEvents] = useState([]);
@@ -25,8 +26,12 @@ export default function Calendar() {
   const loadEvents = async () => {
     setLoading(true);
     try { const me = await base44.auth.me(); setUser(me); } catch {}
-    const all = await base44.entities.Event.filter({ status: "active" });
-    setEvents(all);
+    try {
+      const all = await base44.entities.Event.filter({ status: "active" });
+      setEvents(Array.isArray(all) ? all : []);
+    } catch {
+      setEvents([]);
+    }
     setLoading(false);
   };
 
@@ -84,10 +89,7 @@ export default function Calendar() {
 
   const categories = [
     { key: "all", label: "All" },
-    { key: "personal", label: "Personal" },
-    { key: "community", label: "Community" },
-    { key: "collabs", label: "Collabs" },
-    { key: "birthdays", label: "Birthdays" },
+    ...EVENT_CATEGORY_OPTIONS,
   ];
 
   return (
@@ -140,9 +142,9 @@ export default function Calendar() {
             {format(currentDate, "MMMM yyyy")}
           </h2>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Category filter */}
-          <div className="flex rounded-lg border border-border bg-secondary/50 p-0.5">
+          <div className="flex flex-wrap rounded-lg border border-border bg-secondary/50 p-0.5">
             {categories.map((c) => (
               <button
                 key={c.key}
@@ -150,6 +152,10 @@ export default function Calendar() {
                 className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                   filterCategory === c.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                 }`}
+                style={filterCategory === c.key && c.key !== "all" ? {
+                  background: getCategoryColor(c.key).hex,
+                  color: c.key === "birthdays" ? "#06121a" : "#ffffff",
+                } : undefined}
               >
                 {c.label}
               </button>

@@ -36,12 +36,18 @@ export default function EventDetailsPanel({ event, open, onOpenChange, canEdit =
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-border bg-card sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto border-border bg-card sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="font-heading">{event.title}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 pt-1">
+          {event.image_url && (
+            <div className="overflow-hidden rounded-xl border border-border bg-secondary/35">
+              <img src={event.image_url} alt={event.title || "Event image"} className="max-h-64 w-full object-cover" />
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center gap-2">
             <CategoryBadge category={event.category} />
             <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-1 text-xs text-muted-foreground">

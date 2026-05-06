@@ -1,5 +1,5 @@
 import { startOfWeek, addDays, isSameDay, format } from "date-fns";
-import { getCategoryColor } from "@/lib/categoryColors";
+import { getCategoryColor, getEventDayAccent } from "@/lib/categoryColors";
 import { useMouseShine } from "@/hooks/useMouseShine";
 
 function ShineCard({ children, className = "" }) {
@@ -14,20 +14,29 @@ function ShineCard({ children, className = "" }) {
 export default function WeekView({ currentDate, events, onEventClick }) {
   const weekStart = startOfWeek(currentDate);
   const today = new Date();
+  const safeEvents = Array.isArray(events) ? events : [];
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   const getEventsForDay = (day) =>
-    events.filter((e) => isSameDay(new Date(e.start_date), day));
+    safeEvents.filter((e) => isSameDay(new Date(e.start_date), day));
 
   return (
     <ShineCard className="overflow-hidden rounded-xl">
       <div className="grid grid-cols-7 divide-x divide-border/40">
         {days.map((day, i) => {
           const dayEvents = getEventsForDay(day);
+          const dayAccent = getEventDayAccent(dayEvents);
           const isToday = isSameDay(day, today);
           return (
-            <div key={i} className="min-h-[300px]">
+            <div
+              key={i}
+              className="min-h-[300px]"
+              style={dayAccent ? {
+                background: `linear-gradient(180deg, ${dayAccent.dayBg}, transparent 46%)`,
+                boxShadow: `inset 0 2px 0 ${dayAccent.hex}88`,
+              } : undefined}
+            >
               <div className={`border-b border-border/60 p-2 text-center transition-colors ${isToday ? "bg-primary/10" : "hover:bg-white/[0.03]"}`}>
                 <p className={`text-[10px] font-medium uppercase ${isToday ? "text-primary" : "text-muted-foreground"}`}>
                   {format(day, "EEE")}

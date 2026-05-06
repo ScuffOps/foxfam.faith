@@ -1,5 +1,5 @@
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, format } from "date-fns";
-import { getCategoryColor } from "@/lib/categoryColors";
+import { getCategoryColor, getEventDayAccent } from "@/lib/categoryColors";
 import { useMouseShine } from "@/hooks/useMouseShine";
 
 function ShineCard({ children, className = "" }) {
@@ -17,6 +17,7 @@ export default function MonthView({ currentDate, events, onDateClick, onEventCli
   const calStart = startOfWeek(monthStart);
   const calEnd = endOfWeek(monthEnd);
   const today = new Date();
+  const safeEvents = Array.isArray(events) ? events : [];
 
   const days = [];
   let d = calStart;
@@ -26,7 +27,7 @@ export default function MonthView({ currentDate, events, onDateClick, onEventCli
   }
 
   const getEventsForDay = (day) =>
-    events.filter((e) => isSameDay(new Date(e.start_date), day));
+    safeEvents.filter((e) => isSameDay(new Date(e.start_date), day));
 
   return (
     <ShineCard className="overflow-hidden rounded-xl">
@@ -42,6 +43,8 @@ export default function MonthView({ currentDate, events, onDateClick, onEventCli
       <div className="grid grid-cols-7">
         {days.map((day, i) => {
           const dayEvents = getEventsForDay(day);
+          const dayAccent = getEventDayAccent(dayEvents);
+          const dayCategories = [...new Set(dayEvents.map((event) => event.category))].slice(0, 4);
           const isToday = isSameDay(day, today);
           const inMonth = isSameMonth(day, currentDate);
           return (
@@ -51,16 +54,36 @@ export default function MonthView({ currentDate, events, onDateClick, onEventCli
               className={`group min-h-[80px] cursor-pointer border-b border-r border-border/40 p-1.5 transition-all duration-200 hover:bg-white/[0.04] hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] md:min-h-[100px] md:p-2 ${
                 !inMonth ? "opacity-25" : ""
               }`}
+              style={dayAccent ? {
+                background: `linear-gradient(135deg, ${dayAccent.dayBg}, rgba(255,255,255,0.012) 58%)`,
+                boxShadow: `inset 0 2px 0 ${dayAccent.hex}88, inset 0 0 0 1px ${dayAccent.hex}22`,
+              } : undefined}
             >
-              <span
-                className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium transition-colors ${
-                  isToday
-                    ? "bg-primary text-primary-foreground shadow-[0_0_10px_rgba(130,80,255,0.5)]"
-                    : "text-foreground group-hover:text-primary"
-                }`}
-              >
-                {format(day, "d")}
-              </span>
+              <div className="flex items-center justify-between gap-1">
+                <span
+                  className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium transition-colors ${
+                    isToday
+                      ? "bg-primary text-primary-foreground shadow-[0_0_10px_rgba(130,80,255,0.5)]"
+                      : "text-foreground group-hover:text-primary"
+                  }`}
+                >
+                  {format(day, "d")}
+                </span>
+                {dayCategories.length > 0 && (
+                  <span className="flex items-center gap-1">
+                    {dayCategories.map((category) => {
+                      const color = getCategoryColor(category);
+                      return (
+                        <span
+                          key={category}
+                          className="h-1.5 w-1.5 rounded-full shadow-[0_0_8px_currentColor]"
+                          style={{ background: color.hex, color: color.hex }}
+                        />
+                      );
+                    })}
+                  </span>
+                )}
+              </div>
               <div className="mt-1 space-y-0.5">
                 {dayEvents.slice(0, 3).map((ev) => (
                   <div
