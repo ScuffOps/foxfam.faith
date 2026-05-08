@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { BookOpen, ChevronDown, ChevronUp, Download, ExternalLink, Maximize2, MessageCircle, Send, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -22,22 +22,50 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
   const [submitting, setSubmitting] = useState(false);
   const [showFullImage, setShowFullImage] = useState(false);
   const [praiseBurst, setPraiseBurst] = useState(0);
+  const [localPraise, setLocalPraise] = useState({
+    upvotes: blessing.upvotes || 0,
+    upvotedBy: blessing.upvoted_by || [],
+  });
 
-  const hasPraised = (blessing.upvoted_by || []).includes(user?.email);
-
-  const handlePraise = async () => {
-    if (!user?.email) return;
-    const upvotedBy = blessing.upvoted_by || [];
-    await base44.entities.Blessing.update(blessing.id, {
-      upvotes: hasPraised ? Math.max((blessing.upvotes || 0) - 1, 0) : (blessing.upvotes || 0) + 1,
-      upvoted_by: hasPraised ? upvotedBy.filter((e) => e !== user.email) : [...upvotedBy, user.email],
+  useEffect(() => {
+    setLocalPraise({
+      upvotes: blessing.upvotes || 0,
+      upvotedBy: blessing.upvoted_by || [],
     });
+  }, [blessing.id, blessing.upvotes, blessing.upvoted_by]);
+
+  const hasPraised = localPraise.upvotedBy.includes(user?.email);
+
+  const handlePraise = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!user?.email) return;
+
+    const previousPraise = localPraise;
+    const nextPraise = {
+      upvotes: hasPraised ? Math.max(localPraise.upvotes - 1, 0) : localPraise.upvotes + 1,
+      upvotedBy: hasPraised
+        ? localPraise.upvotedBy.filter((e) => e !== user.email)
+        : [...localPraise.upvotedBy, user.email],
+    };
+
+    setLocalPraise(nextPraise);
     if (!hasPraised) {
       setPraiseBurst((value) => value + 1);
       window.setTimeout(() => setPraiseBurst(0), 900);
-      awardPoints(user, "upvote_blessing").then(checkLevelUp);
     }
-    onRefresh();
+
+    try {
+      await base44.entities.Blessing.update(blessing.id, {
+        upvotes: nextPraise.upvotes,
+        upvoted_by: nextPraise.upvotedBy,
+      });
+      if (!hasPraised) awardPoints(user, "upvote_blessing").then(checkLevelUp);
+      window.setTimeout(() => onRefresh?.({ silent: true }), 700);
+    } catch {
+      setLocalPraise(previousPraise);
+      onRefresh?.({ silent: true });
+    }
   };
 
   const loadComments = async () => {
@@ -145,6 +173,7 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
 
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button
+            type="button"
             onClick={handlePraise}
             disabled={!user?.email}
             className={`praise-button flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors ${
@@ -154,10 +183,11 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
             <PraiseBurst key={praiseBurst} active={praiseBurst > 0} />
             <span aria-hidden="true" className="text-sm leading-none">🕯</span>
             <span>{hasPraised ? "Praised" : "Give praise"}</span>
-            <span className="font-bold">{blessing.upvotes || 0}</span>
+            <span className="font-bold">{localPraise.upvotes}</span>
           </button>
 
           <button
+            type="button"
             onClick={toggleComments}
             className="flex items-center gap-1.5 rounded-lg bg-secondary px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
@@ -212,6 +242,7 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
                   className="flex-1 rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 />
                 <button
+                  type="button"
                   onClick={handleComment}
                   disabled={!commentText.trim() || submitting}
                   className="rounded-lg bg-primary px-3 py-2 text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
