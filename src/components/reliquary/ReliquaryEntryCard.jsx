@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { ChevronDown, ChevronUp, Edit3, MessageCircle, Send, Trash2 } from "lucide-react";
-import UserMarkdown from "@/components/UserMarkdown";
+import RichTextContent from "@/components/RichTextContent";
 import { awardPoints } from "@/hooks/usePoints";
 import { useLevelUpToast } from "@/hooks/useLevelUpToast";
+import { getPublicDisplayName } from "@/lib/userIdentity";
+import { createUserNotification } from "@/lib/notifications";
 
 export default function ReliquaryEntryCard({ entry, user, isAdmin, onEdit, onRefresh }) {
   const checkLevelUp = useLevelUpToast();
@@ -36,12 +38,24 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, onEdit, onRef
     await base44.entities.ReliquaryComment.create({
       entry_id: entry.id,
       message: commentText.trim(),
-      author_name: user.display_name || user.full_name || user.email,
+      author_name: getPublicDisplayName(user, user.email),
       is_anonymous: false,
     });
     await base44.entities.ReliquaryEntry.update(entry.id, {
       comment_count: (entry.comment_count || 0) + 1,
     });
+    if (entry.author_email && entry.author_email !== user.email) {
+      createUserNotification({
+        recipientEmail: entry.author_email,
+        actorEmail: user.email,
+        actorName: getPublicDisplayName(user, "Someone"),
+        type: "comment_received",
+        title: "New reliquary comment",
+        message: `${getPublicDisplayName(user, "Someone")} commented on "${entry.title}".`,
+        sourceType: "reliquary_entry",
+        sourceId: entry.id,
+      });
+    }
     awardPoints(user, "post_reliquary_comment").then(checkLevelUp);
     setCommentText("");
     setSubmitting(false);
@@ -87,9 +101,9 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, onEdit, onRef
         )}
       </div>
 
-      <UserMarkdown className="mt-5 whitespace-pre-wrap text-sm leading-7 text-card-foreground/90">
+      <RichTextContent className="mt-5 whitespace-pre-wrap text-sm leading-7 text-card-foreground/90">
         {entry.body}
-      </UserMarkdown>
+      </RichTextContent>
 
       {entry.tags?.length > 0 && (
         <div className="mt-5 flex flex-wrap gap-2">
@@ -129,9 +143,9 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, onEdit, onRef
                 </div>
                 <div className="flex-1 rounded-lg bg-secondary/50 px-3 py-2">
                   <span className="text-xs font-semibold text-foreground">{comment.author_name || "Anonymous"} </span>
-                  <UserMarkdown className="inline text-xs text-muted-foreground" inline>
+                  <RichTextContent className="inline text-xs text-muted-foreground" inline>
                     {comment.message}
-                  </UserMarkdown>
+                  </RichTextContent>
                 </div>
               </div>
             ))

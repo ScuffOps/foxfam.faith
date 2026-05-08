@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import GlassCard from "../components/GlassCard";
 import { Send, Users, Clock, Gamepad2, MessageSquareMore, CheckCircle, XCircle, Hourglass } from "lucide-react";
+import { canBookCollab, canModerate } from "@/lib/roles";
+import { getPublicDisplayName } from "@/lib/userIdentity";
 
 const DURATION_OPTIONS = ["30 min", "1 hour", "1.5 hours", "2 hours", "2+ hours", "TBD"];
 
@@ -44,8 +46,8 @@ export default function CollabRequests() {
 
   useEffect(() => { loadData(); }, []);
 
-  const isCreator = user?.role === "creator";
-  const isMod = user?.role === "mod" || user?.role === "admin";
+  const isCreator = canBookCollab(user);
+  const isMod = canModerate(user);
 
   const handleChange = (field, value) => setForm((f) => ({ ...f, [field]: value }));
 
@@ -57,7 +59,7 @@ export default function CollabRequests() {
     setSubmitting(true);
     await base44.entities.CollabRequest.create({
       ...form,
-      submitted_by_name: user?.display_name || user?.full_name || "",
+      submitted_by_name: getPublicDisplayName(user, ""),
       status: "pending",
     });
     toast({ title: "✦ Collab request submitted!", description: "The mod team will review it shortly." });

@@ -26,6 +26,9 @@
       "type": "string",
       "default": "Veri"
     },
+    "author_email": {
+      "type": "string"
+    },
     "comment_count": {
       "type": "number",
       "default": 0

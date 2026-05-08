@@ -46,6 +46,9 @@
     "author_name": {
       "type": "string"
     },
+    "author_email": {
+      "type": "string"
+    },
     "comment_count": {
       "type": "number",
       "default": 0

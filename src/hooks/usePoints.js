@@ -1,4 +1,6 @@
 import { base44 } from "@/api/base44Client";
+import { createUserNotification } from "@/lib/notifications";
+import { getPublicAvatar, getPublicDisplayName } from "@/lib/userIdentity";
 
 // Points awarded per action
 export const POINT_VALUES = {
@@ -143,14 +145,14 @@ export async function awardPointAmount(user, points, field = "points_from_boops"
     await base44.entities.UserLevel.update(record.id, {
       points: oldPoints + pts,
       [field]: (record[field] || 0) + pts,
-      display_name: user.display_name || user.full_name || record.display_name,
-      avatar_url: user.avatar_url || record.avatar_url,
+      display_name: getPublicDisplayName(user, record.display_name || user.email),
+      avatar_url: getPublicAvatar(user) || record.avatar_url,
     });
   } else {
     await base44.entities.UserLevel.create({
       user_email: user.email,
-      display_name: user.display_name || user.full_name || user.email,
-      avatar_url: user.avatar_url || "",
+      display_name: getPublicDisplayName(user, user.email),
+      avatar_url: getPublicAvatar(user),
       points: pts,
       [field]: pts,
     });
@@ -160,6 +162,17 @@ export async function awardPointAmount(user, points, field = "points_from_boops"
   const oldRank = getRank(oldPoints);
   const newRank = getRank(newPoints);
   const leveledUp = newRank.name !== oldRank.name;
+
+  createUserNotification({
+    recipientEmail: user.email,
+    actorEmail: user.email,
+    actorName: getPublicDisplayName(user, "You"),
+    type: "favor_gain",
+    title: `+${pts} Favor`,
+    message: leveledUp ? `You reached ${newRank.name}.` : "Favor added to your progress.",
+    favorPoints: pts,
+    sourceType: field,
+  });
 
   return { leveledUp, newRank: leveledUp ? newRank : null };
 }

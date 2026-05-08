@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import GlassCard from "../GlassCard";
 import { Cake, Send } from "lucide-react";
+import { getPublicDisplayName } from "@/lib/userIdentity";
 
 export default function BirthdaySubmitForm({ onSubmitted }) {
   const { profile } = useGuestProfile();
@@ -29,7 +30,7 @@ export default function BirthdaySubmitForm({ onSubmitted }) {
     let submitterEmail = "";
     try {
       const user = await base44.auth.me();
-      submitterName = user.display_name || user.full_name || user.email;
+      submitterName = getPublicDisplayName(user, user.email);
       submitterEmail = user.email;
     } catch {
       if (profile.name) submitterName = profile.name + (profile.discordId ? ` (${profile.discordId})` : "");

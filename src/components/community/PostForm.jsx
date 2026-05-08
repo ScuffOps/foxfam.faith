@@ -5,8 +5,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import RichTextEditor from "@/components/RichTextEditor";
+import { getPublicDisplayName } from "@/lib/userIdentity";
 import { Plus, X } from "lucide-react";
 import { awardPoints } from "@/hooks/usePoints";
 import { useLevelUpToast } from "@/hooks/useLevelUpToast";
@@ -24,9 +25,11 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
     if (!form.title) return;
     setSaving(true);
     let submitterName = "Anonymous";
+    let submitterEmail = "";
     try {
       const user = await base44.auth.me();
-      submitterName = user.display_name || user.full_name || user.email;
+      submitterName = getPublicDisplayName(user, user.email || "Member");
+      submitterEmail = user.email || "";
     } catch {
       if (profile.name) submitterName = profile.name + (profile.discordId ? ` (${profile.discordId})` : "");
     }
@@ -35,6 +38,7 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
       ...form,
       status: "pending",
       submitted_by_name: submitterName,
+      submitted_by_email: submitterEmail,
       upvotes: 0,
       upvoted_by: [],
     };
@@ -83,8 +87,12 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
           </div>
           <div>
             <Label>Description</Label>
-            <Textarea value={form.description} onChange={(e) => update("description", e.target.value)} placeholder="Markdown supported: **bold**, _italic_, links, lists..." className="mt-1.5 bg-secondary" rows={3} />
-            <p className="mt-1 text-[10px] text-muted-foreground">Markdown supported for descriptions.</p>
+            <RichTextEditor
+              value={form.description}
+              onChange={(value) => update("description", value)}
+              placeholder="Add context, links, lists, or a little emphasis..."
+              minHeight={120}
+            />
           </div>
           {form.type === "poll" && (
             <div>

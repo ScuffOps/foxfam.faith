@@ -9,6 +9,8 @@ import { useToast } from "@/components/ui/use-toast";
 import GlassCard from "../components/GlassCard";
 import RankBadge from "../components/RankBadge";
 import ProgressionLoop from "../components/ProgressionLoop";
+import { canUseAdminPanel, getRoleLabel } from "@/lib/roles";
+import { getPublicDisplayName } from "@/lib/userIdentity";
 
 const CONNECTOR_ID = "69d2b6bfc53ce38433398132"; // Foxfam Calendar
 
@@ -61,6 +63,24 @@ export default function Settings() {
     toast({ title: "Google Calendar disconnected" });
   };
 
+  const handleOAuthConnect = async (provider) => {
+    if (!base44.auth.loginWithProvider) {
+      toast({
+        title: `${provider} OAuth needs Base44 provider setup`,
+        description: "The UI is ready, but this app needs the provider enabled in Base44 before linking works.",
+      });
+      return;
+    }
+    try {
+      await base44.auth.loginWithProvider(provider.toLowerCase());
+    } catch {
+      toast({
+        title: `${provider} OAuth is not enabled yet`,
+        description: "Enable the provider in Base44, then this button will launch the OAuth flow.",
+      });
+    }
+  };
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -77,7 +97,7 @@ export default function Settings() {
     load();
   }, [])
 
-  const isAdmin = user?.role === "admin";
+  const isAdmin = canUseAdminPanel(user);
 
   if (loading) {
     return (
@@ -100,7 +120,7 @@ export default function Settings() {
           <div className="mb-4 flex items-center gap-3">
             <AvatarUpload avatarUrl={avatar} onUploaded={handleAvatarUploaded} size="lg" />
             <div className="flex flex-col gap-1.5">
-              <h3 className="font-heading text-sm font-semibold">{user?.display_name || user?.full_name || "Profile"}</h3>
+              <h3 className="font-heading text-sm font-semibold">{getPublicDisplayName(user, "Profile")}</h3>
               <p className="text-xs text-muted-foreground">{user?.email}</p>
               <RankBadge
                 points={userPoints}
@@ -123,7 +143,7 @@ export default function Settings() {
             <div className="flex items-center justify-between rounded-lg bg-secondary/50 px-4 py-3">
               <div>
                 <p className="text-sm font-medium">Name</p>
-                <p className="text-xs text-muted-foreground">{user?.display_name || user?.full_name || "Not set"}</p>
+                <p className="text-xs text-muted-foreground">{getPublicDisplayName(user, "Not set")}</p>
               </div>
             </div>
             <div className="flex items-center justify-between rounded-lg bg-secondary/50 px-4 py-3">
@@ -135,10 +155,37 @@ export default function Settings() {
             <div className="flex items-center justify-between rounded-lg bg-secondary/50 px-4 py-3">
               <div>
                 <p className="text-sm font-medium">Role</p>
-                <p className="text-xs capitalize text-muted-foreground">{user?.role || "user"}</p>
+                <p className="text-xs text-muted-foreground">{getRoleLabel(user?.role)}</p>
               </div>
               <Shield className="h-4 w-4 text-muted-foreground" />
             </div>
+          </div>
+        </SettingsSection>
+
+        {/* Linked Accounts */}
+        <SettingsSection title="Linked Accounts" icon={Link2} accentClass="bg-chart-2/15 text-chart-2">
+          <div id="integrations" className="grid gap-3 sm:grid-cols-2">
+            {[
+              { provider: "Twitch", value: user?.twitch_display_name, copy: "Use your Twitch display name across Foxfam." },
+              { provider: "Discord", value: user?.discord_username, copy: "Prepare Discord identity for community notifications." },
+            ].map((item) => (
+              <div key={item.provider} className="rounded-lg border border-border bg-secondary/40 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">{item.provider}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{item.value || item.copy}</p>
+                  </div>
+                  {item.value && <CheckCircle className="h-4 w-4 text-success" />}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleOAuthConnect(item.provider)}
+                  className="mt-3 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+                >
+                  {item.value ? "Reconnect" : `Connect ${item.provider}`}
+                </button>
+              </div>
+            ))}
           </div>
         </SettingsSection>
 

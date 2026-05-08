@@ -481,3 +481,81 @@
 .favor-actions {
   grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
 }
+
+.rich-text-editor .ql-toolbar {
+  border: 0;
+  border-bottom: 1px solid hsl(var(--border));
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.rich-text-editor .ql-container {
+  min-height: inherit;
+  border: 0;
+  color: hsl(var(--foreground));
+  font-family: var(--font-body);
+}
+
+.rich-text-editor .ql-editor {
+  min-height: inherit;
+  color: hsl(var(--foreground));
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+
+.rich-text-editor .ql-editor.ql-blank::before {
+  color: hsl(var(--muted-foreground));
+  font-style: normal;
+}
+
+.rich-text-editor .ql-stroke {
+  stroke: hsl(var(--muted-foreground));
+}
+
+.rich-text-editor .ql-fill {
+  fill: hsl(var(--muted-foreground));
+}
+
+.rich-text-editor .ql-picker,
+.rich-text-editor .ql-picker-options {
+  color: hsl(var(--muted-foreground));
+}
+
+.rich-text-editor .ql-picker-options {
+  border-color: hsl(var(--border)) !important;
+  background: hsl(var(--popover)) !important;
+}
+
+.rich-text-content p {
+  margin-bottom: 0.5rem;
+}
+
+.rich-text-content p:last-child {
+  margin-bottom: 0;
+}
+
+.rich-text-content ul,
+.rich-text-content ol {
+  margin: 0.5rem 0 0.5rem 1.1rem;
+}
+
+.rich-text-content ul {
+  list-style: disc;
+}
+
+.rich-text-content ol {
+  list-style: decimal;
+}
+
+.rich-text-content blockquote {
+  border-left: 2px solid hsl(var(--primary) / 0.5);
+  margin: 0.5rem 0;
+  padding-left: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  font-style: italic;
+}
+
+.rich-text-content a {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

@@ -4,12 +4,16 @@ import { Check, X, ShieldAlert, Handshake, Lightbulb, Cake, BarChart3, CalendarP
 import { Button } from "@/components/ui/button";
 import { FAVORED_BADGE, FAVORED_DEFAULT_TITLE } from "@/hooks/usePoints";
 import GlassCard from "../components/GlassCard";
+import ActivityChart from "../components/dashboard/ActivityChart";
+import RichTextContent from "../components/RichTextContent";
+import { canUseAdminPanel } from "@/lib/roles";
 
 const TABS = [
   { key: "ideas", label: "Ideas & Feedback", icon: Lightbulb },
   { key: "polls", label: "Polls", icon: BarChart3 },
   { key: "collabs", label: "Collab Requests", icon: Handshake },
   { key: "birthdays", label: "Birthdays", icon: Cake },
+  { key: "activity", label: "Activity", icon: BarChart3 },
   { key: "favor", label: "Favored", icon: Crown },
 ];
 
@@ -40,7 +44,7 @@ export default function Admin() {
 
   useEffect(() => { loadAll(); }, []);
 
-  const isAdmin = user?.role === "admin" || user?.role === "mod";
+  const isAdmin = canUseAdminPanel(user);
 
   if (!loading && !isAdmin) {
     return (
@@ -57,6 +61,7 @@ export default function Admin() {
     polls: data.polls.length,
     collabs: data.collabs.length,
     birthdays: data.birthdays.length,
+    activity: 0,
     favor: data.favor.filter((level) => level.is_favored).length,
   };
   const totalPending = counts.ideas + counts.polls + counts.collabs + counts.birthdays;
@@ -143,7 +148,7 @@ export default function Admin() {
                         <span className="font-medium text-sm">{post.title}</span>
                         <span className="text-[10px] rounded-full border border-border px-2 py-0.5 text-muted-foreground capitalize">{post.type}</span>
                       </div>
-                      {post.description && <p className="text-xs text-muted-foreground mb-1">{post.description}</p>}
+                      {post.description && <RichTextContent className="mb-1 text-xs text-muted-foreground">{post.description}</RichTextContent>}
                       <p className="text-[10px] text-muted-foreground">by {post.submitted_by_name || "Anonymous"} · {post.upvotes || 0} upvotes</p>
                     </div>
                     <ApproveReject
@@ -170,7 +175,7 @@ export default function Admin() {
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm mb-1">{post.title}</p>
-                      {post.description && <p className="text-xs text-muted-foreground mb-2">{post.description}</p>}
+                      {post.description && <RichTextContent className="mb-2 text-xs text-muted-foreground">{post.description}</RichTextContent>}
                       {(post.poll_options || []).map((o) => (
                         <div key={o.id} className="text-xs text-muted-foreground flex items-center gap-2 mb-0.5">
                           <span className="h-1.5 w-1.5 rounded-full bg-primary/40 inline-block" />
@@ -243,6 +248,12 @@ export default function Admin() {
                 </GlassCard>
               )}
             />
+          )}
+
+          {activeTab === "activity" && (
+            <div className="space-y-4">
+              <ActivityChart />
+            </div>
           )}
 
           {/* FAVORED TITLES */}

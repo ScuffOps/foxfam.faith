@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { sendToDiscord } from "@/functions/sendToDiscord";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EyeOff, Eye } from "lucide-react";
 import PrayerOrb, { CATEGORIES, detectCategory } from "@/components/prayer/PrayerOrb";
 import ParticleOverlay from "@/components/ParticleOverlay";
 import ColorSwatchPicker from "@/components/ColorSwatchPicker";
+import RichTextEditor from "@/components/RichTextEditor";
+import { getRichTextPlainText } from "@/components/RichTextContent";
+import { getPublicDisplayName } from "@/lib/userIdentity";
+import { canUseAdminPanel } from "@/lib/roles";
 
 const STAINED_GLASS = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/21eb9949e_StainedGlassFull.png";
 const STONE_WALL    = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/bde055a3d_prayerwall3.png";
@@ -37,19 +40,20 @@ export default function PrayerWall() {
   };
 
   const handleSubmit = async () => {
-    if (!message.trim()) return;
+    const plainMessage = getRichTextPlainText(message);
+    if (!plainMessage) return;
     setSubmitting(true);
-    const cat = category || detectCategory(message);
+    const cat = category || detectCategory(plainMessage);
     await base44.entities.Prayer.create({
-      message: message.trim(),
-      author_name: isAnonymous ? "" : (authorName.trim() || user?.display_name || user?.full_name || ""),
+      message,
+      author_name: isAnonymous ? "" : (authorName.trim() || getPublicDisplayName(user, "")),
       is_anonymous: isAnonymous,
       support_count: 0,
       is_read: false,
       category: cat,
       custom_color: customColor || undefined,
     });
-    sendToDiscord({ message: message.trim(), author_name: authorName.trim(), is_anonymous: isAnonymous }).catch(() => {});
+    sendToDiscord({ message: plainMessage, author_name: authorName.trim(), is_anonymous: isAnonymous }).catch(() => {});
     setMessage("");
     setAuthorName("");
     setCategory("");
@@ -70,7 +74,7 @@ export default function PrayerWall() {
     setPrayers((prev) => prev.map((p) => p.id === prayer.id ? { ...p, is_read: true } : p));
   };
 
-  const isAdmin = user?.role === "admin";
+  const isAdmin = canUseAdminPanel(user);
 
   return (
     <div className="relative min-h-screen overflow-hidden" style={{ background: "linear-gradient(180deg, #060810 0%, #080d1c 60%, #06080f 100%)" }}>
@@ -181,17 +185,15 @@ export default function PrayerWall() {
             Leave a prayer or word of light
           </p>
           <div className="space-y-3">
-            <Textarea
+            <RichTextEditor
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Write your prayer or encouraging words here... Markdown supported."
-              maxLength={500}
-              className="resize-none min-h-[90px] text-sm"
-              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(80,140,255,0.15)", color: "rgba(220,230,255,0.9)" }}
+              onChange={setMessage}
+              placeholder="Write your prayer or encouraging words here..."
+              minHeight={120}
             />
             <div className="flex justify-between text-[10px] text-cyan-900/50">
-              <span>Markdown supported.</span>
-              <span>{message.length}/500</span>
+              <span>Rich text supported.</span>
+              <span>{getRichTextPlainText(message).length}/500</span>
             </div>
 
             {/* Category picker */}
@@ -234,7 +236,7 @@ export default function PrayerWall() {
                 <Input
                   value={authorName}
                   onChange={(e) => setAuthorName(e.target.value)}
-                  placeholder={user?.full_name || "Leave blank to go unnamed"}
+                  placeholder={getPublicDisplayName(user, "Leave blank to go unnamed")}
                   className="mt-1 h-8 text-sm"
                   style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(80,140,255,0.12)", color: "rgba(220,230,255,0.85)" }}
                 />
@@ -258,7 +260,7 @@ export default function PrayerWall() {
 
             <button
               onClick={handleSubmit}
-              disabled={!message.trim() || submitting}
+              disabled={!getRichTextPlainText(message) || submitting}
               className="w-full py-2.5 rounded font-heading text-sm tracking-widest uppercase transition-all disabled:opacity-40"
               style={{
                 background: "linear-gradient(135deg, rgba(50,80,180,0.55) 0%, rgba(80,50,160,0.55) 100%)",

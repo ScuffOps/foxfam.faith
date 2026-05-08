@@ -78,6 +78,9 @@
     },
     "submitted_by_name": {
       "type": "string"
+    },
+    "submitted_by_email": {
+      "type": "string"
     }
   },
   "required": [

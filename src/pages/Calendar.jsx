@@ -9,6 +9,7 @@ import ListView from "../components/calendar/ListView";
 import EventFormDialog from "../components/calendar/EventFormDialog";
 import EventDetailsPanel from "../components/calendar/EventDetailsPanel";
 import { EVENT_CATEGORY_OPTIONS, getCategoryColor } from "@/lib/categoryColors";
+import { canModerate } from "@/lib/roles";
 
 export default function Calendar() {
   const [events, setEvents] = useState([]);
@@ -37,7 +38,7 @@ export default function Calendar() {
 
   useEffect(() => { loadEvents(); }, []);
 
-  const isMod = user?.role === "mod" || user?.role === "admin";
+  const isMod = canModerate(user);
 
   const filteredEvents = filterCategory === "all"
     ? events

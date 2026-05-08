@@ -4,6 +4,7 @@ import { Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BlessingCard from "../components/blessings/BlessingCard";
 import BlessingForm from "../components/blessings/BlessingForm";
+import { canModerate } from "@/lib/roles";
 
 export default function Blessings() {
   const [blessings, setBlessings] = useState([]);
@@ -21,7 +22,7 @@ export default function Blessings() {
 
   useEffect(() => { loadData(); }, []);
 
-  const isAdmin = user?.role === "admin" || user?.role === "mod";
+  const isAdmin = canModerate(user);
 
   return (
     <div className="mx-auto max-w-2xl animate-fade-in">

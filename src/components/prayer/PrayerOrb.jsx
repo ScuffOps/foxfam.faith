@@ -1,5 +1,5 @@
 import { useState } from "react";
-import UserMarkdown from "../UserMarkdown";
+import RichTextContent, { getRichTextPlainText } from "../RichTextContent";
 
 // ── Categories & tones ──────────────────────────────────────────
 export const CATEGORIES = {
@@ -153,7 +153,8 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin }) {
   const [praying, setPraying] = useState(false);
   const [markingRead, setMarkingRead] = useState(false);
 
-  const cat = prayer.category || detectCategory(prayer.message);
+  const plainMessage = getRichTextPlainText(prayer.message);
+  const cat = prayer.category || detectCategory(plainMessage);
   const catDef = CATEGORIES[cat] || CATEGORIES.guidance;
   // custom_color overrides the category palette
   const rawColor = prayer.custom_color || catDef.primary;
@@ -176,7 +177,7 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin }) {
   const breatheDur = (3.5 + rand() * 2.5).toFixed(1);
   const floatDelay = (rand() * 2).toFixed(1);
 
-  const preview = prayer.message.length > 60 ? prayer.message.slice(0, 57) + "…" : prayer.message;
+  const preview = plainMessage.length > 60 ? plainMessage.slice(0, 57) + "..." : plainMessage;
 
   const handlePray = async (e) => {
     e.stopPropagation();
@@ -466,9 +467,9 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin }) {
               )}
 
               {/* Message */}
-              <UserMarkdown className="mb-6 text-center text-sm leading-relaxed" style={{ color: isRead ? "rgba(160,165,190,0.55)" : "rgba(215,220,255,0.9)" }}>
+              <RichTextContent className="mb-6 text-center text-sm leading-relaxed" style={{ color: isRead ? "rgba(160,165,190,0.55)" : "rgba(215,220,255,0.9)" }}>
                 {prayer.message}
-              </UserMarkdown>
+              </RichTextContent>
 
               {/* Footer */}
               <div className="flex items-center justify-between gap-2 flex-wrap">

@@ -4,6 +4,8 @@ import { Plus, Search, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CodexEntryCard from "@/components/codex/CodexEntryCard";
 import CodexEntryForm from "@/components/codex/CodexEntryForm";
+import { canModerate, hasRoleAtLeast, ROLE_VALUES } from "@/lib/roles";
+import { getPublicDisplayName } from "@/lib/userIdentity";
 
 const CATEGORY_FILTERS = [
   { key: "all",         label: "All"          },
@@ -33,7 +35,7 @@ export default function Codex() {
 
   useEffect(() => { load(); }, []);
 
-  const canEdit = user?.role === "verified" || user?.role === "admin";
+  const canEdit = hasRoleAtLeast(user, ROLE_VALUES.creator) || canModerate(user);
 
   const filtered = entries.filter((e) => {
     if (categoryFilter !== "all" && e.category !== categoryFilter) return false;
@@ -51,8 +53,8 @@ export default function Codex() {
   const handleSave = async (form) => {
     const payload = {
       ...form,
-      author_name: editingEntry ? form.author_name : (user?.full_name || user?.email || ""),
-      last_edited_by: editingEntry ? (user?.full_name || user?.email || "") : undefined,
+      author_name: editingEntry ? form.author_name : getPublicDisplayName(user, user?.email || ""),
+      last_edited_by: editingEntry ? getPublicDisplayName(user, user?.email || "") : undefined,
     };
     if (editingEntry) {
       await base44.entities.Codex.update(editingEntry.id, payload);
@@ -97,11 +99,11 @@ export default function Codex() {
         )}
       </div>
 
-      {/* VERIfied badge */}
+      {/* Access badge */}
       {canEdit && (
         <div className="mb-5 flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2.5">
           <span className="text-sm">✦</span>
-          <p className="text-xs text-primary/80 font-heading tracking-wide">You have VERIfied access — you can create and edit entries.</p>
+          <p className="text-xs text-primary/80 font-heading tracking-wide">You have Codex access - you can create and edit entries.</p>
         </div>
       )}
 

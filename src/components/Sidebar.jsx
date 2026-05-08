@@ -2,7 +2,6 @@ import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import {
-  LayoutDashboard,
   CalendarDays,
   Cake,
   MessageSquare,
@@ -15,20 +14,34 @@ import {
   ShieldCheck,
   BookOpen,
   Feather,
+  Home,
+  PartyPopper,
+  Landmark,
+  Vote,
+  Mailbox,
+  Lightbulb,
 } from "lucide-react";
+import SidebarProfile from "./SidebarProfile";
+import { canBookCollab, canUseAdminPanel } from "@/lib/roles";
 
 const navItems = [
-  { path: "/", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/", label: "Dashboard/Home", icon: Home },
   { path: "/calendar", label: "Calendar", icon: CalendarDays },
+  { path: "/events", label: "Events", icon: PartyPopper },
   { path: "/birthdays", label: "Birthdays", icon: Cake },
-  { path: "/community", label: "Community", icon: MessageSquare },
-  { path: "/codex", label: "The Codex", icon: BookOpen },
-  { path: "/reliquary", label: "Reliquary", icon: Feather },
-  { path: "/prayer", label: "Prayer Wall", icon: Flame },
-  { path: "/collabs", label: "Collab Requests", icon: Handshake },
-  { path: "/blessings", label: "Blessings", icon: Sparkles },
-  { path: "/admin", label: "Admin Panel", icon: ShieldCheck, adminOnly: true },
+  { path: "/collabs", label: "Book a Collab", icon: Handshake, creatorOnly: true },
   { path: "/roadmap", label: "Roadmap", icon: Map },
+  { path: "/shrine", label: "The Shrine", icon: Landmark },
+  { path: "/prayer", label: "Prayer Wall", icon: Flame },
+  { path: "/blessings", label: "Blessings", icon: Sparkles },
+  { path: "/reliquary", label: "Reliquary", icon: Feather },
+  { path: "/codex", label: "Codex", icon: BookOpen },
+  { path: "/community", label: "Community", icon: MessageSquare },
+  { path: "/forum", label: "Forum", icon: MessageSquare },
+  { path: "/polls", label: "Polls", icon: Vote },
+  { path: "/feedback", label: "Feedback", icon: Lightbulb },
+  { path: "/suggestions", label: "Suggestion Box", icon: Mailbox },
+  { path: "/admin", label: "Admin Panel", icon: ShieldCheck, adminOnly: true },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -40,11 +53,11 @@ export default function Sidebar({ onClose }) {
     base44.auth.me().then((u) => setUserRole(u?.role)).catch(() => {});
   }, []);
 
-  const isMod = userRole === "mod" || userRole === "admin";
+  const user = userRole ? { role: userRole } : null;
 
   const visibleNavItems = navItems.filter((item) => {
-    if (item.path === "/collabs") return isMod;
-    if (item.adminOnly) return isMod;
+    if (item.creatorOnly) return canBookCollab(user);
+    if (item.adminOnly) return canUseAdminPanel(user);
     return true;
   });
 
@@ -68,6 +81,8 @@ export default function Sidebar({ onClose }) {
           </button>
         )}
       </div>
+
+      <SidebarProfile onNavigate={onClose} />
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-2">

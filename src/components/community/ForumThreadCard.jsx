@@ -3,7 +3,9 @@ import { base44 } from "@/api/base44Client";
 import { ChevronDown, ChevronUp, MessageCircle, Send, Trash2 } from "lucide-react";
 import { useGuestProfile } from "@/hooks/useGuestProfile";
 import GlassCard from "../GlassCard";
-import UserMarkdown from "../UserMarkdown";
+import RichTextContent from "../RichTextContent";
+import { getPublicDisplayName } from "@/lib/userIdentity";
+import { createUserNotification } from "@/lib/notifications";
 
 function getGuestForumId() {
   const key = "commhub_forum_guest_id";
@@ -24,7 +26,7 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
   const [commentText, setCommentText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const actorId = user?.email || `guest:${guestId}`;
-  const actorName = user?.display_name || user?.full_name || user?.email || profile.name || "Guest";
+  const actorName = user ? getPublicDisplayName(user, user.email) : profile.name || "Guest";
   const hasReacted = (thread.reacted_by || []).includes(actorId);
 
   const loadComments = async () => {
@@ -64,6 +66,18 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
     await base44.entities.CommunityThread.update(thread.id, {
       comment_count: (thread.comment_count || 0) + 1,
     });
+    if (thread.author_email && thread.author_email !== user?.email) {
+      createUserNotification({
+        recipientEmail: thread.author_email,
+        actorEmail: user?.email || actorId,
+        actorName,
+        type: "reply_received",
+        title: "New forum reply",
+        message: `${actorName} replied to "${thread.title}".`,
+        sourceType: "community_thread",
+        sourceId: thread.id,
+      });
+    }
     setCommentText("");
     setSubmitting(false);
     setShowReplies(true);
@@ -92,7 +106,7 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
             )}
           </div>
           <h3 className="font-heading text-lg font-semibold">{thread.title}</h3>
-          <p className="mt-1 text-xs text-muted-foreground">by {thread.author_name || "VIP Fox"}</p>
+          <p className="mt-1 text-xs text-muted-foreground">by {thread.author_name || "Favored Fox"}</p>
         </div>
         {isAdmin && (
           <button type="button" onClick={handleDelete} className="shrink-0 text-muted-foreground transition-colors hover:text-destructive">
@@ -101,9 +115,9 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
         )}
       </div>
 
-      <UserMarkdown className="text-sm leading-relaxed text-muted-foreground">
+      <RichTextContent className="text-sm leading-relaxed text-muted-foreground">
         {thread.body}
-      </UserMarkdown>
+      </RichTextContent>
 
       {thread.tags?.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -155,9 +169,9 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
                 </div>
                 <div className="flex-1 rounded-lg bg-secondary/50 px-3 py-2">
                   <span className="text-xs font-semibold text-foreground">{comment.author_name || "Anonymous"} </span>
-                  <UserMarkdown className="inline text-xs text-muted-foreground" inline>
+                  <RichTextContent className="inline text-xs text-muted-foreground" inline>
                     {comment.message}
-                  </UserMarkdown>
+                  </RichTextContent>
                 </div>
               </div>
             ))

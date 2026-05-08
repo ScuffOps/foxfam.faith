@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { CalendarDays, Cake, Lightbulb, BarChart3 } from "lucide-react";
 import GlassCard from "../GlassCard";
@@ -31,16 +32,17 @@ export default function QuickStats() {
   }, []);
 
   const items = [
-    { label: "Events", value: stats.events, icon: CalendarDays, color: "text-accent" },
-    { label: "Birthdays", value: stats.birthdays, icon: Cake, color: "text-chart-5" },
-    { label: "Ideas", value: stats.ideas, icon: Lightbulb, color: "text-chart-4" },
-    { label: "Polls", value: stats.polls, icon: BarChart3, color: "text-chart-2" },
+    { label: "Events", value: stats.events, icon: CalendarDays, color: "text-accent", href: "/events" },
+    { label: "Birthdays", value: stats.birthdays, icon: Cake, color: "text-chart-5", href: "/birthdays" },
+    { label: "Ideas", value: stats.ideas, icon: Lightbulb, color: "text-chart-4", href: "/feedback" },
+    { label: "Polls", value: stats.polls, icon: BarChart3, color: "text-chart-2", href: "/polls" },
   ];
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {items.map((item) => (
-        <GlassCard key={item.label} className="dashboard-stat-card">
+        <GlassCard key={item.label} className="dashboard-stat-card p-0">
+          <Link to={item.href} className="flex h-full flex-col justify-center rounded-xl p-5 focus:outline-none focus:ring-2 focus:ring-primary/50">
           <div className={`dashboard-icon-well mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/60 ${item.color}`}>
             <item.icon className="h-5 w-5" />
           </div>
@@ -50,6 +52,7 @@ export default function QuickStats() {
             <p className="dashboard-stat-value font-heading text-3xl font-bold leading-none">{item.value}</p>
           )}
           <p className="mt-0.5 text-xs text-muted-foreground">{item.label}</p>
+          </Link>
         </GlassCard>
       ))}
     </div>

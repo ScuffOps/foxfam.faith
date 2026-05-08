@@ -5,8 +5,10 @@ import { Link } from "react-router-dom";
 import { awardPoints } from "@/hooks/usePoints";
 import { useLevelUpToast } from "@/hooks/useLevelUpToast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import UserMarkdown from "../UserMarkdown";
+import RichTextContent from "../RichTextContent";
 import PraiseBurst from "../PraiseBurst";
+import { getPublicDisplayName } from "@/lib/userIdentity";
+import { createUserNotification } from "@/lib/notifications";
 
 function downloadNameFor(title) {
   const slug = (title || "blessing").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -60,7 +62,21 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
         upvotes: nextPraise.upvotes,
         upvoted_by: nextPraise.upvotedBy,
       });
-      if (!hasPraised) awardPoints(user, "upvote_blessing").then(checkLevelUp);
+      if (!hasPraised) {
+        awardPoints(user, "upvote_blessing").then(checkLevelUp);
+        if (blessing.author_email && blessing.author_email !== user.email) {
+          createUserNotification({
+            recipientEmail: blessing.author_email,
+            actorEmail: user.email,
+            actorName: getPublicDisplayName(user, "Someone"),
+            type: "praise_received",
+            title: "Praise received",
+            message: `${getPublicDisplayName(user, "Someone")} gave praise to "${blessing.title}".`,
+            sourceType: "blessing",
+            sourceId: blessing.id,
+          });
+        }
+      }
       window.setTimeout(() => onRefresh?.({ silent: true }), 700);
     } catch {
       setLocalPraise(previousPraise);
@@ -87,11 +103,23 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
     await base44.entities.BlessingComment.create({
       blessing_id: blessing.id,
       message: commentText.trim(),
-      author_name: user.display_name || user.full_name || user.email,
+      author_name: getPublicDisplayName(user, user.email),
     });
     await base44.entities.Blessing.update(blessing.id, {
       comment_count: (blessing.comment_count || 0) + 1,
     });
+    if (blessing.author_email && blessing.author_email !== user.email) {
+      createUserNotification({
+        recipientEmail: blessing.author_email,
+        actorEmail: user.email,
+        actorName: getPublicDisplayName(user, "Someone"),
+        type: "comment_received",
+        title: "New blessing comment",
+        message: `${getPublicDisplayName(user, "Someone")} commented on "${blessing.title}".`,
+        sourceType: "blessing",
+        sourceId: blessing.id,
+      });
+    }
     awardPoints(user, "post_blessing_comment").then(checkLevelUp);
     setCommentText("");
     setSubmitting(false);
@@ -143,9 +171,9 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
       <div className="p-4">
         <h3 className="font-heading text-base font-semibold">{blessing.title}</h3>
         {blessing.content && (
-          <UserMarkdown className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+          <RichTextContent className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
             {blessing.content}
-          </UserMarkdown>
+          </RichTextContent>
         )}
 
         {blessing.codex_entry_id && (
@@ -224,9 +252,9 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
                   </div>
                   <div className="flex-1 rounded-lg bg-secondary/50 px-3 py-2">
                     <span className="text-xs font-semibold text-foreground">{comment.author_name || "Anonymous"} </span>
-                    <UserMarkdown className="inline text-xs text-muted-foreground" inline>
+                    <RichTextContent className="inline text-xs text-muted-foreground" inline>
                       {comment.message}
-                    </UserMarkdown>
+                    </RichTextContent>
                   </div>
                 </div>
               ))

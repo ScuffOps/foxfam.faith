@@ -4,7 +4,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import RichTextEditor from "@/components/RichTextEditor";
+import { getRichTextPlainText } from "@/components/RichTextContent";
+import { getPublicDisplayName } from "@/lib/userIdentity";
 import { Loader2 } from "lucide-react";
 
 const initialForm = {
@@ -38,15 +40,16 @@ export default function ReliquaryForm({ open, onOpenChange, user, entry, onSaved
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
 
   const handleSubmit = async () => {
-    if (!form.title.trim() || !form.body.trim()) return;
+    if (!form.title.trim() || !getRichTextPlainText(form.body)) return;
     setSaving(true);
     const payload = {
       title: form.title.trim(),
       subtitle: form.subtitle.trim(),
       mood: form.mood.trim(),
-      body: form.body.trim(),
+      body: form.body,
       tags: form.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
-      author_name: user?.display_name || user?.full_name || "Veri",
+      author_name: getPublicDisplayName(user, "Veri"),
+      author_email: user?.email || "",
       is_published: true,
     };
 
@@ -95,18 +98,17 @@ export default function ReliquaryForm({ open, onOpenChange, user, entry, onSaved
 
           <div>
             <Label>Poem / Entry *</Label>
-            <Textarea
+            <RichTextEditor
               value={form.body}
-              onChange={(e) => update("body", e.target.value)}
-              placeholder="Markdown supported: line breaks, **bold**, _italic_, links, lists..."
-              className="mt-1.5 min-h-[220px] resize-y bg-secondary"
+              onChange={(value) => update("body", value)}
+              placeholder="Write the poem or reliquary note..."
+              minHeight={240}
             />
-            <p className="mt-1 text-[10px] text-muted-foreground">Markdown supported for poems and notes.</p>
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={saving || !form.title.trim() || !form.body.trim()}>
+            <Button onClick={handleSubmit} disabled={saving || !form.title.trim() || !getRichTextPlainText(form.body)}>
               {saving ? <><Loader2 className="mr-1 h-4 w-4 animate-spin" /> Saving...</> : isEditing ? "Update Post" : "Place in Reliquary"}
             </Button>
           </div>

@@ -4,6 +4,7 @@ import BirthdaySubmitForm from "../components/birthdays/BirthdaySubmitForm";
 import GuestProfileBanner from "../components/GuestProfileBanner";
 import BirthdayList from "../components/birthdays/BirthdayList";
 import { useToast } from "@/components/ui/use-toast";
+import { canModerate } from "@/lib/roles";
 
 export default function Birthdays() {
   const { toast } = useToast();
@@ -25,7 +26,7 @@ export default function Birthdays() {
 
   useEffect(() => { loadData(); }, []);
 
-  const isAdmin = user?.role === "admin" || user?.role === "mod";
+  const isAdmin = canModerate(user);
 
   const handleApprove = async (id) => {
     await base44.entities.Birthday.update(id, { status: "approved" });

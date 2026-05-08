@@ -6,7 +6,7 @@ import { useLevelUpToast } from "@/hooks/useLevelUpToast";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "../StatusBadge";
 import GlassCard from "../GlassCard";
-import UserMarkdown from "../UserMarkdown";
+import RichTextContent from "../RichTextContent";
 
 export default function PollCard({ post, isAdmin, userEmail, onRefresh }) {
   const checkLevelUp = useLevelUpToast();
@@ -63,9 +63,9 @@ export default function PollCard({ post, isAdmin, userEmail, onRefresh }) {
         </div>
       </div>
       {post.description && (
-        <UserMarkdown className="mt-2 text-sm text-muted-foreground" inline={false}>
+        <RichTextContent className="mt-2 text-sm text-muted-foreground" inline={false}>
           {post.description}
-        </UserMarkdown>
+        </RichTextContent>
       )}
       {/* Poll Options */}
       <div className="mt-3 space-y-2">
@@ -85,7 +85,7 @@ export default function PollCard({ post, isAdmin, userEmail, onRefresh }) {
               />
               <div className="relative flex items-center justify-between">
                 <span className={`text-sm ${isVoted ? "font-semibold text-primary" : ""}`}>
-                  <UserMarkdown inline>{opt.text}</UserMarkdown>
+                  <RichTextContent inline>{opt.text}</RichTextContent>
                 </span>
                 <span className="text-xs font-medium text-muted-foreground">
                   {opt.votes || 0} votes ({pct}%)

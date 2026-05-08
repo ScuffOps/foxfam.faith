@@ -47,9 +47,15 @@ const AuthenticatedApp = () => {
     <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/shrine" element={<Dashboard />} />
         <Route path="/calendar" element={<Calendar />} />
+        <Route path="/events" element={<Calendar />} />
         <Route path="/birthdays" element={<Birthdays />} />
         <Route path="/community" element={<CommunityInput />} />
+        <Route path="/forum" element={<CommunityInput defaultTab="forum" />} />
+        <Route path="/polls" element={<CommunityInput defaultTab="polls" />} />
+        <Route path="/feedback" element={<CommunityInput defaultTab="feedback" />} />
+        <Route path="/suggestions" element={<CommunityInput defaultTab="suggestions" />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/prayer" element={<PrayerWall />} />
         <Route path="/collabs" element={<CollabRequests />} />

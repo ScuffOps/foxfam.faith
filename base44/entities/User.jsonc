@@ -5,14 +5,39 @@
     "role": {
       "type": "string",
       "enum": [
-        "user",
         "admin",
+        "lead_mod",
         "mod",
-        "vip",
         "creator",
+        "favored",
+        "regular",
+        "viewer",
+        "guest",
+        "user",
+        "vip",
         "verified"
       ],
-      "default": "user"
+      "default": "viewer"
+    },
+    "display_name": {
+      "type": "string",
+      "description": "Public display name entered in Foxfam"
+    },
+    "twitch_display_name": {
+      "type": "string",
+      "description": "Public display name from linked Twitch"
+    },
+    "twitch_user_id": {
+      "type": "string"
+    },
+    "discord_username": {
+      "type": "string"
+    },
+    "discord_user_id": {
+      "type": "string"
+    },
+    "avatar_url": {
+      "type": "string"
     }
   }
 }

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import ReliquaryEntryCard from "@/components/reliquary/ReliquaryEntryCard";
 import ReliquaryForm from "@/components/reliquary/ReliquaryForm";
 import ParticleOverlay from "@/components/ParticleOverlay";
+import { canModerate } from "@/lib/roles";
 
 export default function Reliquary() {
   const [entries, setEntries] = useState([]);
@@ -32,7 +33,7 @@ export default function Reliquary() {
     loadData();
   }, []);
 
-  const isAdmin = user?.role === "admin" || user?.role === "mod";
+  const isAdmin = canModerate(user);
   const openNewPost = () => {
     setEditingEntry(null);
     setShowForm(true);

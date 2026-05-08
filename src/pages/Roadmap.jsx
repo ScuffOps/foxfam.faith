@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import PraiseBurst from "@/components/PraiseBurst";
+import { canModerate } from "@/lib/roles";
+import { getPublicDisplayName } from "@/lib/userIdentity";
 
 const STAGES = [
   { key: "planned", label: "Planned", icon: Clock, color: "text-chart-4", bg: "bg-chart-4/10", border: "border-chart-4/20" },
@@ -34,7 +36,7 @@ export default function Roadmap() {
 
   useEffect(() => { loadData(); }, []);
 
-  const isAdmin = user?.role === "admin" || user?.role === "mod";
+  const isAdmin = canModerate(user);
 
   const handleStageChange = async (postId, newStage) => {
     await base44.entities.CommunityPost.update(postId, { roadmap_status: newStage });
@@ -71,7 +73,7 @@ export default function Roadmap() {
         roadmap_status: form.roadmap_status,
         upvotes: 0,
         upvoted_by: [],
-        submitted_by_name: user?.display_name || user?.full_name || "Staff",
+        submitted_by_name: getPublicDisplayName(user, "Staff"),
       });
     }
     setSaving(false);

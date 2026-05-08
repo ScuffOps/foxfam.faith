@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Plus, Search, ArrowUp, TrendingUp, Clock, BarChart3, Mailbox, MessagesSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import SuggestionCard from "../components/community/SuggestionCard";
 import ForumThreadForm from "../components/community/ForumThreadForm";
 import ForumThreadCard from "../components/community/ForumThreadCard";
 import ProgressionLoop from "../components/ProgressionLoop";
+import { canCreateForumThread, canModerate } from "@/lib/roles";
 
 const TABS = [
   { key: "feedback", label: "Feedback & Ideas" },
@@ -24,7 +26,8 @@ const SORT_OPTIONS = [
   { key: "trending", label: "Trending", icon: TrendingUp },
 ];
 
-export default function CommunityInput() {
+export default function CommunityInput({ defaultTab = "feedback" }) {
+  const [searchParams] = useSearchParams();
   const [posts, setPosts] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
   const [threads, setThreads] = useState([]);
@@ -33,7 +36,7 @@ export default function CommunityInput() {
   const [showForm, setShowForm] = useState(false);
   const [showSuggestionForm, setShowSuggestionForm] = useState(false);
   const [showThreadForm, setShowThreadForm] = useState(false);
-  const [activeTab, setActiveTab] = useState("feedback");
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || defaultTab);
   const [sort, setSort] = useState("top");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("approved");
@@ -53,9 +56,13 @@ export default function CommunityInput() {
   };
 
   useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    const nextTab = searchParams.get("tab") || defaultTab;
+    if (TABS.some((tab) => tab.key === nextTab)) setActiveTab(nextTab);
+  }, [defaultTab, searchParams]);
 
-  const isAdmin = user?.role === "admin" || user?.role === "mod";
-  const canCreateThreads = user?.role === "admin" || user?.role === "mod" || user?.role === "vip";
+  const isAdmin = canModerate(user);
+  const canCreateThreads = canCreateForumThread(user);
   const pendingCount = posts.filter((p) => p.status === "pending").length;
 
   const getSorted = (arr) => {
@@ -102,7 +109,7 @@ export default function CommunityInput() {
             </Button>
           ) : (
             <div className="rounded-lg border border-border bg-card/60 px-3 py-2 text-xs text-muted-foreground">
-              VIPs, mods, and admins can start threads.
+              Favored members, creators, mods, and admins can start threads.
             </div>
           )
         ) : (
@@ -163,7 +170,7 @@ export default function CommunityInput() {
           <div className="mb-4 flex flex-col gap-2 rounded-xl border border-border bg-card/55 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="font-heading text-base font-semibold">Foxfam Forum</h2>
-              <p className="text-xs text-muted-foreground">VIPs, mods, and admins start threads; everyone can comment and react.</p>
+              <p className="text-xs text-muted-foreground">Favored members and above start threads; everyone can comment and react.</p>
             </div>
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />

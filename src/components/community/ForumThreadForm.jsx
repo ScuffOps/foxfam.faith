@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import RichTextEditor from "@/components/RichTextEditor";
+import { getRichTextPlainText } from "@/components/RichTextContent";
+import { getPublicDisplayName } from "@/lib/userIdentity";
 
 const initialForm = {
   title: "",
@@ -20,14 +22,15 @@ export default function ForumThreadForm({ open, onOpenChange, user, onCreated })
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
 
   const handleSubmit = async () => {
-    if (!form.title.trim() || !form.body.trim()) return;
+    if (!form.title.trim() || !getRichTextPlainText(form.body)) return;
     setSaving(true);
     await base44.entities.CommunityThread.create({
       title: form.title.trim(),
-      body: form.body.trim(),
+      body: form.body,
       category: form.category.trim() || "general",
       tags: form.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
-      author_name: user?.display_name || user?.full_name || user?.email || "VIP Fox",
+      author_name: getPublicDisplayName(user, "Favored Fox"),
+      author_email: user?.email || "",
       comment_count: 0,
       reactions: 0,
       reacted_by: [],
@@ -59,13 +62,12 @@ export default function ForumThreadForm({ open, onOpenChange, user, onCreated })
 
           <div>
             <Label>Thread *</Label>
-            <Textarea
+            <RichTextEditor
               value={form.body}
-              onChange={(event) => update("body", event.target.value)}
-              placeholder="Markdown supported: **bold**, _italic_, links, lists..."
-              className="mt-1.5 min-h-[160px] resize-y bg-secondary"
+              onChange={(value) => update("body", value)}
+              placeholder="Start the thread with formatting, lists, links, or a quote..."
+              minHeight={170}
             />
-            <p className="mt-1 text-[10px] text-muted-foreground">Markdown supported for forum threads.</p>
           </div>
 
           <div>
@@ -75,7 +77,7 @@ export default function ForumThreadForm({ open, onOpenChange, user, onCreated })
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={saving || !form.title.trim() || !form.body.trim()}>
+            <Button onClick={handleSubmit} disabled={saving || !form.title.trim() || !getRichTextPlainText(form.body)}>
               {saving ? "Starting..." : "Start Thread"}
             </Button>
           </div>

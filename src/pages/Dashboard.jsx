@@ -3,7 +3,6 @@ import TodaysBirthdays from "../components/dashboard/TodaysBirthdays";
 import UpcomingEvents from "../components/dashboard/UpcomingEvents";
 import TopIdeas from "../components/dashboard/TopIdeas";
 import Leaderboard from "../components/dashboard/Leaderboard";
-import ActivityChart from "../components/dashboard/ActivityChart";
 import BoopTheFox from "../components/dashboard/BoopTheFox";
 import VeriThought from "../components/dashboard/VeriThought";
 import ErenAgent from "../components/dashboard/ErenAgent";
@@ -32,12 +31,7 @@ export default function Dashboard() {
       {/* Irregular bento grid — 4-col base on large screens */}
       <div className="mt-6 grid gap-4 grid-cols-2 lg:grid-cols-4">
 
-        {/* Row 1: Activity chart — full width */}
-        <div className="col-span-2 lg:col-span-4">
-          <ActivityChart />
-        </div>
-
-        {/* Row 2: Upcoming Events (half) + Codex (quarter) + Birthdays (quarter) */}
+        {/* Row 1: Upcoming Events (half) + Codex (quarter) + Birthdays (quarter) */}
         <div className="col-span-2 lg:col-span-2">
           <UpcomingEvents />
         </div>

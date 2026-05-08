@@ -4,7 +4,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import RichTextEditor from "@/components/RichTextEditor";
+import { getPublicDisplayName } from "@/lib/userIdentity";
 import { ImagePlus, Loader2, BookOpen, X } from "lucide-react";
 import { awardPoints } from "@/hooks/usePoints";
 import { useLevelUpToast } from "@/hooks/useLevelUpToast";
@@ -46,7 +47,8 @@ export default function BlessingForm({ open, onOpenChange, user, onCreated }) {
     await base44.entities.Blessing.create({
       ...form,
       media_url,
-      author_name: user?.display_name || user?.full_name || user?.email || "Veri",
+      author_name: getPublicDisplayName(user, "Veri"),
+      author_email: user?.email || "",
       upvotes: 0,
       upvoted_by: [],
       comment_count: 0,
@@ -78,8 +80,12 @@ export default function BlessingForm({ open, onOpenChange, user, onCreated }) {
           </div>
           <div>
             <Label>Message</Label>
-            <Textarea value={form.content} onChange={(e) => update("content", e.target.value)} placeholder="Markdown supported: **bold**, _italic_, links, lists..." className="mt-1.5 bg-secondary resize-none" rows={3} />
-            <p className="mt-1 text-[10px] text-muted-foreground">Markdown supported for blessing messages.</p>
+            <RichTextEditor
+              value={form.content}
+              onChange={(value) => update("content", value)}
+              placeholder="Write the blessing, add emphasis, links, or a tiny ritual note..."
+              minHeight={120}
+            />
           </div>
 
           {/* Media Upload */}

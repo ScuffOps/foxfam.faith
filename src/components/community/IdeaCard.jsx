@@ -6,8 +6,10 @@ import { useLevelUpToast } from "@/hooks/useLevelUpToast";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "../StatusBadge";
 import GlassCard from "../GlassCard";
-import UserMarkdown from "../UserMarkdown";
+import RichTextContent from "../RichTextContent";
 import PraiseBurst from "../PraiseBurst";
+import { createUserNotification } from "@/lib/notifications";
+import { getPublicDisplayName } from "@/lib/userIdentity";
 
 const typeIcons = {
   idea: Lightbulb,
@@ -41,7 +43,21 @@ export default function IdeaCard({ post, isAdmin, userEmail, onRefresh }) {
       });
       setVoteBurst((value) => value + 1);
       window.setTimeout(() => setVoteBurst(0), 1550);
-      base44.auth.me().then((u) => awardPoints(u, "upvote_idea").then(checkLevelUp)).catch(() => {});
+      base44.auth.me().then((u) => {
+        awardPoints(u, "upvote_idea").then(checkLevelUp);
+        if (post.submitted_by_email && post.submitted_by_email !== u.email) {
+          createUserNotification({
+            recipientEmail: post.submitted_by_email,
+            actorEmail: u.email,
+            actorName: getPublicDisplayName(u, "Someone"),
+            type: "praise_received",
+            title: "Your idea got a boost",
+            message: `${getPublicDisplayName(u, "Someone")} upvoted "${post.title}".`,
+            sourceType: "community_post",
+            sourceId: post.id,
+          });
+        }
+      }).catch(() => {});
     }
     setUpvoting(false);
     onRefresh();
@@ -98,9 +114,9 @@ export default function IdeaCard({ post, isAdmin, userEmail, onRefresh }) {
           </div>
         </div>
         {post.description && (
-          <UserMarkdown className="mt-1.5 text-sm text-muted-foreground">
+          <RichTextContent className="mt-1.5 text-sm text-muted-foreground">
             {post.description}
-          </UserMarkdown>
+          </RichTextContent>
         )}
         <div className="mt-2 flex items-center gap-3">
           <span className="text-xs text-muted-foreground">by {post.submitted_by_name || "Anonymous"}</span>

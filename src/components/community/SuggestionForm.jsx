@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { getPublicDisplayName } from "@/lib/userIdentity";
 
 const CATEGORIES = [
   { value: "bug_report", label: "🐛 Bug Report" },
@@ -35,7 +36,7 @@ export default function SuggestionForm({ open, onOpenChange, onCreated }) {
     if (!isAnonymous) {
       try {
         const user = await base44.auth.me();
-        submitterName = user.display_name || user.full_name || user.email;
+        submitterName = getPublicDisplayName(user, user.email);
       } catch {
         if (profile?.name) submitterName = profile.name + (profile.discordId ? ` (${profile.discordId})` : "");
       }
