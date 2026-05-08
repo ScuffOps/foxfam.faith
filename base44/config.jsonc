@@ -1,0 +1,12 @@
+{
+  "name": "foxfam-faith",
+  "description": "Foxfam.Faith community portal",
+  "entitiesDir": "./entities",
+  "functionsDir": "./functions",
+  "site": {
+    "installCommand": "npm install",
+    "buildCommand": "BASE44_LEGACY_SDK_IMPORTS=true npm run build",
+    "serveCommand": "npm run dev",
+    "outputDirectory": "./dist"
+  }
+}

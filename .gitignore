@@ -1,6 +1,7 @@
 #env
 .env
 .env.*
+base44/.app.jsonc
 
 # Logs
 /logs
