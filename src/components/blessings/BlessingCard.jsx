@@ -52,7 +52,7 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
     setLocalPraise(nextPraise);
     if (!hasPraised) {
       setPraiseBurst((value) => value + 1);
-      window.setTimeout(() => setPraiseBurst(0), 900);
+      window.setTimeout(() => setPraiseBurst(0), 1550);
     }
 
     try {

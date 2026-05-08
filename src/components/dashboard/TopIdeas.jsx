@@ -45,7 +45,7 @@ export default function TopIdeas() {
       setVoteBurstId(idea.id);
       window.setTimeout(() => {
         setVoteBurstId((current) => (current === idea.id ? null : current));
-      }, 900);
+      }, 1550);
     }
 
     // Optimistic update

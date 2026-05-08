@@ -40,7 +40,7 @@ export default function IdeaCard({ post, isAdmin, userEmail, onRefresh }) {
         upvoted_by: [...upvotedBy, userEmail],
       });
       setVoteBurst((value) => value + 1);
-      window.setTimeout(() => setVoteBurst(0), 900);
+      window.setTimeout(() => setVoteBurst(0), 1550);
       base44.auth.me().then((u) => awardPoints(u, "upvote_idea").then(checkLevelUp)).catch(() => {});
     }
     setUpvoting(false);

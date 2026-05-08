@@ -87,7 +87,7 @@ export default function Roadmap() {
       setVoteBurstId(post.id);
       window.setTimeout(() => {
         setVoteBurstId((current) => (current === post.id ? null : current));
-      }, 900);
+      }, 1550);
     }
     await base44.entities.CommunityPost.update(post.id, {
       upvotes: hasVoted ? Math.max((post.upvotes || 0) - 1, 0) : (post.upvotes || 0) + 1,
