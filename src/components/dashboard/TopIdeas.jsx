@@ -87,6 +87,8 @@ export default function TopIdeas() {
                 <button
                   onClick={() => handleUpvote(idea)}
                   disabled={!user?.email || upvoting === idea.id}
+                  aria-label={hasUpvoted ? "Remove Praise" : "Give Praise"}
+                  title={hasUpvoted ? "Remove Praise" : "Give Praise"}
                   className={`praise-button flex flex-col items-center gap-0.5 rounded-md px-1.5 py-1 transition-colors ${
                     hasUpvoted
                       ? "text-chart-4 bg-chart-4/15"

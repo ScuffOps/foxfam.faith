@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { getPublicDisplayName } from "@/lib/userIdentity";
+import { useToast } from "@/components/ui/use-toast";
 
 const CATEGORIES = [
   { value: "bug_report", label: "🐛 Bug Report" },
@@ -21,6 +22,7 @@ const CATEGORIES = [
 ];
 
 export default function SuggestionForm({ open, onOpenChange, onCreated }) {
+  const { toast } = useToast();
   const { profile } = useGuestProfile();
   const [form, setForm] = useState({ title: "", description: "", category: "other_feedback" });
   const [isAnonymous, setIsAnonymous] = useState(false);
@@ -31,29 +33,37 @@ export default function SuggestionForm({ open, onOpenChange, onCreated }) {
   const handleSubmit = async () => {
     if (!form.title.trim() || !form.description.trim()) return;
     setSaving(true);
-
-    let submitterName = "Anonymous";
-    if (!isAnonymous) {
-      try {
-        const user = await base44.auth.me();
-        submitterName = getPublicDisplayName(user, user.email);
-      } catch {
-        if (profile?.name) submitterName = profile.name + (profile.discordId ? ` (${profile.discordId})` : "");
+    try {
+      let submitterName = "Anonymous";
+      if (!isAnonymous) {
+        try {
+          const user = await base44.auth.me();
+          submitterName = getPublicDisplayName(user, user.email);
+        } catch {
+          if (profile?.name) submitterName = profile.name + (profile.discordId ? ` (${profile.discordId})` : "");
+        }
       }
+
+      await base44.entities.Suggestion.create({
+        ...form,
+        submitted_by_name: isAnonymous ? "Anonymous" : submitterName,
+        is_anonymous: isAnonymous,
+        status: "approved",
+      });
+
+      setForm({ title: "", description: "", category: "other_feedback" });
+      setIsAnonymous(false);
+      onCreated?.();
+      onOpenChange(false);
+      toast({ title: "Suggestion posted", description: "It is live in the Suggestion Box." });
+    } catch {
+      toast({
+        title: "Suggestion could not be sent",
+        description: "Please check the fields and try again.",
+      });
+    } finally {
+      setSaving(false);
     }
-
-    await base44.entities.Suggestion.create({
-      ...form,
-      submitted_by_name: isAnonymous ? "Anonymous" : submitterName,
-      is_anonymous: isAnonymous,
-      status: "pending_review",
-    });
-
-    setSaving(false);
-    setForm({ title: "", description: "", category: "other_feedback" });
-    setIsAnonymous(false);
-    onCreated?.();
-    onOpenChange(false);
   };
 
   return (

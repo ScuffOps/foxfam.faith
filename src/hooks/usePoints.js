@@ -7,7 +7,7 @@ export const POINT_VALUES = {
   post_blessing_comment: 3,  // commenting on a blessing
   post_reliquary_comment: 3, // commenting on a reliquary entry
   upvote_blessing: 1,        // giving praise to a blessing
-  upvote_idea: 1,            // upvoting a community idea/feedback
+  upvote_idea: 1,            // giving praise to a community idea/feedback
   vote_poll: 2,              // voting in a poll
   submit_post: 5,            // submitting a community idea/feedback
   post_blessing: 8,          // posting a blessing (mods/admins)
@@ -32,8 +32,8 @@ export const PROGRESSION_ACTIONS = [
     points: POINT_VALUES.submit_post,
   },
   {
-    label: "Upvote an idea",
-    description: "Boost feedback you want the mod team to notice.",
+    label: "Give Praise to an idea",
+    description: "Send praise to feedback you want the mod team to notice.",
     href: "/community",
     cta: "Vote on ideas",
     points: POINT_VALUES.upvote_idea,
@@ -46,8 +46,8 @@ export const PROGRESSION_ACTIONS = [
     points: POINT_VALUES.vote_poll,
   },
   {
-    label: "Give praise to blessings",
-    description: "Give praise or comment on a blessing when one speaks to you.",
+    label: "Give Praise to blessings",
+    description: "Give Praise or comment on a blessing when one speaks to you.",
     href: "/blessings",
     cta: "Visit blessings",
     points: POINT_VALUES.post_blessing_comment,

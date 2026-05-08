@@ -51,6 +51,10 @@
       "default": [],
       "description": "List of user emails who upvoted"
     },
+    "comment_count": {
+      "type": "number",
+      "default": 0
+    },
     "poll_options": {
       "type": "array",
       "items": {

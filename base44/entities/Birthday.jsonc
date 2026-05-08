@@ -27,7 +27,7 @@
         "approved",
         "rejected"
       ],
-      "default": "pending"
+      "default": "approved"
     },
     "submitted_by_email": {
       "type": "string"

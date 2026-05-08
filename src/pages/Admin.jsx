@@ -149,7 +149,7 @@ export default function Admin() {
                         <span className="text-[10px] rounded-full border border-border px-2 py-0.5 text-muted-foreground capitalize">{post.type}</span>
                       </div>
                       {post.description && <RichTextContent className="mb-1 text-xs text-muted-foreground">{post.description}</RichTextContent>}
-                      <p className="text-[10px] text-muted-foreground">by {post.submitted_by_name || "Anonymous"} · {post.upvotes || 0} upvotes</p>
+                      <p className="text-[10px] text-muted-foreground">by {post.submitted_by_name || "Anonymous"} · {post.upvotes || 0} praise</p>
                     </div>
                     <ApproveReject
                       onApprove={() => updatePost(post.id, { status: "approved" })}

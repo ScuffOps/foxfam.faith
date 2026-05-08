@@ -210,7 +210,7 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
           >
             <PraiseBurst key={praiseBurst} active={praiseBurst > 0} />
             <span aria-hidden="true" className="text-sm leading-none">🕯</span>
-            <span>{hasPraised ? "Praised" : "Give praise"}</span>
+            <span>{hasPraised ? "Praised" : "Give Praise"}</span>
             <span className="font-bold">{localPraise.upvotes}</span>
           </button>
 

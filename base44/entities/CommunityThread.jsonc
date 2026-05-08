@@ -65,6 +65,21 @@
         },
         {
           "user_condition": {
+            "role": "lead_mod"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "creator"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "favored"
+          }
+        },
+        {
+          "user_condition": {
             "role": "vip"
           }
         }

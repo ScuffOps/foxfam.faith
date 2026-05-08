@@ -140,10 +140,12 @@ export default function Roadmap() {
                       return (
                         <div key={post.id} className="rounded-xl border border-border bg-card p-4 transition-colors hover:border-border/80">
                           <div className="flex gap-3">
-                            {/* Upvote */}
+                            {/* Give Praise */}
                             <button
                               onClick={() => handleUpvote(post)}
                               disabled={!user?.email}
+                              aria-label={hasVoted ? "Remove Praise" : "Give Praise"}
+                              title={hasVoted ? "Remove Praise" : "Give Praise"}
                               className={`praise-button flex min-w-[40px] flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 transition-colors ${
                                 hasVoted ? "bg-primary/15 text-primary" : "bg-secondary text-muted-foreground hover:text-foreground"
                               } ${voteBurstId === post.id ? "is-praising" : ""}`}

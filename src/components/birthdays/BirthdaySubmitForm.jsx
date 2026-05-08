@@ -37,11 +37,11 @@ export default function BirthdaySubmitForm({ onSubmitted }) {
     }
     await base44.entities.Birthday.create({
       ...form,
-      status: "pending",
+      status: "approved",
       submitted_by_name: submitterName,
       submitted_by_email: submitterEmail,
     });
-    toast({ title: "Birthday submitted!", description: "It will appear after approval." });
+    toast({ title: "Birthday added!", description: "It is live on the birthday calendar." });
     setForm({ display_name: "", birthday_date: "", note: "", is_private: false });
     setSubmitting(false);
     onSubmitted?.();

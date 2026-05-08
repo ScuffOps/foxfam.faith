@@ -29,12 +29,13 @@
       "enum": [
         "pending_review",
         "under_review",
+        "approved",
         "planned",
         "implemented",
         "archived",
         "rejected"
       ],
-      "default": "pending_review",
+      "default": "approved",
       "description": "Current status of the suggestion"
     },
     "submitted_by_name": {

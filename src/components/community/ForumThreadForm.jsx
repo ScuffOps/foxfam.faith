@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import RichTextEditor from "@/components/RichTextEditor";
 import { getRichTextPlainText } from "@/components/RichTextContent";
 import { getPublicDisplayName } from "@/lib/userIdentity";
+import { useToast } from "@/components/ui/use-toast";
 
 const initialForm = {
   title: "",
@@ -16,6 +17,7 @@ const initialForm = {
 };
 
 export default function ForumThreadForm({ open, onOpenChange, user, onCreated }) {
+  const { toast } = useToast();
   const [form, setForm] = useState(initialForm);
   const [saving, setSaving] = useState(false);
 
@@ -24,22 +26,31 @@ export default function ForumThreadForm({ open, onOpenChange, user, onCreated })
   const handleSubmit = async () => {
     if (!form.title.trim() || !getRichTextPlainText(form.body)) return;
     setSaving(true);
-    await base44.entities.CommunityThread.create({
-      title: form.title.trim(),
-      body: form.body,
-      category: form.category.trim() || "general",
-      tags: form.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
-      author_name: getPublicDisplayName(user, "Favored Fox"),
-      author_email: user?.email || "",
-      comment_count: 0,
-      reactions: 0,
-      reacted_by: [],
-      is_locked: false,
-    });
-    setSaving(false);
-    setForm(initialForm);
-    onCreated?.();
-    onOpenChange(false);
+    try {
+      await base44.entities.CommunityThread.create({
+        title: form.title.trim(),
+        body: form.body,
+        category: form.category.trim() || "general",
+        tags: form.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+        author_name: getPublicDisplayName(user, "Favored Fox"),
+        author_email: user?.email || "",
+        comment_count: 0,
+        reactions: 0,
+        reacted_by: [],
+        is_locked: false,
+      });
+      setForm(initialForm);
+      onCreated?.();
+      onOpenChange(false);
+      toast({ title: "Thread started", description: "Your forum thread is live." });
+    } catch {
+      toast({
+        title: "Thread could not be started",
+        description: "Your role may need forum access, or Base44 rejected the submission. Please try again.",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
