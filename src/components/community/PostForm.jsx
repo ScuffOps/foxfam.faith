@@ -36,7 +36,7 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
 
     const data = {
       ...form,
-      status: "pending",
+      status: isMod && form.type === "update" ? "approved" : "pending",
       submitted_by_name: submitterName,
       submitted_by_email: submitterEmail,
       upvotes: 0,
@@ -77,6 +77,7 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
               <SelectContent>
                 <SelectItem value="idea">Idea / Suggestion</SelectItem>
                 {isMod && <SelectItem value="poll">Poll</SelectItem>}
+                {isMod && <SelectItem value="update">Community Update</SelectItem>}
                 <SelectItem value="feedback">Feedback</SelectItem>
               </SelectContent>
             </Select>

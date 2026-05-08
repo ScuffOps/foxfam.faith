@@ -39,7 +39,7 @@ export default function QuickStats() {
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(11rem,100%),1fr))]">
       {items.map((item) => (
         <GlassCard key={item.label} className="dashboard-stat-card p-0">
           <Link to={item.href} className="flex h-full flex-col justify-center rounded-xl p-5 focus:outline-none focus:ring-2 focus:ring-primary/50">

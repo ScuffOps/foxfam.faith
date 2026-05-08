@@ -54,6 +54,7 @@ const AuthenticatedApp = () => {
         <Route path="/community" element={<CommunityInput />} />
         <Route path="/forum" element={<CommunityInput defaultTab="forum" />} />
         <Route path="/polls" element={<CommunityInput defaultTab="polls" />} />
+        <Route path="/updates" element={<CommunityInput defaultTab="updates" />} />
         <Route path="/feedback" element={<CommunityInput defaultTab="feedback" />} />
         <Route path="/suggestions" element={<CommunityInput defaultTab="suggestions" />} />
         <Route path="/settings" element={<Settings />} />

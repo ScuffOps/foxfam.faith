@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { format, addMonths, subMonths } from "date-fns";
 import { ChevronLeft, ChevronRight, Plus, List, Grid3X3, Kanban, Users } from "lucide-react";
@@ -13,6 +13,7 @@ import { canModerate } from "@/lib/roles";
 
 export default function Calendar() {
   const [events, setEvents] = useState([]);
+  const [birthdays, setBirthdays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -28,10 +29,15 @@ export default function Calendar() {
     setLoading(true);
     try { const me = await base44.auth.me(); setUser(me); } catch {}
     try {
-      const all = await base44.entities.Event.filter({ status: "active" });
+      const [all, approvedBirthdays] = await Promise.all([
+        base44.entities.Event.filter({ status: "active" }).catch(() => []),
+        base44.entities.Birthday.filter({ status: "approved" }, "-created_date", 500).catch(() => []),
+      ]);
       setEvents(Array.isArray(all) ? all : []);
+      setBirthdays(Array.isArray(approvedBirthdays) ? approvedBirthdays : []);
     } catch {
       setEvents([]);
+      setBirthdays([]);
     }
     setLoading(false);
   };
@@ -40,9 +46,40 @@ export default function Calendar() {
 
   const isMod = canModerate(user);
 
+  const calendarItems = useMemo(() => {
+    const year = currentDate.getFullYear();
+    const yearsToRender = [year - 1, year, year + 1];
+    const birthdayEvents = birthdays.flatMap((birthday) => {
+      if (!birthday.birthday_date) return [];
+      const [, month, day] = birthday.birthday_date.match(/(\d{2})-(\d{2})$/) || [];
+      if (!month || !day) return [];
+
+      return yearsToRender.map((targetYear) => {
+        const start = new Date(targetYear, Number(month) - 1, Number(day), 12, 0, 0);
+        if (start.getMonth() !== Number(month) - 1 || start.getDate() !== Number(day)) return null;
+
+        return {
+          id: `birthday-${birthday.id}-${targetYear}`,
+          source_id: birthday.id,
+          source_type: "birthday",
+          title: `${birthday.display_name || "Community member"}'s Birthday`,
+          description: birthday.note || "Community birthday",
+          category: "birthdays",
+          start_date: start.toISOString(),
+          end_date: start.toISOString(),
+          all_day: true,
+          status: "active",
+          is_birthday: true,
+        };
+      }).filter(Boolean);
+    });
+
+    return [...events, ...birthdayEvents];
+  }, [birthdays, currentDate, events]);
+
   const filteredEvents = filterCategory === "all"
-    ? events
-    : events.filter((e) => e.category === filterCategory);
+    ? calendarItems
+    : calendarItems.filter((e) => e.category === filterCategory);
 
   const handlePrev = () => setCurrentDate(subMonths(currentDate, 1));
   const handleNext = () => setCurrentDate(addMonths(currentDate, 1));
@@ -63,7 +100,7 @@ export default function Calendar() {
     setShowForm(true);
   };
   const handleEditSelected = () => {
-    if (!selectedEvent) return;
+    if (!selectedEvent || selectedEvent.is_birthday) return;
     setEditingEvent(selectedEvent);
     setShowDetails(false);
     setShowForm(true);
@@ -216,7 +253,7 @@ export default function Calendar() {
         event={selectedEvent}
         open={showDetails}
         onOpenChange={(v) => { setShowDetails(v); if (!v) setSelectedEvent(null); }}
-        canEdit={isMod}
+        canEdit={isMod && !selectedEvent?.is_birthday}
         onEdit={handleEditSelected}
       />
     </div>

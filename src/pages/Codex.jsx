@@ -35,7 +35,7 @@ export default function Codex() {
 
   useEffect(() => { load(); }, []);
 
-  const canEdit = hasRoleAtLeast(user, ROLE_VALUES.creator) || canModerate(user);
+  const canEdit = hasRoleAtLeast(user, ROLE_VALUES.favored) || canModerate(user);
 
   const filtered = entries.filter((e) => {
     if (categoryFilter !== "all" && e.category !== categoryFilter) return false;
@@ -90,7 +90,17 @@ export default function Codex() {
             <BookOpen className="h-6 w-6 text-primary" />
             <h1 className="font-heading text-2xl font-bold md:text-3xl">The Codex</h1>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">Community lore, milestones, inside jokes & more</p>
+          <div className="mt-2 max-w-3xl space-y-2 text-sm leading-6 text-muted-foreground">
+            <p>
+              The Codex is the sacred archive of FoxFam chaos: stream lore, community milestones,
+              cursed inside jokes, recurring bits, legendary moments, and all the tiny unhinged
+              details that somehow became canon.
+            </p>
+            <p>
+              If you are ҒᎪᏙᏫᎡᎬᎠ, you have Codex access: meaning you can create, edit, and
+              preserve entries for future generations of confused little Scuffers to discover.
+            </p>
+          </div>
         </div>
         {canEdit && (
           <Button onClick={openNew} className="gap-2">
@@ -103,7 +113,7 @@ export default function Codex() {
       {canEdit && (
         <div className="mb-5 flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2.5">
           <span className="text-sm">✦</span>
-          <p className="text-xs text-primary/80 font-heading tracking-wide">You have Codex access - you can create and edit entries.</p>
+          <p className="text-xs text-primary/80 font-heading tracking-wide">You have Codex access - create, edit, and preserve the canon.</p>
         </div>
       )}
 

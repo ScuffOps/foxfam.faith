@@ -61,7 +61,7 @@ export default function Layout() {
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setSidebarOpen(false)}
           />
-          <div className="absolute left-0 top-0 h-full w-64 animate-slide-in">
+          <div className="absolute left-0 top-0 h-full w-[min(20rem,86vw)] animate-slide-in">
             <Sidebar onClose={() => setSidebarOpen(false)} />
           </div>
         </div>
@@ -70,7 +70,7 @@ export default function Layout() {
       {/* Main Content */}
       <div className="clockyboii-shell flex flex-1 flex-col overflow-hidden">
         <MobileNav onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 lg:p-8">
           <Outlet />
         </main>
       </div>

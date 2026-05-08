@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { ArrowUp, Check, X, CalendarPlus, Lightbulb, MessageSquare, Map } from "lucide-react";
+import { ArrowUp, Check, X, CalendarPlus, Lightbulb, MessageSquare, Map, Newspaper } from "lucide-react";
 import { awardPoints } from "@/hooks/usePoints";
 import { useLevelUpToast } from "@/hooks/useLevelUpToast";
 import { Button } from "@/components/ui/button";
@@ -14,10 +14,12 @@ import { getPublicDisplayName } from "@/lib/userIdentity";
 const typeIcons = {
   idea: Lightbulb,
   feedback: MessageSquare,
+  update: Newspaper,
 };
 const typeColors = {
   idea: "text-chart-4 bg-chart-4/15",
   feedback: "text-chart-2 bg-chart-2/15",
+  update: "text-accent bg-accent/15",
 };
 
 export default function IdeaCard({ post, isAdmin, userEmail, onRefresh }) {
@@ -130,7 +132,7 @@ export default function IdeaCard({ post, isAdmin, userEmail, onRefresh }) {
               </Button>
             </div>
           )}
-          {isAdmin && post.status === "approved" && (
+          {isAdmin && post.status === "approved" && post.type !== "update" && (
             <>
               <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs text-primary hover:bg-primary/10" onClick={handleConvert}>
                 <CalendarPlus className="h-3 w-3" /> Convert to Event

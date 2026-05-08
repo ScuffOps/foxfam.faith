@@ -16,6 +16,7 @@ import { canCreateForumThread, canModerate } from "@/lib/roles";
 const TABS = [
   { key: "feedback", label: "Feedback & Ideas" },
   { key: "polls", label: "Polls" },
+  { key: "updates", label: "Updates" },
   { key: "suggestions", label: "Suggestion Box" },
   { key: "forum", label: "Forum" },
 ];
@@ -81,8 +82,9 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
 
   const filtered = getSorted(
     posts.filter((p) => {
-      if (activeTab === "feedback" && p.type === "poll") return false;
+      if (activeTab === "feedback" && (p.type === "poll" || p.type === "update")) return false;
       if (activeTab === "polls" && p.type !== "poll") return false;
+      if (activeTab === "updates" && p.type !== "update") return false;
       if (statusFilter !== "all" && p.status !== statusFilter) return false;
       if (search && !p.title.toLowerCase().includes(search.toLowerCase()) &&
           !(p.description || "").toLowerCase().includes(search.toLowerCase())) return false;

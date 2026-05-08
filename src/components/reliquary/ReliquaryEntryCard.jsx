@@ -101,6 +101,12 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, onEdit, onRef
         )}
       </div>
 
+      {entry.image_url && (
+        <div className="mt-5 overflow-hidden rounded-xl border border-border bg-secondary/35">
+          <img src={entry.image_url} alt={entry.title || "Reliquary entry image"} className="max-h-[28rem] w-full object-cover" />
+        </div>
+      )}
+
       <RichTextContent className="mt-5 whitespace-pre-wrap text-sm leading-7 text-card-foreground/90">
         {entry.body}
       </RichTextContent>

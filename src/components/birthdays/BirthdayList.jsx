@@ -49,7 +49,7 @@ export default function BirthdayList({ birthdays, isAdmin, onApprove, onReject }
     <div className="space-y-6">
       {/* Bento grid for approved */}
       {approved.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+        <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(9.5rem,100%),1fr))]">
           {approved.map((b, i) => {
             const daysUntil = getDaysUntil(b.birthday_date);
             const colorClass = AVATAR_COLORS[i % AVATAR_COLORS.length];

@@ -13,7 +13,8 @@
       "enum": [
         "idea",
         "poll",
-        "feedback"
+        "feedback",
+        "update"
       ],
       "description": "Type of community post"
     },
