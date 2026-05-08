@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Lightbulb, ArrowUp } from "lucide-react";
 import GlassCard from "../GlassCard";
+import PraiseBurst from "../PraiseBurst";
 
 export default function TopIdeas() {
   const [ideas, setIdeas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [upvoting, setUpvoting] = useState(null);
+  const [voteBurstId, setVoteBurstId] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -39,6 +41,12 @@ export default function TopIdeas() {
         ? upvotedBy.filter((e) => e !== user.email)
         : [...upvotedBy, user.email],
     };
+    if (!hasUpvoted) {
+      setVoteBurstId(idea.id);
+      window.setTimeout(() => {
+        setVoteBurstId((current) => (current === idea.id ? null : current));
+      }, 900);
+    }
 
     // Optimistic update
     setIdeas((prev) =>
@@ -79,12 +87,13 @@ export default function TopIdeas() {
                 <button
                   onClick={() => handleUpvote(idea)}
                   disabled={!user?.email || upvoting === idea.id}
-                  className={`flex flex-col items-center gap-0.5 rounded-md px-1.5 py-1 transition-colors ${
+                  className={`praise-button flex flex-col items-center gap-0.5 rounded-md px-1.5 py-1 transition-colors ${
                     hasUpvoted
                       ? "text-chart-4 bg-chart-4/15"
                       : "text-muted-foreground hover:text-chart-4 hover:bg-chart-4/10"
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  } ${voteBurstId === idea.id ? "is-praising" : ""} disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
+                  <PraiseBurst key={`${idea.id}-${voteBurstId}`} active={voteBurstId === idea.id} />
                   <ArrowUp className="h-3.5 w-3.5" />
                   <span className="text-xs font-bold">{idea.upvotes || 0}</span>
                 </button>

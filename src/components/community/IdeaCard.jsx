@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import StatusBadge from "../StatusBadge";
 import GlassCard from "../GlassCard";
 import UserMarkdown from "../UserMarkdown";
+import PraiseBurst from "../PraiseBurst";
 
 const typeIcons = {
   idea: Lightbulb,
@@ -20,6 +21,7 @@ const typeColors = {
 export default function IdeaCard({ post, isAdmin, userEmail, onRefresh }) {
   const checkLevelUp = useLevelUpToast();
   const [upvoting, setUpvoting] = useState(false);
+  const [voteBurst, setVoteBurst] = useState(0);
   const hasUpvoted = (post.upvoted_by || []).includes(userEmail);
   const Icon = typeIcons[post.type] || Lightbulb;
 
@@ -37,6 +39,8 @@ export default function IdeaCard({ post, isAdmin, userEmail, onRefresh }) {
         upvotes: (post.upvotes || 0) + 1,
         upvoted_by: [...upvotedBy, userEmail],
       });
+      setVoteBurst((value) => value + 1);
+      window.setTimeout(() => setVoteBurst(0), 900);
       base44.auth.me().then((u) => awardPoints(u, "upvote_idea").then(checkLevelUp)).catch(() => {});
     }
     setUpvoting(false);
@@ -74,10 +78,11 @@ export default function IdeaCard({ post, isAdmin, userEmail, onRefresh }) {
       <button
         onClick={handleUpvote}
         disabled={!userEmail}
-        className={`flex flex-col items-center gap-0.5 rounded-lg px-2 py-2 transition-colors ${
+        className={`praise-button flex flex-col items-center gap-0.5 rounded-lg px-2 py-2 transition-colors ${
           hasUpvoted ? "bg-chart-4/15 text-chart-4" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-        }`}
+        } ${voteBurst ? "is-praising" : ""}`}
       >
+        <PraiseBurst key={voteBurst} active={voteBurst > 0} />
         <ArrowUp className="h-4 w-4" />
         <span className="text-xs font-bold">{post.upvotes || 0}</span>
       </button>

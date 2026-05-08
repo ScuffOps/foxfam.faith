@@ -11,6 +11,16 @@ export const POINT_VALUES = {
   post_blessing: 8,          // posting a blessing (mods/admins)
 };
 
+export const FAVORED_DEFAULT_TITLE = "ҒᎪᏙᏫᎡᎬᎠ";
+export const FAVORED_BADGE = {
+  id: "soul_lantern",
+  label: "Soul Lantern",
+  icon: "🕯",
+  color: "text-[#bdebf1]",
+  bg: "bg-[#1f42ad]/20",
+  ring: "ring-[#5c5f82]/40",
+};
+
 export const PROGRESSION_ACTIONS = [
   {
     label: "Share an idea or feedback",

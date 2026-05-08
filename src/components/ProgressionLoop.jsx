@@ -36,6 +36,8 @@ function readStoredPosition() {
 
 function ProgressionContent({
   currentPoints,
+  isFavored = false,
+  favoredTitle = "",
   compact = false,
   collapsed = false,
   collapsible = false,
@@ -132,7 +134,7 @@ function ProgressionContent({
               </div>
             )}
           </div>
-          <RankBadge points={currentPoints} showProgress />
+          <RankBadge points={currentPoints} showProgress isFavored={isFavored} favoredTitle={favoredTitle} />
         </div>
 
         <div className="rounded-lg border border-border bg-secondary/40 px-4 py-3">
@@ -192,6 +194,8 @@ function ProgressionContent({
 
 export default function ProgressionLoop({
   points,
+  isFavored = false,
+  favoredTitle = "",
   compact = false,
   framed = true,
   className = "",
@@ -200,6 +204,7 @@ export default function ProgressionLoop({
 }) {
   const cardRef = useRef(null);
   const [currentPoints, setCurrentPoints] = useState(typeof points === "number" ? points : 0);
+  const [favoredState, setFavoredState] = useState({ isFavored, favoredTitle });
   const [loading, setLoading] = useState(typeof points !== "number");
   const [collapsed, setCollapsed] = useState(() => {
     if (!collapsible || typeof window === "undefined") return false;
@@ -230,6 +235,7 @@ export default function ProgressionLoop({
   useEffect(() => {
     if (typeof points === "number") {
       setCurrentPoints(points);
+      setFavoredState({ isFavored, favoredTitle });
       setLoading(false);
       return;
     }
@@ -239,7 +245,14 @@ export default function ProgressionLoop({
       try {
         const user = await base44.auth.me();
         const levels = await base44.entities.UserLevel.filter({ user_email: user.email });
-        if (active) setCurrentPoints(levels[0]?.points || 0);
+        if (active) {
+          const level = levels[0];
+          setCurrentPoints(level?.points || 0);
+          setFavoredState({
+            isFavored: Boolean(level?.is_favored),
+            favoredTitle: level?.favored_title || "",
+          });
+        }
       } catch {
         if (active) setCurrentPoints(0);
       } finally {
@@ -251,7 +264,7 @@ export default function ProgressionLoop({
     return () => {
       active = false;
     };
-  }, [points]);
+  }, [points, isFavored, favoredTitle]);
 
   useEffect(() => {
     if (!collapsible || typeof window === "undefined") return;
@@ -322,6 +335,8 @@ export default function ProgressionLoop({
   ) : (
     <ProgressionContent
       currentPoints={currentPoints}
+      isFavored={favoredState.isFavored}
+      favoredTitle={favoredState.favoredTitle}
       compact={compact}
       collapsed={collapsed}
       collapsible={collapsible}

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import PraiseBurst from "@/components/PraiseBurst";
 
 const STAGES = [
   { key: "planned", label: "Planned", icon: Clock, color: "text-chart-4", bg: "bg-chart-4/10", border: "border-chart-4/20" },
@@ -21,6 +22,7 @@ export default function Roadmap() {
   const [editingPost, setEditingPost] = useState(null);
   const [form, setForm] = useState({ title: "", description: "", roadmap_status: "planned" });
   const [saving, setSaving] = useState(false);
+  const [voteBurstId, setVoteBurstId] = useState(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -81,6 +83,12 @@ export default function Roadmap() {
     if (!user?.email) return;
     const upvotedBy = post.upvoted_by || [];
     const hasVoted = upvotedBy.includes(user.email);
+    if (!hasVoted) {
+      setVoteBurstId(post.id);
+      window.setTimeout(() => {
+        setVoteBurstId((current) => (current === post.id ? null : current));
+      }, 900);
+    }
     await base44.entities.CommunityPost.update(post.id, {
       upvotes: hasVoted ? Math.max((post.upvotes || 0) - 1, 0) : (post.upvotes || 0) + 1,
       upvoted_by: hasVoted ? upvotedBy.filter((e) => e !== user.email) : [...upvotedBy, user.email],
@@ -134,10 +142,11 @@ export default function Roadmap() {
                             <button
                               onClick={() => handleUpvote(post)}
                               disabled={!user?.email}
-                              className={`flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 min-w-[40px] transition-colors ${
+                              className={`praise-button flex min-w-[40px] flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 transition-colors ${
                                 hasVoted ? "bg-primary/15 text-primary" : "bg-secondary text-muted-foreground hover:text-foreground"
-                              }`}
+                              } ${voteBurstId === post.id ? "is-praising" : ""}`}
                             >
+                              <PraiseBurst key={`${post.id}-${voteBurstId}`} active={voteBurstId === post.id} />
                               <ArrowUp className="h-3.5 w-3.5" />
                               <span className="text-xs font-bold">{post.upvotes || 0}</span>
                             </button>

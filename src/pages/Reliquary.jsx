@@ -4,6 +4,7 @@ import { BookOpenText, Feather, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ReliquaryEntryCard from "@/components/reliquary/ReliquaryEntryCard";
 import ReliquaryForm from "@/components/reliquary/ReliquaryForm";
+import ParticleOverlay from "@/components/ParticleOverlay";
 
 export default function Reliquary() {
   const [entries, setEntries] = useState([]);
@@ -48,7 +49,8 @@ export default function Reliquary() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl animate-fade-in">
+    <div className="relative mx-auto max-w-3xl animate-fade-in">
+      <ParticleOverlay style={{ position: "fixed", zIndex: 50 }} />
       <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="mb-2 flex items-center gap-2 text-primary/75">

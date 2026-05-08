@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Settings2, Link2, Shield, LogOut, CheckCircle, Palette, Bell } from "lucide-react";
+import { Settings2, Link2, Shield, LogOut, CheckCircle, Palette, Bell, ChevronDown, ChevronUp, UserCircle2 } from "lucide-react";
 import AlertPreferences from "../components/settings/AlertPreferences";
 import AvatarUpload from "../components/AvatarUpload";
 import AccentColorPicker from "../components/AccentColorPicker";
@@ -16,6 +16,7 @@ export default function Settings() {
   const { toast } = useToast();
   const [user, setUser] = useState(null);
   const [userPoints, setUserPoints] = useState(0);
+  const [userLevel, setUserLevel] = useState(null);
   const [loading, setLoading] = useState(true);
   const [avatar, setAvatar] = useState(() => localStorage.getItem('commhub_user_avatar') || '');
 
@@ -66,7 +67,10 @@ export default function Settings() {
         const me = await base44.auth.me();
         setUser(me);
         const levels = await base44.entities.UserLevel.filter({ user_email: me.email });
-        if (levels.length > 0) setUserPoints(levels[0].points || 0);
+        if (levels.length > 0) {
+          setUserLevel(levels[0]);
+          setUserPoints(levels[0].points || 0);
+        }
       } catch {}
       setLoading(false);
     };
@@ -92,17 +96,28 @@ export default function Settings() {
 
       <div className="space-y-6">
         {/* Profile */}
-        <GlassCard>
+        <SettingsSection title="Profile" icon={UserCircle2} accentClass="bg-primary/15 text-primary" defaultOpen>
           <div className="mb-4 flex items-center gap-3">
             <AvatarUpload avatarUrl={avatar} onUploaded={handleAvatarUploaded} size="lg" />
             <div className="flex flex-col gap-1.5">
               <h3 className="font-heading text-sm font-semibold">{user?.display_name || user?.full_name || "Profile"}</h3>
               <p className="text-xs text-muted-foreground">{user?.email}</p>
-              <RankBadge points={userPoints} showProgress />
+              <RankBadge
+                points={userPoints}
+                showProgress
+                isFavored={Boolean(userLevel?.is_favored)}
+                favoredTitle={userLevel?.favored_title}
+              />
             </div>
           </div>
           <div className="mb-4 rounded-lg border border-border bg-secondary/30 p-4">
-            <ProgressionLoop points={userPoints} compact framed={false} />
+            <ProgressionLoop
+              points={userPoints}
+              compact
+              framed={false}
+              isFavored={Boolean(userLevel?.is_favored)}
+              favoredTitle={userLevel?.favored_title}
+            />
           </div>
           <div className="space-y-3">
             <div className="flex items-center justify-between rounded-lg bg-secondary/50 px-4 py-3">
@@ -125,27 +140,15 @@ export default function Settings() {
               <Shield className="h-4 w-4 text-muted-foreground" />
             </div>
           </div>
-        </GlassCard>
+        </SettingsSection>
 
         {/* Appearance */}
-        <GlassCard>
-          <div className="mb-4 flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-chart-5/15">
-              <Palette className="h-4 w-4 text-chart-5" />
-            </div>
-            <h3 className="font-heading text-sm font-semibold">Appearance</h3>
-          </div>
+        <SettingsSection title="Appearance" icon={Palette} accentClass="bg-chart-5/15 text-chart-5">
           <AccentColorPicker />
-        </GlassCard>
+        </SettingsSection>
 
         {/* Google Calendar Integration */}
-        <GlassCard>
-          <div className="mb-4 flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/15">
-              <Link2 className="h-4 w-4 text-accent" />
-            </div>
-            <h3 className="font-heading text-sm font-semibold">Google Calendar Sync</h3>
-          </div>
+        <SettingsSection title="Google Calendar Sync" icon={Link2} accentClass="bg-accent/15 text-accent">
           <div className="rounded-lg bg-secondary/50 px-4 py-4">
             <div className="flex items-center justify-between gap-4">
               <div>
@@ -177,28 +180,16 @@ export default function Settings() {
               </p>
             )}
           </div>
-        </GlassCard>
+        </SettingsSection>
 
         {/* Alert Preferences */}
-        <GlassCard>
-          <div className="mb-4 flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15">
-              <Bell className="h-4 w-4 text-primary" />
-            </div>
-            <h3 className="font-heading text-sm font-semibold">Alert Preferences</h3>
-          </div>
+        <SettingsSection title="Alert Preferences" icon={Bell} accentClass="bg-primary/15 text-primary">
           <AlertPreferences />
-        </GlassCard>
+        </SettingsSection>
 
         {/* App Settings */}
         {isAdmin && (
-          <GlassCard>
-            <div className="mb-4 flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-chart-4/15">
-                <Settings2 className="h-4 w-4 text-chart-4" />
-              </div>
-              <h3 className="font-heading text-sm font-semibold">App Settings</h3>
-            </div>
+          <SettingsSection title="App Settings" icon={Settings2} accentClass="bg-chart-4/15 text-chart-4">
             <div className="space-y-3">
               <div className="rounded-lg bg-secondary/50 px-4 py-3">
                 <p className="text-sm font-medium">Auto-approve birthdays</p>
@@ -209,7 +200,7 @@ export default function Settings() {
                 <p className="text-xs text-muted-foreground">Coming soon — skip moderation for trusted members</p>
               </div>
             </div>
-          </GlassCard>
+          </SettingsSection>
         )}
 
         {/* Logout */}
@@ -222,5 +213,29 @@ export default function Settings() {
         </Button>
       </div>
     </div>
+  );
+}
+
+function SettingsSection({ title, icon: Icon, accentClass, defaultOpen = false, children }) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <GlassCard>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center gap-2 text-left"
+        aria-expanded={open}
+      >
+        <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${accentClass}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <h3 className="font-heading text-sm font-semibold">{title}</h3>
+        <span className="ml-auto text-muted-foreground">
+          {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </span>
+      </button>
+      {open && <div className="mt-4">{children}</div>}
+    </GlassCard>
   );
 }

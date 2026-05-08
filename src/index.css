@@ -158,14 +158,14 @@
   pointer-events: none;
   background:
     radial-gradient(
-      300px circle at var(--shine-x) var(--shine-y),
-      rgba(190, 220, 255, 0.18) 0%,
-      rgba(140, 100, 255, 0.13) 34%,
-      rgba(80, 180, 255, 0.07) 52%,
-      transparent 72%
+      210px circle at var(--shine-x) var(--shine-y),
+      rgba(225, 244, 255, 0.10) 0%,
+      rgba(140, 100, 255, 0.07) 34%,
+      rgba(80, 180, 255, 0.035) 54%,
+      transparent 76%
     );
   opacity: var(--shine-opacity);
-  transition: opacity 0.25s ease;
+  transition: opacity 0.18s ease;
   z-index: 0;
 }
 
@@ -247,6 +247,94 @@
     0 0 46px rgba(0, 135, 255, 0.09),
     inset 0 1px 0 rgba(255, 255, 255, 0.10),
     inset 0 -1px 0 rgba(0, 0, 0, 0.38);
+}
+
+.praise-burst {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  z-index: 3;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.praise-burst__spark {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: radial-gradient(circle, #fff 0%, #bdebf1 42%, rgba(124, 92, 191, 0) 78%);
+  box-shadow: 0 0 12px rgba(189, 235, 241, 0.95), 0 0 22px rgba(124, 92, 191, 0.48);
+  animation: praise-spark 760ms cubic-bezier(0.16, 1, 0.3, 1) var(--delay) forwards;
+}
+
+.praise-burst__beam {
+  position: absolute;
+  left: -1px;
+  top: -1px;
+  width: 2px;
+  height: 56px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(189, 235, 241, 0.78), rgba(124, 92, 191, 0));
+  filter: blur(0.5px) drop-shadow(0 0 12px rgba(189, 235, 241, 0.72));
+  transform: translateY(8px) scaleY(0.2);
+  transform-origin: 50% 100%;
+  animation: praise-beam 860ms ease-out forwards;
+}
+
+@keyframes praise-spark {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--angle)) translate(0) scale(0.4);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--angle)) translate(var(--distance)) scale(0);
+  }
+}
+
+@keyframes praise-beam {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scaleY(0.2);
+  }
+  28% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-46px) scaleY(1.1);
+  }
+}
+
+.praise-button {
+  position: relative;
+  overflow: visible;
+}
+
+.praise-button.is-praising {
+  animation: praise-button-glow 820ms ease-out;
+}
+
+@keyframes praise-button-glow {
+  0% {
+    box-shadow: 0 0 0 rgba(189, 235, 241, 0);
+    transform: translateY(0) scale(1);
+  }
+  35% {
+    box-shadow: 0 0 24px rgba(189, 235, 241, 0.34), 0 0 44px rgba(124, 92, 191, 0.24);
+    transform: translateY(-1px) scale(1.035);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(189, 235, 241, 0);
+    transform: translateY(0) scale(1);
+  }
 }
 
 .dashboard-stat-card {
@@ -335,7 +423,10 @@
 @media (prefers-reduced-motion: reduce) {
   .foxcard,
   .dashboard-list-row,
-  .dashboard-candle {
+  .dashboard-candle,
+  .praise-burst__spark,
+  .praise-burst__beam,
+  .praise-button.is-praising {
     transition: none;
     animation: none;
     transform: none;

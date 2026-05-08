@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Check, X, ShieldAlert, Handshake, Lightbulb, Cake, BarChart3, CalendarPlus, Map } from "lucide-react";
+import { Check, X, ShieldAlert, Handshake, Lightbulb, Cake, BarChart3, CalendarPlus, Map, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { FAVORED_BADGE, FAVORED_DEFAULT_TITLE } from "@/hooks/usePoints";
 import GlassCard from "../components/GlassCard";
 
 const TABS = [
@@ -9,27 +10,30 @@ const TABS = [
   { key: "polls", label: "Polls", icon: BarChart3 },
   { key: "collabs", label: "Collab Requests", icon: Handshake },
   { key: "birthdays", label: "Birthdays", icon: Cake },
+  { key: "favor", label: "Favored", icon: Crown },
 ];
 
 export default function Admin() {
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState("ideas");
-  const [data, setData] = useState({ ideas: [], polls: [], collabs: [], birthdays: [] });
+  const [data, setData] = useState({ ideas: [], polls: [], collabs: [], birthdays: [], favor: [] });
   const [loading, setLoading] = useState(true);
 
   const loadAll = async () => {
     setLoading(true);
     try { const me = await base44.auth.me(); setUser(me); } catch {}
-    const [posts, collabs, birthdays] = await Promise.all([
-      base44.entities.CommunityPost.filter({ status: "pending" }),
-      base44.entities.CollabRequest.filter({ status: "pending" }),
-      base44.entities.Birthday.filter({ status: "pending" }),
+    const [posts, collabs, birthdays, levels] = await Promise.all([
+      base44.entities.CommunityPost.filter({ status: "pending" }).catch(() => []),
+      base44.entities.CollabRequest.filter({ status: "pending" }).catch(() => []),
+      base44.entities.Birthday.filter({ status: "pending" }).catch(() => []),
+      base44.entities.UserLevel.list("-points", 100).catch(() => []),
     ]);
     setData({
       ideas: posts.filter((p) => p.type !== "poll"),
       polls: posts.filter((p) => p.type === "poll"),
       collabs,
       birthdays,
+      favor: levels,
     });
     setLoading(false);
   };
@@ -53,8 +57,9 @@ export default function Admin() {
     polls: data.polls.length,
     collabs: data.collabs.length,
     birthdays: data.birthdays.length,
+    favor: data.favor.filter((level) => level.is_favored).length,
   };
-  const totalPending = Object.values(counts).reduce((a, b) => a + b, 0);
+  const totalPending = counts.ideas + counts.polls + counts.collabs + counts.birthdays;
 
   // --- Action handlers ---
   const updatePost = async (id, update) => {
@@ -67,6 +72,10 @@ export default function Admin() {
   };
   const updateBirthday = async (id, status) => {
     await base44.entities.Birthday.update(id, { status });
+    loadAll();
+  };
+  const updateFavor = async (id, update) => {
+    await base44.entities.UserLevel.update(id, update);
     loadAll();
   };
   const convertToEvent = async (post) => {
@@ -235,6 +244,21 @@ export default function Admin() {
               )}
             />
           )}
+
+          {/* FAVORED TITLES */}
+          {activeTab === "favor" && (
+            <Section
+              items={data.favor}
+              empty="No community members have earned points yet."
+              renderItem={(level) => (
+                <FavorRow
+                  key={level.id}
+                  level={level}
+                  onSave={(update) => updateFavor(level.id, update)}
+                />
+              )}
+            />
+          )}
         </>
       )}
     </div>
@@ -269,5 +293,67 @@ function ApproveReject({ onApprove, onReject, extra = [] }) {
         </Button>
       ))}
     </div>
+  );
+}
+
+function FavorRow({ level, onSave }) {
+  const [title, setTitle] = useState(level.favored_title || FAVORED_DEFAULT_TITLE);
+  const [saving, setSaving] = useState(false);
+  const isFavored = Boolean(level.is_favored);
+
+  const handleSave = async (update) => {
+    setSaving(true);
+    try {
+      await onSave({
+        favored_badge: FAVORED_BADGE.id,
+        favored_title: title.trim() || FAVORED_DEFAULT_TITLE,
+        ...update,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <GlassCard>
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
+          <div className="mb-1 flex flex-wrap items-center gap-2">
+            <span className="font-medium text-sm">{level.display_name || level.user_email}</span>
+            {isFavored && (
+              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${FAVORED_BADGE.bg} ${FAVORED_BADGE.color} ring-1 ${FAVORED_BADGE.ring}`}>
+                <span aria-hidden="true">{FAVORED_BADGE.icon}</span>
+                {level.favored_title || FAVORED_DEFAULT_TITLE}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">{level.user_email} · {level.points || 0} Favor</p>
+        </div>
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            className="h-9 min-w-[14rem] rounded-lg border border-border bg-secondary/50 px-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/60"
+            placeholder={FAVORED_DEFAULT_TITLE}
+          />
+          <Button
+            size="sm"
+            variant={isFavored ? "outline" : "default"}
+            disabled={saving}
+            onClick={() => handleSave({ is_favored: !isFavored })}
+            className="gap-1.5"
+          >
+            <Crown className="h-3.5 w-3.5" />
+            {isFavored ? "Remove" : "Grant"}
+          </Button>
+          {isFavored && (
+            <Button size="sm" variant="ghost" disabled={saving} onClick={() => handleSave({ is_favored: true })}>
+              Save Title
+            </Button>
+          )}
+        </div>
+      </div>
+    </GlassCard>
   );
 }

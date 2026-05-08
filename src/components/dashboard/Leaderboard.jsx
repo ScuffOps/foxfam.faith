@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { getRank } from "@/hooks/usePoints";
+import { FAVORED_BADGE, FAVORED_DEFAULT_TITLE, getRank } from "@/hooks/usePoints";
 import GlassCard from "../GlassCard";
 import { Trophy } from "lucide-react";
 
@@ -38,6 +38,10 @@ export default function Leaderboard() {
         <div className="space-y-2">
           {leaders.map((l, i) => {
             const rank = getRank(l.points || 0);
+            const isFavored = Boolean(l.is_favored);
+            const rankColor = isFavored ? FAVORED_BADGE.color : rank.color;
+            const rankIcon = isFavored ? FAVORED_BADGE.icon : rank.icon;
+            const rankName = isFavored ? (l.favored_title || FAVORED_DEFAULT_TITLE) : rank.name;
             return (
               <div key={l.id} className="dashboard-list-row flex items-center gap-3 rounded-lg px-3 py-2">
                 <span className="w-5 text-center text-sm">{MEDALS[i] || `#${i + 1}`}</span>
@@ -52,7 +56,7 @@ export default function Leaderboard() {
 
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{l.display_name || l.user_email}</p>
-                  <span className={`text-[10px] font-semibold ${rank.color}`}>{rank.icon} {rank.name}</span>
+                  <span className={`text-[10px] font-semibold ${rankColor}`}>{rankIcon} {rankName}</span>
                 </div>
 
                 <span className="shrink-0 text-sm font-bold text-foreground">{l.points}</span>

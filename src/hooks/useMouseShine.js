@@ -11,7 +11,7 @@ export function useMouseShine() {
     const y = e.clientY - rect.top;
     card.style.setProperty("--shine-x", `${x}px`);
     card.style.setProperty("--shine-y", `${y}px`);
-    card.style.setProperty("--shine-opacity", "1");
+    card.style.setProperty("--shine-opacity", "0.42");
   }, []);
 
   const onMouseLeave = useCallback(() => {

@@ -121,7 +121,7 @@ export default function Splash({ onEnter }) {
         zIndex: 8,
       }} />
 
-      <ParticleOverlay style={{ zIndex: 8 }} />
+      <ParticleOverlay style={{ zIndex: 30 }} />
 
       {/* Lantern glow — isolated on its own layer, no blur on every frame */}
       <div className="absolute pointer-events-none" style={{

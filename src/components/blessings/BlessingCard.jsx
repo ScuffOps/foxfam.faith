@@ -6,6 +6,7 @@ import { awardPoints } from "@/hooks/usePoints";
 import { useLevelUpToast } from "@/hooks/useLevelUpToast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import UserMarkdown from "../UserMarkdown";
+import PraiseBurst from "../PraiseBurst";
 
 function downloadNameFor(title) {
   const slug = (title || "blessing").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -20,6 +21,7 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
   const [commentText, setCommentText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showFullImage, setShowFullImage] = useState(false);
+  const [praiseBurst, setPraiseBurst] = useState(0);
 
   const hasPraised = (blessing.upvoted_by || []).includes(user?.email);
 
@@ -30,7 +32,11 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
       upvotes: hasPraised ? Math.max((blessing.upvotes || 0) - 1, 0) : (blessing.upvotes || 0) + 1,
       upvoted_by: hasPraised ? upvotedBy.filter((e) => e !== user.email) : [...upvotedBy, user.email],
     });
-    if (!hasPraised) awardPoints(user, "upvote_blessing").then(checkLevelUp);
+    if (!hasPraised) {
+      setPraiseBurst((value) => value + 1);
+      window.setTimeout(() => setPraiseBurst(0), 900);
+      awardPoints(user, "upvote_blessing").then(checkLevelUp);
+    }
     onRefresh();
   };
 
@@ -141,10 +147,11 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
           <button
             onClick={handlePraise}
             disabled={!user?.email}
-            className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors ${
+            className={`praise-button flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors ${
               hasPraised ? "bg-primary/15 text-primary" : "bg-secondary text-muted-foreground hover:text-foreground"
-            }`}
+            } ${praiseBurst ? "is-praising" : ""}`}
           >
+            <PraiseBurst key={praiseBurst} active={praiseBurst > 0} />
             <span aria-hidden="true" className="text-sm leading-none">🕯</span>
             <span>{hasPraised ? "Praised" : "Give praise"}</span>
             <span className="font-bold">{blessing.upvotes || 0}</span>

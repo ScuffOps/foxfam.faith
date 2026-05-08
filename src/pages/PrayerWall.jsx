@@ -74,7 +74,7 @@ export default function PrayerWall() {
 
   return (
     <div className="relative min-h-screen overflow-hidden" style={{ background: "linear-gradient(180deg, #060810 0%, #080d1c 60%, #06080f 100%)" }}>
-      <ParticleOverlay style={{ position: "fixed", zIndex: 0 }} />
+      <ParticleOverlay style={{ position: "fixed", zIndex: 50 }} />
 
       {/* Stained Glass Header */}
       <div className="relative w-full overflow-hidden" style={{ height: 200 }}>
