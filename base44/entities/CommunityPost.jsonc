@@ -13,8 +13,7 @@
       "enum": [
         "idea",
         "poll",
-        "feedback",
-        "update"
+        "feedback"
       ],
       "description": "Type of community post"
     },
@@ -51,10 +50,6 @@
       "default": [],
       "description": "List of user emails who upvoted"
     },
-    "comment_count": {
-      "type": "number",
-      "default": 0
-    },
     "poll_options": {
       "type": "array",
       "items": {
@@ -83,9 +78,6 @@
     },
     "submitted_by_name": {
       "type": "string"
-    },
-    "submitted_by_email": {
-      "type": "string"
     }
   },
   "required": [
@@ -95,7 +87,23 @@
   "rls": {
     "create": true,
     "read": true,
-    "update": true,
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "mod"
+          }
+        }
+      ]
+    },
     "delete": {
       "user_condition": {
         "role": "admin"
