@@ -131,7 +131,7 @@ export async function awardPoints(user, action) {
   return awardPointAmount(user, pts, field);
 }
 
-export async function awardPointAmount(user, points, field = "points_from_boops") {
+export async function awardPointAmount(user, points, field = "points_from_comments") {
   if (!user?.email) return;
   const pts = Math.max(0, Number(points) || 0);
   if (!pts) return;
