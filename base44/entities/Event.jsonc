@@ -13,7 +13,6 @@
     "category": {
       "type": "string",
       "enum": [
-        "stream",
         "personal",
         "community",
         "collabs",
@@ -54,10 +53,6 @@
     "location": {
       "type": "string"
     },
-    "image_url": {
-      "type": "string",
-      "description": "Optional event image URL"
-    },
     "google_event_id": {
       "type": "string",
       "description": "Google Calendar event ID for synced events"
@@ -76,5 +71,73 @@
     "title",
     "category",
     "start_date"
-  ]
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "mod"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "data.status": "active"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "mod"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "mod"
+          }
+        }
+      ]
+    }
+  }
 }
