@@ -38,35 +38,37 @@
     "points_from_comments": {
       "type": "number",
       "default": 0
-    },
-    "points_from_boops": {
-      "type": "number",
-      "default": 0,
-      "description": "Points earned from odd-number Boop the Fox rewards"
-    },
-    "is_favored": {
-      "type": "boolean",
-      "default": false,
-      "description": "Manual Favored title granted by admins or mods"
-    },
-    "favored_title": {
-      "type": "string",
-      "default": "ҒᎪᏙᏫᎡᎬᎠ",
-      "description": "Displayed title for manually Favored community members"
-    },
-    "favored_badge": {
-      "type": "string",
-      "default": "soul_lantern",
-      "description": "Badge design identifier for Favored community members"
     }
   },
   "required": [
     "user_email"
   ],
   "rls": {
-    "create": true,
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "data.user_email": "{{user.email}}"
+        }
+      ]
+    },
     "read": true,
-    "update": true,
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "data.user_email": "{{user.email}}"
+        }
+      ]
+    },
     "delete": {
       "user_condition": {
         "role": "admin"
