@@ -56,12 +56,12 @@ export const PROGRESSION_ACTIONS = [
 
 // Rank tiers
 export const RANKS = [
-  { name: "Wanderer",   min: 0,   color: "text-muted-foreground", bg: "bg-muted",           icon: "🌑" },
-  { name: "Initiate",   min: 10,  color: "text-chart-3",          bg: "bg-chart-3/15",       icon: "🌿" },
-  { name: "Faithful",   min: 30,  color: "text-chart-2",          bg: "bg-chart-2/15",       icon: "✦" },
-  { name: "Devoted",    min: 75,  color: "text-chart-4",          bg: "bg-chart-4/15",       icon: "🔥" },
-  { name: "Exalted",    min: 150, color: "text-primary",          bg: "bg-primary/15",       icon: "⚡" },
-  { name: "Forsaken",   min: 300, color: "text-chart-5",          bg: "bg-chart-5/15",       icon: "👁️" },
+  { name: "Forsaken",   min: 0,   color: "text-muted-foreground", bg: "bg-muted",           icon: "🜬" },
+  { name: "Seeker",   min: 10,  color: "text-chart-3",          bg: "bg-chart-3/15",       icon: "🝓" },
+  { name: "Faithful",   min: 30,  color: "text-chart-2",          bg: "bg-chart-2/15",       icon: "🜚" },
+  { name: "Purified",    min: 75,  color: "text-chart-4",          bg: "bg-chart-4/15",       icon: "🝣" },
+  { name: "Timescorned",    min: 150, color: "text-primary",          bg: "bg-primary/15",       icon: "🜸" },
+  { name: "Forblessed",   min: 300, color: "text-chart-5",          bg: "bg-chart-5/15",       icon: "⯕" },
 ];
 
 export function getRank(points) {
