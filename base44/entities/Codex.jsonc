@@ -53,7 +53,17 @@
       "$or": [
         {
           "user_condition": {
-            "role": "verified"
+            "role": "favored"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "creator"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "mod"
           }
         },
         {
@@ -68,7 +78,17 @@
       "$or": [
         {
           "user_condition": {
-            "role": "verified"
+            "role": "favored"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "creator"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "mod"
           }
         },
         {

@@ -249,8 +249,8 @@ export default function ProgressionLoop({
           const level = levels[0];
           setCurrentPoints(level?.points || 0);
           setFavoredState({
-            isFavored: Boolean(level?.is_favored),
-            favoredTitle: level?.favored_title || "",
+            isFavored: false,
+            favoredTitle: "",
           });
         }
       } catch {

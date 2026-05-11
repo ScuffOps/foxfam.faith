@@ -46,9 +46,6 @@
     "author_name": {
       "type": "string"
     },
-    "author_email": {
-      "type": "string"
-    },
     "comment_count": {
       "type": "number",
       "default": 0
@@ -73,7 +70,23 @@
       ]
     },
     "read": true,
-    "update": true,
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "mod"
+          }
+        }
+      ]
+    },
     "delete": {
       "$or": [
         {
