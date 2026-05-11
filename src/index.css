@@ -128,16 +128,16 @@
 .foxcard {
   position: relative;
   background:
-    linear-gradient(145deg, rgba(22, 22, 39, 0.78), rgba(9, 11, 25, 0.68)),
-    rgba(15, 14, 26, 0.70);
-  backdrop-filter: blur(24px) saturate(1.16);
-  -webkit-backdrop-filter: blur(24px) saturate(1.16);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+    linear-gradient(145deg, rgba(22, 22, 39, 0.65), rgba(9, 11, 25, 0.58)),
+    rgba(15, 14, 26, 0.65);
+  backdrop-filter: blur(30px) saturate(1.18);
+  -webkit-backdrop-filter: blur(30px) saturate(1.18);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   box-shadow:
-    0 16px 44px rgba(0, 0, 0, 0.46),
+    0 14px 34px rgba(0, 0, 0, 0.38),
     0 0 0 1px rgba(110, 170, 255, 0.035),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.28);
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.24);
   overflow: hidden;
   --shine-x: 50%;
   --shine-y: 50%;
@@ -226,27 +226,69 @@
   background:
     radial-gradient(circle at 18% 0%, rgba(122, 77, 230, 0.18), transparent 36%),
     radial-gradient(circle at 100% 8%, rgba(0, 170, 255, 0.10), transparent 34%),
-    linear-gradient(145deg, rgba(18, 21, 45, 0.76), rgba(8, 10, 22, 0.64));
-  backdrop-filter: blur(26px) saturate(1.28);
-  -webkit-backdrop-filter: blur(26px) saturate(1.28);
-  border-color: rgba(178, 213, 255, 0.16);
+    linear-gradient(145deg, rgba(18, 21, 45, 0.65), rgba(8, 10, 22, 0.58));
+  backdrop-filter: blur(32px) saturate(1.22);
+  -webkit-backdrop-filter: blur(32px) saturate(1.22);
+  border-color: rgba(178, 213, 255, 0.14);
   box-shadow:
-    0 18px 52px rgba(0, 0, 0, 0.48),
-    0 0 0 1px rgba(122, 77, 230, 0.08),
-    0 0 38px rgba(0, 102, 255, 0.055),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+    0 14px 38px rgba(0, 0, 0, 0.40),
+    0 0 0 1px rgba(122, 77, 230, 0.06),
+    0 0 26px rgba(0, 102, 255, 0.045),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.30);
 }
 
 .community-dashboard .foxcard:hover {
   --card-lift: -2px;
-  border-color: rgba(195, 225, 255, 0.26);
+  border-color: rgba(195, 225, 255, 0.22);
   box-shadow:
-    0 24px 64px rgba(0, 0, 0, 0.56),
-    0 0 0 1px rgba(148, 108, 255, 0.13),
-    0 0 46px rgba(0, 135, 255, 0.09),
-    inset 0 1px 0 rgba(255, 255, 255, 0.10),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.38);
+    0 18px 46px rgba(0, 0, 0, 0.48),
+    0 0 0 1px rgba(148, 108, 255, 0.10),
+    0 0 34px rgba(0, 135, 255, 0.075),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.34);
+}
+
+.dashboard-ambient-card {
+  isolation: isolate;
+}
+
+.dashboard-ambient-glow {
+  position: absolute;
+  inset: auto -18% -42% -18%;
+  z-index: 0;
+  height: 72%;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(95, 214, 255, 0.22), transparent 42%),
+    radial-gradient(circle at 35% 65%, rgba(139, 92, 246, 0.18), transparent 36%);
+  filter: blur(18px);
+  opacity: 0.82;
+}
+
+.dashboard-ambient-pulse {
+  animation: dashboard-ambient-pulse 2.7s ease-in-out infinite;
+}
+
+.dashboard-ambient-meter {
+  transform-origin: left center;
+  animation: dashboard-ambient-meter 3.8s ease-in-out infinite;
+}
+
+@keyframes dashboard-ambient-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 rgba(95, 214, 255, 0);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(95, 214, 255, 0.28);
+    transform: scale(1.04);
+  }
+}
+
+@keyframes dashboard-ambient-meter {
+  0%, 100% { opacity: 0.64; transform: scaleX(0.92); }
+  50% { opacity: 1; transform: scaleX(1); }
 }
 
 .praise-burst {
@@ -464,6 +506,8 @@
   .foxcard,
   .dashboard-list-row,
   .dashboard-candle,
+  .dashboard-ambient-pulse,
+  .dashboard-ambient-meter,
   .praise-burst__spark,
   .praise-burst__beam,
   .praise-burst__float,
