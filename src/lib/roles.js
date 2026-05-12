@@ -1,46 +1,51 @@
 export const ROLE_VALUES = {
-  admin: "admin",
+  admin:   "admin",
   leadMod: "lead_mod",
-  mod: "mod",
-  creator: "creator",
+  mod:     "mod",
   favored: "favored",
-  regular: "regular",
-  viewer: "viewer",
-  guest: "guest",
+  creator: "creator",
+  foxfam:  "foxfam",
+  verified:"verified",
+  user:    "user",
+  guest:   "guest",
 };
 
 export const ROLE_LABELS = {
-  [ROLE_VALUES.admin]: "Admin",
+  [ROLE_VALUES.admin]:   "Admin",
   [ROLE_VALUES.leadMod]: "Lead Mod",
-  [ROLE_VALUES.mod]: "Mod",
-  [ROLE_VALUES.creator]: "Creator",
+  [ROLE_VALUES.mod]:     "Mod",
   [ROLE_VALUES.favored]: "Favored",
-  [ROLE_VALUES.regular]: "Regular",
-  [ROLE_VALUES.viewer]: "Viewer",
-  [ROLE_VALUES.guest]: "Guest",
+  [ROLE_VALUES.creator]: "Creator",
+  [ROLE_VALUES.foxfam]:  "Foxfam",
+  [ROLE_VALUES.verified]:"Verified",
+  [ROLE_VALUES.user]:    "User",
+  [ROLE_VALUES.guest]:   "Guest",
 };
 
+// Map old/legacy role strings to canonical values
 const LEGACY_ROLE_MAP = {
-  user: ROLE_VALUES.regular,
-  vip: ROLE_VALUES.favored,
-  verified: ROLE_VALUES.regular,
+  regular:   ROLE_VALUES.user,
+  viewer:    ROLE_VALUES.guest,
+  vip:       ROLE_VALUES.favored,
+  lead_mod:  ROLE_VALUES.leadMod,
   lead_mods: ROLE_VALUES.leadMod,
-  leadmods: ROLE_VALUES.leadMod,
+  leadmods:  ROLE_VALUES.leadMod,
 };
 
-const ROLE_WEIGHT = {
-  [ROLE_VALUES.guest]: 0,
-  [ROLE_VALUES.viewer]: 1,
-  [ROLE_VALUES.regular]: 2,
-  [ROLE_VALUES.favored]: 3,
+export const ROLE_WEIGHT = {
+  [ROLE_VALUES.guest]:   0,
+  [ROLE_VALUES.user]:    1,
+  [ROLE_VALUES.verified]:2,
+  [ROLE_VALUES.foxfam]:  3,
   [ROLE_VALUES.creator]: 4,
-  [ROLE_VALUES.mod]: 5,
-  [ROLE_VALUES.leadMod]: 6,
-  [ROLE_VALUES.admin]: 7,
+  [ROLE_VALUES.favored]: 5,
+  [ROLE_VALUES.mod]:     6,
+  [ROLE_VALUES.leadMod]: 7,
+  [ROLE_VALUES.admin]:   8,
 };
 
 export function normalizeRole(role) {
-  const key = String(role || ROLE_VALUES.guest).trim().toLowerCase();
+  const key = String(role || ROLE_VALUES.guest).trim().toLowerCase().replace(/-/g, "_");
   return LEGACY_ROLE_MAP[key] || key;
 }
 
@@ -68,7 +73,7 @@ export function canUseAdminPanel(user) {
 }
 
 export function canCreateForumThread(user) {
-  return hasRoleAtLeast(user, ROLE_VALUES.favored);
+  return hasRoleAtLeast(user, ROLE_VALUES.foxfam);
 }
 
 export function canBookCollab(user) {
