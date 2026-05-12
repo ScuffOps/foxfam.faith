@@ -46,6 +46,17 @@
     "comment_count": {
       "type": "number",
       "default": 0
+    },
+    "upvotes": {
+      "type": "number",
+      "default": 0
+    },
+    "upvoted_by": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
     }
   },
   "required": [
@@ -70,11 +81,7 @@
         }
       ]
     },
-    "update": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
+    "update": true,
     "delete": {
       "user_condition": {
         "role": "admin"

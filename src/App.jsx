@@ -56,6 +56,7 @@ const AuthenticatedApp = () => {
         <Route path="/polls" element={<CommunityInput defaultTab="polls" />} />
         <Route path="/updates" element={<CommunityInput defaultTab="updates" />} />
         <Route path="/feedback" element={<CommunityInput defaultTab="feedback" />} />
+        <Route path="/bugs" element={<CommunityInput defaultTab="bugs" />} />
         <Route path="/suggestions" element={<CommunityInput defaultTab="suggestions" />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/prayer" element={<PrayerWall />} />

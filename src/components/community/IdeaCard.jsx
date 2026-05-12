@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { ArrowUp, Check, X, CalendarPlus, ChevronDown, ChevronUp, Lightbulb, MessageCircle, MessageSquare, Map, Newspaper, Send } from "lucide-react";
+import { Check, X, CalendarPlus, ChevronDown, ChevronUp, Lightbulb, MessageCircle, MessageSquare, Map, Newspaper, Send, Sparkles } from "lucide-react";
 import { awardPoints } from "@/hooks/usePoints";
 import { useLevelUpToast } from "@/hooks/useLevelUpToast";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import PraiseBurst from "../PraiseBurst";
 import { createUserNotification } from "@/lib/notifications";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { useGuestProfile } from "@/hooks/useGuestProfile";
+import { getCommunityActorKey } from "@/lib/communityActor";
 
 const typeIcons = {
   idea: Lightbulb,
@@ -35,7 +36,8 @@ export default function IdeaCard({ post, isAdmin, userEmail, onRefresh }) {
   const [loadingComments, setLoadingComments] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
-  const hasUpvoted = (post.upvoted_by || []).includes(userEmail);
+  const actorKey = getCommunityActorKey({ email: userEmail });
+  const hasUpvoted = (post.upvoted_by || []).includes(actorKey);
   const Icon = typeIcons[post.type] || Lightbulb;
 
   const loadComments = async () => {
@@ -57,19 +59,19 @@ export default function IdeaCard({ post, isAdmin, userEmail, onRefresh }) {
   };
 
   const handleUpvote = async () => {
-    if (!userEmail || upvoting) return;
+    if (upvoting) return;
     setUpvoting(true);
     const upvotedBy = post.upvoted_by || [];
     try {
       if (hasUpvoted) {
         await base44.entities.CommunityPost.update(post.id, {
           upvotes: Math.max((post.upvotes || 0) - 1, 0),
-          upvoted_by: upvotedBy.filter((e) => e !== userEmail),
+          upvoted_by: upvotedBy.filter((e) => e !== actorKey),
         });
       } else {
         await base44.entities.CommunityPost.update(post.id, {
           upvotes: (post.upvotes || 0) + 1,
-          upvoted_by: [...upvotedBy, userEmail],
+          upvoted_by: [...upvotedBy, actorKey],
         });
         setVoteBurst((value) => value + 1);
         window.setTimeout(() => setVoteBurst(0), 1550);
@@ -177,15 +179,15 @@ export default function IdeaCard({ post, isAdmin, userEmail, onRefresh }) {
       {/* Give Praise */}
       <button
         onClick={handleUpvote}
-        disabled={!userEmail}
         aria-label={hasUpvoted ? "Remove Praise" : "Give Praise"}
         title={hasUpvoted ? "Remove Praise" : "Give Praise"}
-        className={`praise-button flex flex-col items-center gap-0.5 rounded-lg px-2 py-2 transition-colors ${
+        className={`praise-button flex min-w-[4.75rem] flex-col items-center gap-0.5 rounded-lg px-2 py-2 transition-colors ${
           hasUpvoted ? "bg-chart-4/15 text-chart-4" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
         } ${voteBurst ? "is-praising" : ""}`}
       >
         <PraiseBurst key={voteBurst} active={voteBurst > 0} />
-        <ArrowUp className="h-4 w-4" />
+        <Sparkles className="h-4 w-4" />
+        <span className="text-[10px] font-medium leading-none">{hasUpvoted ? "Praised" : "Give Praise"}</span>
         <span className="text-xs font-bold">{post.upvotes || 0}</span>
       </button>
 

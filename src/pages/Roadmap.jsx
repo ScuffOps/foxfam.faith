@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { ArrowUp, Zap, CheckCircle2, Clock, Lightbulb, Plus, Pencil } from "lucide-react";
+import { Zap, CheckCircle2, Clock, Lightbulb, Plus, Pencil, Sparkles } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import PraiseBurst from "@/components/PraiseBurst";
 import { canModerate } from "@/lib/roles";
 import { getPublicDisplayName } from "@/lib/userIdentity";
+import { getCommunityActorKey } from "@/lib/communityActor";
 
 const STAGES = [
   { key: "planned", label: "Planned", icon: Clock, color: "text-chart-4", bg: "bg-chart-4/10", border: "border-chart-4/20" },
@@ -82,9 +83,9 @@ export default function Roadmap() {
   };
 
   const handleUpvote = async (post) => {
-    if (!user?.email) return;
+    const actorKey = getCommunityActorKey(user);
     const upvotedBy = post.upvoted_by || [];
-    const hasVoted = upvotedBy.includes(user.email);
+    const hasVoted = upvotedBy.includes(actorKey);
     if (!hasVoted) {
       setVoteBurstId(post.id);
       window.setTimeout(() => {
@@ -93,7 +94,7 @@ export default function Roadmap() {
     }
     await base44.entities.CommunityPost.update(post.id, {
       upvotes: hasVoted ? Math.max((post.upvotes || 0) - 1, 0) : (post.upvotes || 0) + 1,
-      upvoted_by: hasVoted ? upvotedBy.filter((e) => e !== user.email) : [...upvotedBy, user.email],
+      upvoted_by: hasVoted ? upvotedBy.filter((e) => e !== actorKey) : [...upvotedBy, actorKey],
     });
     loadData();
   };
@@ -136,22 +137,22 @@ export default function Roadmap() {
                 ) : (
                   <div className="space-y-3">
                     {stagePosts.map((post) => {
-                      const hasVoted = (post.upvoted_by || []).includes(user?.email);
+                      const hasVoted = (post.upvoted_by || []).includes(getCommunityActorKey(user));
                       return (
                         <div key={post.id} className="rounded-xl border border-border bg-card p-4 transition-colors hover:border-border/80">
                           <div className="flex gap-3">
                             {/* Give Praise */}
                             <button
                               onClick={() => handleUpvote(post)}
-                              disabled={!user?.email}
                               aria-label={hasVoted ? "Remove Praise" : "Give Praise"}
                               title={hasVoted ? "Remove Praise" : "Give Praise"}
-                              className={`praise-button flex min-w-[40px] flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 transition-colors ${
+                              className={`praise-button flex min-w-[4.75rem] flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 transition-colors ${
                                 hasVoted ? "bg-primary/15 text-primary" : "bg-secondary text-muted-foreground hover:text-foreground"
                               } ${voteBurstId === post.id ? "is-praising" : ""}`}
                             >
                               <PraiseBurst key={`${post.id}-${voteBurstId}`} active={voteBurstId === post.id} />
-                              <ArrowUp className="h-3.5 w-3.5" />
+                              <Sparkles className="h-3.5 w-3.5" />
+                              <span className="text-[10px] font-medium leading-none">{hasVoted ? "Praised" : "Give Praise"}</span>
                               <span className="text-xs font-bold">{post.upvotes || 0}</span>
                             </button>
 

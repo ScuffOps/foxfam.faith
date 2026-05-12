@@ -87,6 +87,8 @@ export default function ReliquaryForm({ open, onOpenChange, user, entry, onSaved
       await base44.entities.ReliquaryEntry.create({
         ...payload,
         comment_count: 0,
+        upvotes: 0,
+        upvoted_by: [],
       });
     }
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { BookOpen, ChevronDown, ChevronUp, Download, ExternalLink, Maximize2, MessageCircle, Send, Trash2 } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronUp, Download, ExternalLink, Maximize2, MessageCircle, Send, Sparkles, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { awardPoints } from "@/hooks/usePoints";
 import { useLevelUpToast } from "@/hooks/useLevelUpToast";
@@ -9,6 +9,7 @@ import RichTextContent from "../RichTextContent";
 import PraiseBurst from "../PraiseBurst";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { createUserNotification } from "@/lib/notifications";
+import { getCommunityActorKey, isGuestActor } from "@/lib/communityActor";
 
 function downloadNameFor(title) {
   const slug = (title || "blessing").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -36,19 +37,19 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
     });
   }, [blessing.id, blessing.upvotes, blessing.upvoted_by]);
 
-  const hasPraised = localPraise.upvotedBy.includes(user?.email);
+  const actorKey = getCommunityActorKey(user);
+  const hasPraised = localPraise.upvotedBy.includes(actorKey);
 
   const handlePraise = async (event) => {
     event.preventDefault();
     event.stopPropagation();
-    if (!user?.email) return;
 
     const previousPraise = localPraise;
     const nextPraise = {
       upvotes: hasPraised ? Math.max(localPraise.upvotes - 1, 0) : localPraise.upvotes + 1,
       upvotedBy: hasPraised
-        ? localPraise.upvotedBy.filter((e) => e !== user.email)
-        : [...localPraise.upvotedBy, user.email],
+        ? localPraise.upvotedBy.filter((e) => e !== actorKey)
+        : [...localPraise.upvotedBy, actorKey],
     };
 
     setLocalPraise(nextPraise);
@@ -62,7 +63,7 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
         upvotes: nextPraise.upvotes,
         upvoted_by: nextPraise.upvotedBy,
       });
-      if (!hasPraised) {
+      if (!hasPraised && user?.email && !isGuestActor(actorKey)) {
         awardPoints(user, "upvote_blessing").then(checkLevelUp);
         if (blessing.author_email && blessing.author_email !== user.email) {
           createUserNotification({
@@ -98,29 +99,30 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
   };
 
   const handleComment = async () => {
-    if (!commentText.trim() || !user) return;
+    if (!commentText.trim()) return;
     setSubmitting(true);
+    const actorName = getPublicDisplayName(user, "Guest");
     await base44.entities.BlessingComment.create({
       blessing_id: blessing.id,
       message: commentText.trim(),
-      author_name: getPublicDisplayName(user, user.email),
+      author_name: actorName,
     });
     await base44.entities.Blessing.update(blessing.id, {
       comment_count: (blessing.comment_count || 0) + 1,
     });
-    if (blessing.author_email && blessing.author_email !== user.email) {
+    if (user?.email && blessing.author_email && blessing.author_email !== user.email) {
       createUserNotification({
         recipientEmail: blessing.author_email,
         actorEmail: user.email,
-        actorName: getPublicDisplayName(user, "Someone"),
+        actorName,
         type: "comment_received",
         title: "New blessing comment",
-        message: `${getPublicDisplayName(user, "Someone")} commented on "${blessing.title}".`,
+        message: `${actorName} commented on "${blessing.title}".`,
         sourceType: "blessing",
         sourceId: blessing.id,
       });
     }
-    awardPoints(user, "post_blessing_comment").then(checkLevelUp);
+    if (user?.email) awardPoints(user, "post_blessing_comment").then(checkLevelUp);
     setCommentText("");
     setSubmitting(false);
     loadComments();
@@ -203,13 +205,12 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
           <button
             type="button"
             onClick={handlePraise}
-            disabled={!user?.email}
             className={`praise-button flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors ${
               hasPraised ? "bg-primary/15 text-primary" : "bg-secondary text-muted-foreground hover:text-foreground"
             } ${praiseBurst ? "is-praising" : ""}`}
           >
             <PraiseBurst key={praiseBurst} active={praiseBurst > 0} />
-            <span aria-hidden="true" className="text-sm leading-none">🕯</span>
+            <Sparkles className="h-3.5 w-3.5" />
             <span>{hasPraised ? "Praised" : "Give Praise"}</span>
             <span className="font-bold">{localPraise.upvotes}</span>
           </button>

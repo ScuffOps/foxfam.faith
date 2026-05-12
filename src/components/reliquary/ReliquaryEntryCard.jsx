@@ -1,19 +1,76 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { ChevronDown, ChevronUp, Edit3, MessageCircle, Send, Trash2 } from "lucide-react";
+import { format } from "date-fns";
+import { CalendarDays, ChevronDown, ChevronUp, Edit3, MessageCircle, Send, Sparkles, Tag, Trash2 } from "lucide-react";
+import PraiseBurst from "@/components/PraiseBurst";
 import RichTextContent from "@/components/RichTextContent";
 import { awardPoints } from "@/hooks/usePoints";
 import { useLevelUpToast } from "@/hooks/useLevelUpToast";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { createUserNotification } from "@/lib/notifications";
+import { getCommunityActorKey, isGuestActor } from "@/lib/communityActor";
 
-export default function ReliquaryEntryCard({ entry, user, isAdmin, onEdit, onRefresh }) {
+export default function ReliquaryEntryCard({ entry, user, isAdmin, featured = false, onEdit, onRefresh }) {
   const checkLevelUp = useLevelUpToast();
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState([]);
   const [loadingComments, setLoadingComments] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [praiseBurst, setPraiseBurst] = useState(0);
+  const [localPraise, setLocalPraise] = useState({
+    upvotes: entry.upvotes || 0,
+    upvotedBy: entry.upvoted_by || [],
+  });
+
+  useEffect(() => {
+    setLocalPraise({
+      upvotes: entry.upvotes || 0,
+      upvotedBy: entry.upvoted_by || [],
+    });
+  }, [entry.id, entry.upvotes, entry.upvoted_by]);
+
+  const actorKey = getCommunityActorKey(user);
+  const hasPraised = localPraise.upvotedBy.includes(actorKey);
+
+  const handlePraise = async () => {
+    const previousPraise = localPraise;
+    const nextPraise = {
+      upvotes: hasPraised ? Math.max(localPraise.upvotes - 1, 0) : localPraise.upvotes + 1,
+      upvotedBy: hasPraised
+        ? localPraise.upvotedBy.filter((email) => email !== actorKey)
+        : [...localPraise.upvotedBy, actorKey],
+    };
+
+    setLocalPraise(nextPraise);
+    if (!hasPraised) {
+      setPraiseBurst((value) => value + 1);
+      window.setTimeout(() => setPraiseBurst(0), 1550);
+    }
+
+    try {
+      await base44.entities.ReliquaryEntry.update(entry.id, {
+        upvotes: nextPraise.upvotes,
+        upvoted_by: nextPraise.upvotedBy,
+      });
+      if (!hasPraised && user?.email && !isGuestActor(actorKey) && entry.author_email && entry.author_email !== user.email) {
+        createUserNotification({
+          recipientEmail: entry.author_email,
+          actorEmail: user.email,
+          actorName: getPublicDisplayName(user, "Someone"),
+          type: "praise_received",
+          title: "Praise received",
+          message: `${getPublicDisplayName(user, "Someone")} gave praise to "${entry.title}".`,
+          sourceType: "reliquary_entry",
+          sourceId: entry.id,
+        });
+      }
+      window.setTimeout(() => onRefresh?.({ silent: true }), 700);
+    } catch {
+      setLocalPraise(previousPraise);
+      onRefresh?.({ silent: true });
+    }
+  };
 
   const loadComments = async () => {
     setLoadingComments(true);
@@ -33,30 +90,31 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, onEdit, onRef
   };
 
   const handleComment = async () => {
-    if (!commentText.trim() || !user) return;
+    if (!commentText.trim()) return;
     setSubmitting(true);
+    const actorName = getPublicDisplayName(user, "Guest");
     await base44.entities.ReliquaryComment.create({
       entry_id: entry.id,
       message: commentText.trim(),
-      author_name: getPublicDisplayName(user, user.email),
+      author_name: actorName,
       is_anonymous: false,
     });
     await base44.entities.ReliquaryEntry.update(entry.id, {
       comment_count: (entry.comment_count || 0) + 1,
     });
-    if (entry.author_email && entry.author_email !== user.email) {
+    if (user?.email && entry.author_email && entry.author_email !== user.email) {
       createUserNotification({
         recipientEmail: entry.author_email,
         actorEmail: user.email,
-        actorName: getPublicDisplayName(user, "Someone"),
+        actorName,
         type: "comment_received",
         title: "New reliquary comment",
-        message: `${getPublicDisplayName(user, "Someone")} commented on "${entry.title}".`,
+        message: `${actorName} commented on "${entry.title}".`,
         sourceType: "reliquary_entry",
         sourceId: entry.id,
       });
     }
-    awardPoints(user, "post_reliquary_comment").then(checkLevelUp);
+    if (user?.email) awardPoints(user, "post_reliquary_comment").then(checkLevelUp);
     setCommentText("");
     setSubmitting(false);
     loadComments();
@@ -68,15 +126,23 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, onEdit, onRef
     await base44.entities.ReliquaryEntry.delete(entry.id);
     onRefresh();
   };
+  const publishedDate = entry.created_date ? format(new Date(entry.created_date), "MMM d, yyyy") : "Undated";
 
   return (
-    <article className="foxcard overflow-hidden rounded-xl p-5">
+    <article className={`foxcard overflow-hidden rounded-xl ${featured ? "p-6 md:p-7" : "p-5"}`}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          {entry.mood && (
-            <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.28em] text-primary/70">{entry.mood}</p>
-          )}
-          <h2 className="font-heading text-xl font-bold text-foreground">{entry.title}</h2>
+          <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+            {entry.mood && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 font-medium text-primary">
+                <Tag className="h-3 w-3" /> {entry.mood}
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1">
+              <CalendarDays className="h-3.5 w-3.5" /> {publishedDate}
+            </span>
+          </div>
+          <h2 className={`font-heading font-bold text-foreground ${featured ? "text-2xl md:text-3xl" : "text-xl"}`}>{entry.title}</h2>
           {entry.subtitle && <p className="mt-1 text-sm text-muted-foreground">{entry.subtitle}</p>}
         </div>
         {isAdmin && (
@@ -122,6 +188,20 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, onEdit, onRef
       )}
 
       <div className="mt-5 flex items-center gap-3 border-t border-border pt-4">
+        <button
+          type="button"
+          onClick={handlePraise}
+          aria-label={hasPraised ? "Remove Praise" : "Give Praise"}
+          title={hasPraised ? "Remove Praise" : "Give Praise"}
+          className={`praise-button flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors ${
+            hasPraised ? "bg-primary/15 text-primary" : "bg-secondary text-muted-foreground hover:text-foreground"
+          } ${praiseBurst ? "is-praising" : ""}`}
+        >
+          <PraiseBurst key={praiseBurst} active={praiseBurst > 0} />
+          <Sparkles className="h-3.5 w-3.5" />
+          <span>{hasPraised ? "Praised" : "Give Praise"}</span>
+          <span className="font-bold">{localPraise.upvotes}</span>
+        </button>
         <button
           onClick={toggleComments}
           className="flex items-center gap-1.5 rounded-lg bg-secondary px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
