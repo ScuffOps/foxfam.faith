@@ -20,6 +20,7 @@ import {
   Vote,
   Mailbox,
   Lightbulb,
+  Hammer,
 } from "lucide-react";
 import SidebarProfile from "./SidebarProfile";
 import { canBookCollab, canUseAdminPanel } from "@/lib/roles";
@@ -35,6 +36,7 @@ const navItems = [
   { path: "/prayer", label: "Prayer Wall", icon: Flame },
   { path: "/blessings", label: "Blessings", icon: Sparkles },
   { path: "/reliquary", label: "Reliquary", icon: Feather },
+  { path: "/relic-forge", label: "Relic Forge", icon: Hammer },
   { path: "/codex", label: "Codex", icon: BookOpen },
   { path: "/community", label: "Community", icon: MessageSquare },
   { path: "/forum", label: "Forum", icon: MessageSquare },
