@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { Lightbulb, ArrowUp } from "lucide-react";
+import { Lightbulb, Sparkles } from "lucide-react";
 import GlassCard from "../GlassCard";
 import PraiseBurst from "../PraiseBurst";
+import { getCommunityActorKey } from "@/lib/communityActor";
 
 export default function TopIdeas() {
   const [ideas, setIdeas] = useState([]);
@@ -30,16 +31,17 @@ export default function TopIdeas() {
   }, []);
 
   const handleUpvote = async (idea) => {
-    if (!user?.email || upvoting) return;
+    if (upvoting) return;
+    const actorKey = getCommunityActorKey(user);
     const upvotedBy = idea.upvoted_by || [];
-    const hasUpvoted = upvotedBy.includes(user.email);
+    const hasUpvoted = upvotedBy.includes(actorKey);
     setUpvoting(idea.id);
 
     const updated = {
       upvotes: hasUpvoted ? Math.max((idea.upvotes || 0) - 1, 0) : (idea.upvotes || 0) + 1,
       upvoted_by: hasUpvoted
-        ? upvotedBy.filter((e) => e !== user.email)
-        : [...upvotedBy, user.email],
+        ? upvotedBy.filter((e) => e !== actorKey)
+        : [...upvotedBy, actorKey],
     };
     if (!hasUpvoted) {
       setVoteBurstId(idea.id);
@@ -81,22 +83,23 @@ export default function TopIdeas() {
       ) : (
         <div className="space-y-2.5">
           {ideas.map((idea) => {
-            const hasUpvoted = (idea.upvoted_by || []).includes(user?.email);
+            const hasUpvoted = (idea.upvoted_by || []).includes(getCommunityActorKey(user));
             return (
               <div key={idea.id} className="dashboard-list-row flex items-center gap-3 rounded-lg px-3 py-2.5">
                 <button
                   onClick={() => handleUpvote(idea)}
-                  disabled={!user?.email || upvoting === idea.id}
+                  disabled={upvoting === idea.id}
                   aria-label={hasUpvoted ? "Remove Praise" : "Give Praise"}
                   title={hasUpvoted ? "Remove Praise" : "Give Praise"}
-                  className={`praise-button flex flex-col items-center gap-0.5 rounded-md px-1.5 py-1 transition-colors ${
+                  className={`praise-button flex min-w-[4.75rem] flex-col items-center gap-0.5 rounded-md px-1.5 py-1 transition-colors ${
                     hasUpvoted
                       ? "text-chart-4 bg-chart-4/15"
                       : "text-muted-foreground hover:text-chart-4 hover:bg-chart-4/10"
-                  } ${voteBurstId === idea.id ? "is-praising" : ""} disabled:opacity-50 disabled:cursor-not-allowed`}
+                  } ${voteBurstId === idea.id ? "is-praising" : ""} disabled:cursor-wait disabled:opacity-60`}
                 >
                   <PraiseBurst key={`${idea.id}-${voteBurstId}`} active={voteBurstId === idea.id} />
-                  <ArrowUp className="h-3.5 w-3.5" />
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span className="text-[10px] font-medium leading-none">{hasUpvoted ? "Praised" : "Give Praise"}</span>
                   <span className="text-xs font-bold">{idea.upvotes || 0}</span>
                 </button>
                 <div className="min-w-0 flex-1">

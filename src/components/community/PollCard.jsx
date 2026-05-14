@@ -8,21 +8,23 @@ import { useToast } from "@/components/ui/use-toast";
 import StatusBadge from "../StatusBadge";
 import GlassCard from "../GlassCard";
 import RichTextContent from "../RichTextContent";
+import { getCommunityActorKey } from "@/lib/communityActor";
 
 export default function PollCard({ post, isAdmin, userEmail, onRefresh }) {
   const checkLevelUp = useLevelUpToast();
   const { toast } = useToast();
   const [voting, setVoting] = useState(false);
+  const actorKey = getCommunityActorKey({ email: userEmail });
   const options = post.poll_options || [];
   const totalVotes = options.reduce((sum, o) => sum + (o.votes || 0), 0);
-  const userVotedOption = options.find((o) => (o.voted_by || []).includes(userEmail));
+  const userVotedOption = options.find((o) => (o.voted_by || []).includes(actorKey));
 
   const handleVote = async (optionId) => {
-    if (!userEmail || voting || userVotedOption) return;
+    if (voting || userVotedOption) return;
     setVoting(true);
     const updated = options.map((o) => {
       if (o.id === optionId) {
-        return { ...o, votes: (o.votes || 0) + 1, voted_by: [...(o.voted_by || []), userEmail] };
+        return { ...o, votes: (o.votes || 0) + 1, voted_by: [...(o.voted_by || []), actorKey] };
       }
       return o;
     });
@@ -86,7 +88,7 @@ export default function PollCard({ post, isAdmin, userEmail, onRefresh }) {
             <button
               key={opt.id}
               onClick={() => handleVote(opt.id)}
-              disabled={!!userVotedOption || !userEmail}
+              disabled={!!userVotedOption}
               className="relative w-full overflow-hidden rounded-lg border border-border bg-secondary/50 px-3 py-2.5 text-left transition-colors hover:border-primary/30 disabled:cursor-default"
             >
               <div

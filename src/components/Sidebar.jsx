@@ -20,6 +20,7 @@ import {
   Vote,
   Mailbox,
   Lightbulb,
+  Bug,
   ChevronDown,
 } from "lucide-react";
 import SidebarProfile from "./SidebarProfile";
@@ -63,6 +64,7 @@ const navGroups = [
       { path: "/forum", label: "Forum", icon: MessageSquare },
       { path: "/polls", label: "Polls", icon: Vote },
       { path: "/feedback", label: "Feedback", icon: Lightbulb },
+      { path: "/bugs", label: "Bug Reports", icon: Bug },
       { path: "/suggestions", label: "Suggestion Box", icon: Mailbox },
     ],
   },
@@ -123,13 +125,12 @@ export default function Sidebar({ onClose }) {
         key={item.path}
         to={item.path}
         onClick={onClose}
-        className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
-          child ? "ml-5 py-2 text-[13px]" : ""
-        } ${
-          isActive
-            ? "bg-primary/15 text-primary"
-            : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-        }`}
+        aria-current={isActive ? "page" : undefined}
+        data-active={isActive}
+        data-child={child || undefined}
+        className={`sidebar-nav-item flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+          child ? "sidebar-nav-child ml-5 py-2 text-[13px]" : ""
+        } ${isActive ? "text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
       >
         <item.icon className={`h-[18px] w-[18px] shrink-0 ${isActive ? "text-primary" : ""}`} />
         <span className="min-w-0 truncate">{item.label}</span>
@@ -175,10 +176,9 @@ export default function Sidebar({ onClose }) {
                   type="button"
                   onClick={() => toggleGroup(group.key)}
                   aria-expanded={isOpen}
-                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-all duration-200 ${
-                    groupActive
-                      ? "bg-primary/15 text-primary"
-                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  data-active={groupActive}
+                  className={`sidebar-nav-item sidebar-nav-group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-all duration-200 ${
+                    groupActive ? "text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                   }`}
                 >
                   <Icon className={`h-[18px] w-[18px] shrink-0 ${groupActive ? "text-primary" : ""}`} />

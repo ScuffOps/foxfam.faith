@@ -13,7 +13,8 @@
       "enum": [
         "idea",
         "poll",
-        "feedback"
+        "feedback",
+        "update"
       ],
       "description": "Type of community post"
     },
@@ -78,6 +79,13 @@
     },
     "submitted_by_name": {
       "type": "string"
+    },
+    "submitted_by_email": {
+      "type": "string"
+    },
+    "comment_count": {
+      "type": "number",
+      "default": 0
     }
   },
   "required": [
@@ -87,23 +95,7 @@
   "rls": {
     "create": true,
     "read": true,
-    "update": {
-      "$or": [
-        {
-          "created_by": "{{user.email}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        },
-        {
-          "user_condition": {
-            "role": "mod"
-          }
-        }
-      ]
-    },
+    "update": true,
     "delete": {
       "user_condition": {
         "role": "admin"

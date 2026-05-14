@@ -2,9 +2,13 @@ import { useEffect, useState } from "react";
 import { Mic2 } from "lucide-react";
 import GlassCard from "../GlassCard";
 
-const EREN_AGENT_ID = "70Z2rf5rjOarYmwgh1nY";
+const EREN_AGENT = {
+  name: "Eren",
+  id: "agent_7101kr3a7dhnepr86rke5x97kakm",
+  providerLabel: "ElevenAgents",
+};
 const WIDGET_SCRIPT_ID = "elevenlabs-convai-widget";
-const WIDGET_SRC = "https://elevenlabs.io/convai-widget/index.js";
+const WIDGET_SRC = "https://unpkg.com/@elevenlabs/convai-widget-embed";
 
 export default function ErenAgent() {
   const [status, setStatus] = useState("loading");
@@ -32,26 +36,26 @@ export default function ErenAgent() {
   }, []);
 
   return (
-    <GlassCard className="flex min-h-[220px] flex-col gap-4">
+    <GlassCard className="eren-agent-card flex min-h-[220px] flex-col gap-4">
       <div className="flex items-center gap-3">
         <div className="dashboard-icon-well flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
           <Mic2 className="h-4 w-4 text-primary" />
         </div>
         <div>
-          <h3 className="font-heading text-sm font-semibold">Talk to Eren</h3>
-          <p className="text-xs text-muted-foreground">ElevenLabs voice agent</p>
+          <h3 className="font-heading text-sm font-semibold">Talk to {EREN_AGENT.name}</h3>
+          <p className="text-xs text-muted-foreground">{EREN_AGENT.providerLabel} voice agent</p>
         </div>
       </div>
 
-      <div className="dashboard-empty flex flex-1 items-center justify-center rounded-lg p-4">
+      <div className="eren-agent-widget-shell flex flex-1 items-center justify-center rounded-[1.5rem] p-4">
         {status === "error" ? (
           <p className="text-center text-xs text-muted-foreground">
-            Eren could not load right now. Try refreshing in a moment.
+            {EREN_AGENT.name} could not load right now. Try refreshing in a moment.
           </p>
         ) : status === "ready" ? (
-          <elevenlabs-convai agent-id={EREN_AGENT_ID}></elevenlabs-convai>
+          <elevenlabs-convai key={EREN_AGENT.id} agent-id={EREN_AGENT.id}></elevenlabs-convai>
         ) : (
-          <p className="text-xs text-muted-foreground">summoning Eren...</p>
+          <p className="text-xs text-muted-foreground">summoning {EREN_AGENT.name}...</p>
         )}
       </div>
     </GlassCard>

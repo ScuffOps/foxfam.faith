@@ -25,6 +25,7 @@ export default function PrayerWall() {
   const [category, setCategory] = useState("");
   const [customColor, setCustomColor] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [newPrayerId, setNewPrayerId] = useState(null);
   const [user, setUser] = useState(null);
 
   useEffect(() => {
@@ -37,6 +38,7 @@ export default function PrayerWall() {
     const all = await base44.entities.Prayer.list("-created_date", 50);
     setPrayers(all);
     setLoading(false);
+    return all;
   };
 
   const handleSubmit = async () => {
@@ -44,7 +46,7 @@ export default function PrayerWall() {
     if (!plainMessage) return;
     setSubmitting(true);
     const cat = category || detectCategory(plainMessage);
-    await base44.entities.Prayer.create({
+    const createdPrayer = await base44.entities.Prayer.create({
       message,
       author_name: isAnonymous ? "" : (authorName.trim() || getPublicDisplayName(user, "")),
       is_anonymous: isAnonymous,
@@ -60,8 +62,10 @@ export default function PrayerWall() {
     setCustomColor("");
     setSubmitted(true);
     setSubmitting(false);
-    loadPrayers();
+    const refreshedPrayers = await loadPrayers();
+    setNewPrayerId(createdPrayer?.id || refreshedPrayers?.[0]?.id || null);
     setTimeout(() => setSubmitted(false), 4000);
+    setTimeout(() => setNewPrayerId(null), 9000);
   };
 
   const handlePray = async (prayer) => {
@@ -140,6 +144,7 @@ export default function PrayerWall() {
                   onPray={handlePray}
                   onMarkRead={isAdmin ? handleMarkRead : undefined}
                   isAdmin={isAdmin}
+                  isNewPrayer={prayer.id === newPrayerId}
                 />
               ))}
             </div>

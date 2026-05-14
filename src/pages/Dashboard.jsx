@@ -5,7 +5,7 @@ import TopIdeas from "../components/dashboard/TopIdeas";
 import BoopTheFox from "../components/dashboard/BoopTheFox";
 import VeriThought from "../components/dashboard/VeriThought";
 import ErenAgent from "../components/dashboard/ErenAgent";
-import AmbientSignal from "../components/dashboard/AmbientSignal";
+import BugReportPanel from "../components/dashboard/BugReportPanel";
 import HiddenEasterEgg from "../components/dashboard/HiddenEasterEgg";
 import RecentCodexEntries from "../components/dashboard/RecentCodexEntries";
 import CommunityUpdates from "../components/dashboard/CommunityUpdates";
@@ -51,12 +51,12 @@ export default function Dashboard() {
           <TopIdeas />
         </div>
 
-        {/* Row 3: Eren (quarter) + atmospheric signal (quarter) + VeriThought (half) */}
+        {/* Row 3: Eren (quarter) + bug report link (quarter) + VeriThought (half) */}
         <div className="sm:col-span-1">
           <ErenAgent />
         </div>
         <div className="sm:col-span-1">
-          <AmbientSignal />
+          <BugReportPanel />
         </div>
         <div className="sm:col-span-2 lg:col-span-2">
           <VeriThought />
