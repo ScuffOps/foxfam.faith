@@ -1,8 +1,8 @@
 {
-  "name": "BlessingComment",
+  "name": "CommunityPostComment",
   "type": "object",
   "properties": {
-    "blessing_id": {
+    "post_id": {
       "type": "string"
     },
     "message": {
@@ -11,13 +11,12 @@
     "author_name": {
       "type": "string"
     },
-    "is_anonymous": {
-      "type": "boolean",
-      "default": false
+    "author_email": {
+      "type": "string"
     }
   },
   "required": [
-    "blessing_id",
+    "post_id",
     "message"
   ],
   "rls": {

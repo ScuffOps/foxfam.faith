@@ -11,9 +11,11 @@ import { getPublicDisplayName } from "@/lib/userIdentity";
 import { Plus, X } from "lucide-react";
 import { awardPoints } from "@/hooks/usePoints";
 import { useLevelUpToast } from "@/hooks/useLevelUpToast";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function PostForm({ open, onOpenChange, onCreated, isMod = false }) {
   const checkLevelUp = useLevelUpToast();
+  const { toast } = useToast();
   const { profile } = useGuestProfile();
   const [form, setForm] = useState({ title: "", description: "", type: "idea" });
   const [pollOptions, setPollOptions] = useState(["", ""]);
@@ -24,43 +26,53 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
   const handleSubmit = async () => {
     if (!form.title) return;
     setSaving(true);
-    let submitterName = "Anonymous";
-    let submitterEmail = "";
     try {
-      const user = await base44.auth.me();
-      submitterName = getPublicDisplayName(user, user.email || "Member");
-      submitterEmail = user.email || "";
+      let submitterName = "Anonymous";
+      let submitterEmail = "";
+      try {
+        const user = await base44.auth.me();
+        submitterName = getPublicDisplayName(user, user.email || "Member");
+        submitterEmail = user.email || "";
+      } catch {
+        if (profile.name) submitterName = profile.name + (profile.discordId ? ` (${profile.discordId})` : "");
+      }
+
+      const data = {
+        ...form,
+        status: isMod && form.type === "update" ? "approved" : "pending",
+        submitted_by_name: submitterName,
+        submitted_by_email: submitterEmail,
+        upvotes: 0,
+        upvoted_by: [],
+        comment_count: 0,
+      };
+
+      if (form.type === "poll") {
+        data.poll_options = pollOptions
+          .filter((o) => o.trim())
+          .map((text, i) => ({
+            id: `opt_${i}_${Date.now()}`,
+            text,
+            votes: 0,
+            voted_by: [],
+          }));
+      }
+
+      await base44.entities.CommunityPost.create(data);
+      try { const u = await base44.auth.me(); awardPoints(u, "submit_post").then(checkLevelUp); } catch {}
+      setForm({ title: "", description: "", type: "idea" });
+      setPollOptions(["", ""]);
+      onCreated?.();
+      onOpenChange(false);
+      toast({ title: "Post submitted", description: "Your post is in the community queue." });
     } catch {
-      if (profile.name) submitterName = profile.name + (profile.discordId ? ` (${profile.discordId})` : "");
+      toast({
+        title: "Post could not be submitted",
+        description: "Please check the fields and try again.",
+      });
+    } finally {
+      setSaving(false);
     }
-
-    const data = {
-      ...form,
-      status: "pending",
-      submitted_by_name: submitterName,
-      submitted_by_email: submitterEmail,
-      upvotes: 0,
-      upvoted_by: [],
-    };
-
-    if (form.type === "poll") {
-      data.poll_options = pollOptions
-        .filter((o) => o.trim())
-        .map((text, i) => ({
-          id: `opt_${i}_${Date.now()}`,
-          text,
-          votes: 0,
-          voted_by: [],
-        }));
-    }
-
-    await base44.entities.CommunityPost.create(data);
-    try { const u = await base44.auth.me(); awardPoints(u, "submit_post").then(checkLevelUp); } catch {}
-    setSaving(false);
-    setForm({ title: "", description: "", type: "idea" });
-    setPollOptions(["", ""]);
-    onCreated?.();
-    onOpenChange(false);
   };
 
   return (
@@ -77,6 +89,7 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
               <SelectContent>
                 <SelectItem value="idea">Idea / Suggestion</SelectItem>
                 {isMod && <SelectItem value="poll">Poll</SelectItem>}
+                {isMod && <SelectItem value="update">Community Update</SelectItem>}
                 <SelectItem value="feedback">Feedback</SelectItem>
               </SelectContent>
             </Select>

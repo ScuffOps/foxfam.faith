@@ -45,7 +45,7 @@ export default function BoardView({ events, onEventClick }) {
   );
 
   return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
       {COLUMNS.map((col) => {
         const colEvents = sorted.filter((e) => e.category === col.key);
         const color = getCategoryColor(col.key);

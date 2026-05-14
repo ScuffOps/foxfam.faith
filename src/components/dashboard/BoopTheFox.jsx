@@ -42,7 +42,7 @@ export default function BoopTheFox() {
     localStorage.setItem("commhub_boop_rewards_claimed", JSON.stringify(nextClaimed));
 
     base44.auth.me()
-      .then((user) => awardPointAmount(user, reward.points, "points_from_boops"))
+      .then((user) => awardPointAmount(user, reward.points, "points_from_comments"))
       .then(() => {
         toast({
           title: `${reward.label}: +${reward.points} Favor`,

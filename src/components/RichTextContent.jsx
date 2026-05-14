@@ -22,6 +22,12 @@ export function getRichTextPlainText(value) {
   return element.textContent.trim();
 }
 
+function handleRichTextClick(event) {
+  const spoiler = event.target.closest?.(".rt-spoiler");
+  if (!spoiler) return;
+  spoiler.classList.toggle("is-revealed");
+}
+
 export default function RichTextContent({ children, className = "", inline = false, style }) {
   const content = String(children || "");
   if (!content.trim()) return null;
@@ -39,6 +45,7 @@ export default function RichTextContent({ children, className = "", inline = fal
     <Component
       className={`rich-text-content ${className}`}
       style={style}
+      onClick={handleRichTextClick}
       dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }}
     />
   );

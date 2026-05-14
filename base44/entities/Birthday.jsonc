@@ -27,7 +27,7 @@
         "approved",
         "rejected"
       ],
-      "default": "pending"
+      "default": "approved"
     },
     "submitted_by_email": {
       "type": "string"
@@ -39,5 +39,40 @@
   "required": [
     "display_name",
     "birthday_date"
-  ]
+  ],
+  "rls": {
+    "create": true,
+    "read": true,
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "mod"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "mod"
+          }
+        }
+      ]
+    }
+  }
 }

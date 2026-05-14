@@ -6,6 +6,8 @@ import GlassCard from "../GlassCard";
 import RichTextContent from "../RichTextContent";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { createUserNotification } from "@/lib/notifications";
+import { useToast } from "@/components/ui/use-toast";
+import PraiseBurst from "../PraiseBurst";
 
 function getGuestForumId() {
   const key = "commhub_forum_guest_id";
@@ -18,6 +20,7 @@ function getGuestForumId() {
 }
 
 export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
+  const { toast } = useToast();
   const { profile } = useGuestProfile();
   const [guestId] = useState(getGuestForumId);
   const [showReplies, setShowReplies] = useState(false);
@@ -25,6 +28,7 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
   const [loadingComments, setLoadingComments] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [reactionBurst, setReactionBurst] = useState(0);
   const actorId = user?.email || `guest:${guestId}`;
   const actorName = user ? getPublicDisplayName(user, user.email) : profile.name || "Guest";
   const hasReacted = (thread.reacted_by || []).includes(actorId);
@@ -48,41 +52,60 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
 
   const handleReact = async () => {
     const reactedBy = thread.reacted_by || [];
-    await base44.entities.CommunityThread.update(thread.id, {
-      reactions: hasReacted ? Math.max((thread.reactions || 0) - 1, 0) : (thread.reactions || 0) + 1,
-      reacted_by: hasReacted ? reactedBy.filter((id) => id !== actorId) : [...reactedBy, actorId],
-    });
-    onRefresh();
+    try {
+      await base44.entities.CommunityThread.update(thread.id, {
+        reactions: hasReacted ? Math.max((thread.reactions || 0) - 1, 0) : (thread.reactions || 0) + 1,
+        reacted_by: hasReacted ? reactedBy.filter((id) => id !== actorId) : [...reactedBy, actorId],
+      });
+      if (!hasReacted) {
+        setReactionBurst((value) => value + 1);
+        window.setTimeout(() => setReactionBurst(0), 1550);
+      }
+      onRefresh();
+    } catch {
+      toast({
+        title: "Praise could not be sent",
+        description: "Please make sure you are signed in and try again.",
+      });
+    }
   };
 
   const handleComment = async () => {
     if (!commentText.trim() || thread.is_locked) return;
     setSubmitting(true);
-    await base44.entities.CommunityThreadComment.create({
-      thread_id: thread.id,
-      message: commentText.trim(),
-      author_name: actorName,
-    });
-    await base44.entities.CommunityThread.update(thread.id, {
-      comment_count: (thread.comment_count || 0) + 1,
-    });
-    if (thread.author_email && thread.author_email !== user?.email) {
-      createUserNotification({
-        recipientEmail: thread.author_email,
-        actorEmail: user?.email || actorId,
-        actorName,
-        type: "reply_received",
-        title: "New forum reply",
-        message: `${actorName} replied to "${thread.title}".`,
-        sourceType: "community_thread",
-        sourceId: thread.id,
+    try {
+      await base44.entities.CommunityThreadComment.create({
+        thread_id: thread.id,
+        message: commentText.trim(),
+        author_name: actorName,
       });
+      await base44.entities.CommunityThread.update(thread.id, {
+        comment_count: (thread.comment_count || 0) + 1,
+      });
+      if (thread.author_email && thread.author_email !== user?.email) {
+        createUserNotification({
+          recipientEmail: thread.author_email,
+          actorEmail: user?.email || actorId,
+          actorName,
+          type: "reply_received",
+          title: "New forum reply",
+          message: `${actorName} replied to "${thread.title}".`,
+          sourceType: "community_thread",
+          sourceId: thread.id,
+        });
+      }
+      setCommentText("");
+      setShowReplies(true);
+      loadComments();
+      onRefresh();
+    } catch {
+      toast({
+        title: "Reply could not be posted",
+        description: "Please make sure you are signed in and try again.",
+      });
+    } finally {
+      setSubmitting(false);
     }
-    setCommentText("");
-    setSubmitting(false);
-    setShowReplies(true);
-    loadComments();
-    onRefresh();
   };
 
   const handleDelete = async () => {
@@ -133,12 +156,14 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
         <button
           type="button"
           onClick={handleReact}
-          className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm transition-colors ${
+          aria-label={hasReacted ? "Remove Praise" : "Give Praise"}
+          title={hasReacted ? "Remove Praise" : "Give Praise"}
+          className={`praise-button flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm transition-colors ${
             hasReacted ? "bg-primary/15 text-primary" : "bg-secondary text-muted-foreground hover:text-foreground"
-          }`}
+          } ${reactionBurst ? "is-praising" : ""}`}
         >
-          <span aria-hidden="true">🕯</span>
-          React
+          <PraiseBurst key={reactionBurst} active={reactionBurst > 0} />
+          {hasReacted ? "Praised" : "Give Praise"}
           <span className="font-semibold">{thread.reactions || 0}</span>
         </button>
         <button

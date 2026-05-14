@@ -13,7 +13,8 @@
       "enum": [
         "idea",
         "poll",
-        "feedback"
+        "feedback",
+        "update"
       ],
       "description": "Type of community post"
     },
@@ -81,6 +82,10 @@
     },
     "submitted_by_email": {
       "type": "string"
+    },
+    "comment_count": {
+      "type": "number",
+      "default": 0
     }
   },
   "required": [

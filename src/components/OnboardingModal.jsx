@@ -26,9 +26,9 @@ const STEPS = [
   {
     icon: <MessageSquare className="h-12 w-12 mx-auto" style={{ color: "#753243" }} />,
     title: "Feedback & Polls",
-    pointsHint: "Posting earns 5 points, poll votes earn 2, and upvotes earn 1 toward your next rank.",
+    pointsHint: "Posting earns 5 points, poll votes earn 2, and Give Praise earns 1 toward your next rank.",
     subtitle: "✦ IN LUMINE EIUS VIVIMUS ✦",
-    description: "Submit ideas, feedback, or polls to the community & mod team. Upvote what you love — top ideas may become events!",
+    description: "Submit ideas, feedback, or polls to the community & mod team. Give Praise to what you love — top ideas may become events!",
   },
   {
     icon: <Cake className="h-12 w-12 mx-auto" style={{ color: "#755665" }} />,

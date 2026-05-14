@@ -3,39 +3,60 @@
   "type": "object",
   "properties": {
     "title": {
-      "type": "string"
+      "type": "string",
+      "description": "Title of the poem or entry"
+    },
+    "subtitle": {
+      "type": "string",
+      "description": "Optional subtitle or tagline"
+    },
+    "mood": {
+      "type": "string",
+      "description": "Mood descriptor e.g. moonlit, tender, haunted"
     },
     "body": {
       "type": "string",
-      "description": "Poem, blog entry, or sanctuary note in Markdown"
+      "description": "Full rich-text body of the entry"
     },
-    "subtitle": {
-      "type": "string"
-    },
-    "mood": {
-      "type": "string"
+    "image_url": {
+      "type": "string",
+      "description": "Optional header/cover image URL"
     },
     "tags": {
       "type": "array",
       "items": {
         "type": "string"
       },
-      "default": []
+      "default": [],
+      "description": "Keywords for filtering"
     },
     "author_name": {
       "type": "string",
-      "default": "Veri"
+      "description": "Display name of the author"
     },
     "author_email": {
-      "type": "string"
+      "type": "string",
+      "description": "Email of the author"
+    },
+    "is_published": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether the entry is publicly visible"
     },
     "comment_count": {
       "type": "number",
       "default": 0
     },
-    "is_published": {
-      "type": "boolean",
-      "default": true
+    "upvotes": {
+      "type": "number",
+      "default": 0
+    },
+    "upvoted_by": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
     }
   },
   "required": [
@@ -44,47 +65,27 @@
   ],
   "rls": {
     "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
       "$or": [
+        {
+          "data.is_published": true
+        },
         {
           "user_condition": {
             "role": "admin"
           }
-        },
-        {
-          "user_condition": {
-            "role": "mod"
-          }
         }
       ]
     },
-    "read": true,
-    "update": {
-      "$or": [
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        },
-        {
-          "user_condition": {
-            "role": "mod"
-          }
-        }
-      ]
-    },
+    "update": true,
     "delete": {
-      "$or": [
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        },
-        {
-          "user_condition": {
-            "role": "mod"
-          }
-        }
-      ]
+      "user_condition": {
+        "role": "admin"
+      }
     }
   }
 }

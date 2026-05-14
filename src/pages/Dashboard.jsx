@@ -2,12 +2,13 @@ import QuickStats from "../components/dashboard/QuickStats";
 import TodaysBirthdays from "../components/dashboard/TodaysBirthdays";
 import UpcomingEvents from "../components/dashboard/UpcomingEvents";
 import TopIdeas from "../components/dashboard/TopIdeas";
-import Leaderboard from "../components/dashboard/Leaderboard";
 import BoopTheFox from "../components/dashboard/BoopTheFox";
 import VeriThought from "../components/dashboard/VeriThought";
 import ErenAgent from "../components/dashboard/ErenAgent";
+import BugReportPanel from "../components/dashboard/BugReportPanel";
 import HiddenEasterEgg from "../components/dashboard/HiddenEasterEgg";
 import RecentCodexEntries from "../components/dashboard/RecentCodexEntries";
+import CommunityUpdates from "../components/dashboard/CommunityUpdates";
 import ProgressionLoop from "../components/ProgressionLoop";
 
 export default function Dashboard() {
@@ -29,37 +30,40 @@ export default function Dashboard() {
       </div>
 
       {/* Irregular bento grid — 4-col base on large screens */}
-      <div className="mt-6 grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
 
         {/* Row 1: Upcoming Events (half) + Codex (quarter) + Birthdays (quarter) */}
-        <div className="col-span-2 lg:col-span-2">
+        <div className="sm:col-span-2 lg:col-span-2">
           <UpcomingEvents />
         </div>
-        <div className="col-span-2 lg:col-span-1">
+        <div className="sm:col-span-1">
           <RecentCodexEntries />
         </div>
-        <div className="col-span-2 lg:col-span-1">
+        <div className="sm:col-span-1">
           <TodaysBirthdays />
         </div>
 
-        {/* Row 3: Top Ideas (3/4) + Eren (1/4) */}
-        <div className="col-span-2 lg:col-span-3">
+        {/* Row 2: Community updates + Top Ideas */}
+        <div className="sm:col-span-2 lg:col-span-2">
+          <CommunityUpdates />
+        </div>
+        <div className="sm:col-span-2 lg:col-span-2">
           <TopIdeas />
         </div>
-        <div className="col-span-2 lg:col-span-1">
+
+        {/* Row 3: Eren (quarter) + bug report link (quarter) + VeriThought (half) */}
+        <div className="sm:col-span-1">
           <ErenAgent />
         </div>
-
-        {/* Row 4: Leaderboard (half) + VeriThought (half) */}
-        <div className="col-span-2 lg:col-span-2">
-          <Leaderboard />
+        <div className="sm:col-span-1">
+          <BugReportPanel />
         </div>
-        <div className="col-span-2 lg:col-span-2">
+        <div className="sm:col-span-2 lg:col-span-2">
           <VeriThought />
         </div>
 
         {/* Row 5: Boop fox — narrow centred strip */}
-        <div className="col-span-2 lg:col-span-4">
+        <div className="sm:col-span-2 lg:col-span-4">
           <div className="foxcard rounded-xl p-5 flex flex-col items-center justify-center gap-1 relative">
             <HiddenEasterEgg index={2} />
             <p className="dashboard-candle font-heading text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-1">

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Sparkles } from "lucide-react";
+import PraiseBurst from "../PraiseBurst";
 import RichTextContent, { getRichTextPlainText } from "../RichTextContent";
 
 // ── Categories & tones ──────────────────────────────────────────
@@ -147,10 +149,11 @@ function generateSigil(id, color, isRead) {
 }
 
 // ── Component ───────────────────────────────────────────────────
-export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin }) {
+export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin, isNewPrayer = false }) {
   const [hovered, setHovered] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [praying, setPraying] = useState(false);
+  const [praiseBurst, setPraiseBurst] = useState(0);
   const [markingRead, setMarkingRead] = useState(false);
 
   const plainMessage = getRichTextPlainText(prayer.message);
@@ -183,7 +186,9 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin }) {
     e.stopPropagation();
     if (praying) return;
     setPraying(true);
+    setPraiseBurst((value) => value + 1);
     await onPray(prayer);
+    setTimeout(() => setPraiseBurst(0), 1550);
     setTimeout(() => setPraying(false), 1000);
   };
 
@@ -219,16 +224,91 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin }) {
         @keyframes particle2 { 0% { transform: translateY(0) translateX(0px) scale(1); opacity:0.8; } 100% { transform: translateY(-32px) translateX(-7px) scale(0.4); opacity:0; } }
         @keyframes particle3 { 0% { transform: translateY(0) translateX(0px) scale(1); opacity:0.5; } 100% { transform: translateY(-50px) translateX(3px) scale(0.2); opacity:0; } }
         @keyframes particle4 { 0% { transform: translateY(0) translateX(0px) scale(1); opacity:0.65; } 100% { transform: translateY(-36px) translateX(6px) scale(0.3); opacity:0; } }
+        @keyframes newPrayerFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-8px); }
+        }
+        @keyframes newPrayerHalo {
+          0%, 100% { opacity: 0.62; transform: scale(0.94); }
+          50% { opacity: 1; transform: scale(1.12); }
+        }
+        @keyframes newPrayerParticle {
+          0% { opacity: 0; transform: translate3d(0, 12px, 0) scale(0.55); }
+          18% { opacity: 1; }
+          100% { opacity: 0; transform: translate3d(var(--new-prayer-x), -58px, 0) scale(0.12); }
+        }
+        .prayer-orb.is-new-prayer {
+          animation: newPrayerFloat 3.4s ease-in-out infinite;
+        }
+        .prayer-orb.is-new-prayer::before {
+          content: "";
+          position: absolute;
+          inset: -12px -10px 8px;
+          border-radius: 999px;
+          background:
+            radial-gradient(circle at 50% 45%, rgba(255, 255, 255, 0.34), transparent 28%),
+            radial-gradient(circle, var(--prayer-glow) 0%, transparent 68%);
+          filter: blur(12px);
+          pointer-events: none;
+          z-index: 0;
+          animation: newPrayerHalo 2s ease-in-out infinite;
+        }
+        .prayer-new-particles {
+          position: absolute;
+          inset: -16px 0 18px;
+          z-index: 4;
+          pointer-events: none;
+          overflow: visible;
+        }
+        .prayer-new-particle {
+          position: absolute;
+          left: var(--new-prayer-left);
+          bottom: var(--new-prayer-bottom);
+          width: var(--new-prayer-size);
+          height: var(--new-prayer-size);
+          border-radius: 999px;
+          background: radial-gradient(circle, #ffffff 0 20%, var(--prayer-primary) 42%, transparent 72%);
+          box-shadow: 0 0 10px var(--prayer-primary), 0 0 20px var(--prayer-glow);
+          animation: newPrayerParticle 1.9s ease-out var(--new-prayer-delay) infinite;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .prayer-orb.is-new-prayer,
+          .prayer-orb.is-new-prayer::before,
+          .prayer-new-particle {
+            animation: none;
+          }
+          .prayer-orb.is-new-prayer::before {
+            opacity: 0.72;
+          }
+        }
       `}</style>
 
       {/* ── Sigil tile ── */}
       <div
-        className="relative flex flex-col items-center cursor-pointer select-none"
-        style={{ width: 86 }}
+        className={`prayer-orb relative flex flex-col items-center cursor-pointer select-none${isNewPrayer ? " is-new-prayer" : ""}`}
+        style={{ width: 86, "--prayer-primary": primary, "--prayer-glow": glow }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onClick={() => setExpanded(true)}
       >
+        {isNewPrayer && !isRead && (
+          <div className="prayer-new-particles" aria-hidden="true">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <span
+                key={`new-prayer-particle-${i}`}
+                className="prayer-new-particle"
+                style={{
+                  "--new-prayer-left": `${14 + i * 13}%`,
+                  "--new-prayer-bottom": `${14 + (i % 3) * 10}px`,
+                  "--new-prayer-size": `${3 + (i % 2)}px`,
+                  "--new-prayer-x": `${i % 2 === 0 ? "-" : ""}${10 + i * 3}px`,
+                  "--new-prayer-delay": `${i * 0.22}s`,
+                }}
+              />
+            ))}
+          </div>
+        )}
+
         {/* Read indicator — soft glowing halo ring */}
         {isRead && (
           <div style={{
@@ -496,7 +576,9 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin }) {
                   <button
                     onClick={handlePray}
                     disabled={praying || isRead}
-                    className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all"
+                    aria-label="Give Praise"
+                    title="Give Praise"
+                    className={`praise-button flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all ${praiseBurst ? "is-praising" : ""}`}
                     style={{
                       background: isRead ? "rgba(60,60,80,0.3)" : dim,
                       border: `1px solid ${isRead ? "rgba(100,100,130,0.3)" : primary + "55"}`,
@@ -504,7 +586,10 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin }) {
                       opacity: praying ? 0.5 : 1,
                     }}
                   >
-                    🤍 {prayer.support_count || 0}
+                    <PraiseBurst key={praiseBurst} active={praiseBurst > 0} />
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>Give Praise</span>
+                    <span>{prayer.support_count || 0}</span>
                   </button>
                 </div>
               </div>

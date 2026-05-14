@@ -7,7 +7,7 @@ export const POINT_VALUES = {
   post_blessing_comment: 3,  // commenting on a blessing
   post_reliquary_comment: 3, // commenting on a reliquary entry
   upvote_blessing: 1,        // giving praise to a blessing
-  upvote_idea: 1,            // upvoting a community idea/feedback
+  upvote_idea: 1,            // giving praise to a community idea/feedback
   vote_poll: 2,              // voting in a poll
   submit_post: 5,            // submitting a community idea/feedback
   post_blessing: 8,          // posting a blessing (mods/admins)
@@ -32,8 +32,8 @@ export const PROGRESSION_ACTIONS = [
     points: POINT_VALUES.submit_post,
   },
   {
-    label: "Upvote an idea",
-    description: "Boost feedback you want the mod team to notice.",
+    label: "Give Praise to an idea",
+    description: "Send praise to feedback you want the mod team to notice.",
     href: "/community",
     cta: "Vote on ideas",
     points: POINT_VALUES.upvote_idea,
@@ -46,8 +46,8 @@ export const PROGRESSION_ACTIONS = [
     points: POINT_VALUES.vote_poll,
   },
   {
-    label: "Give praise to blessings",
-    description: "Give praise or comment on a blessing when one speaks to you.",
+    label: "Give Praise to blessings",
+    description: "Give Praise or comment on a blessing when one speaks to you.",
     href: "/blessings",
     cta: "Visit blessings",
     points: POINT_VALUES.post_blessing_comment,
@@ -56,12 +56,12 @@ export const PROGRESSION_ACTIONS = [
 
 // Rank tiers
 export const RANKS = [
-  { name: "Wanderer",   min: 0,   color: "text-muted-foreground", bg: "bg-muted",           icon: "🌑" },
-  { name: "Initiate",   min: 10,  color: "text-chart-3",          bg: "bg-chart-3/15",       icon: "🌿" },
-  { name: "Faithful",   min: 30,  color: "text-chart-2",          bg: "bg-chart-2/15",       icon: "✦" },
-  { name: "Devoted",    min: 75,  color: "text-chart-4",          bg: "bg-chart-4/15",       icon: "🔥" },
-  { name: "Exalted",    min: 150, color: "text-primary",          bg: "bg-primary/15",       icon: "⚡" },
-  { name: "Forsaken",   min: 300, color: "text-chart-5",          bg: "bg-chart-5/15",       icon: "👁️" },
+  { name: "Forsaken",      min: 0,   color: "text-muted-foreground", bg: "bg-muted",        icon: "\u{1F72C}" },
+  { name: "Seeker",        min: 10,  color: "text-chart-3",          bg: "bg-chart-3/15",   icon: "\u{1F753}" },
+  { name: "Faithful",      min: 30,  color: "text-chart-2",          bg: "bg-chart-2/15",   icon: "\u{1F71A}" },
+  { name: "Purified",      min: 75,  color: "text-chart-4",          bg: "bg-chart-4/15",   icon: "\u{1F763}" },
+  { name: "Timescorned",   min: 150, color: "text-primary",          bg: "bg-primary/15",   icon: "\u{1F738}" },
+  { name: "Forblessed",    min: 300, color: "text-chart-5",          bg: "bg-chart-5/15",   icon: "\u2BD5" },
 ];
 
 export function getRank(points) {
@@ -131,7 +131,7 @@ export async function awardPoints(user, action) {
   return awardPointAmount(user, pts, field);
 }
 
-export async function awardPointAmount(user, points, field = "points_from_boops") {
+export async function awardPointAmount(user, points, field = "points_from_comments") {
   if (!user?.email) return;
   const pts = Math.max(0, Number(points) || 0);
   if (!pts) return;

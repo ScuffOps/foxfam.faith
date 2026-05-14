@@ -37,12 +37,12 @@ export default function ActivityChart() {
           const dayBlessings = blessings.filter((b) => isSameDay(new Date(b.created_date), day));
           const dayPosts = posts.filter((p) => isSameDay(new Date(p.created_date), day));
 
-          const upvotes = dayBlessings.reduce((sum, b) => sum + (b.upvotes || 0), 0)
+          const praise = dayBlessings.reduce((sum, b) => sum + (b.upvotes || 0), 0)
             + dayPosts.reduce((sum, p) => sum + (p.upvotes || 0), 0);
 
           return {
             date: format(day, "MMM d"),
-            Upvotes: upvotes,
+            Praise: praise,
             Contributions: dayBlessings.length + dayPosts.length,
           };
         });
@@ -55,7 +55,7 @@ export default function ActivityChart() {
     load();
   }, []);
 
-  const totalUpvotes = data.reduce((s, d) => s + d.Upvotes, 0);
+  const totalPraise = data.reduce((s, d) => s + d.Praise, 0);
   const totalContribs = data.reduce((s, d) => s + d.Contributions, 0);
 
   return (
@@ -72,8 +72,8 @@ export default function ActivityChart() {
         </div>
         <div className="flex gap-2 text-right sm:gap-3">
           <div className="rounded-lg border border-border/60 bg-secondary/35 px-3 py-1.5">
-            <p className="font-heading text-lg font-bold text-primary">{totalUpvotes}</p>
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total Upvotes</p>
+            <p className="font-heading text-lg font-bold text-primary">{totalPraise}</p>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total Praise</p>
           </div>
           <div className="rounded-lg border border-border/60 bg-secondary/35 px-3 py-1.5">
             <p className="font-heading text-lg font-bold text-accent">{totalContribs}</p>
@@ -109,7 +109,7 @@ export default function ActivityChart() {
               iconSize={7}
               wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
             />
-            <Bar dataKey="Upvotes" fill="hsl(258 75% 60%)" radius={[3, 3, 0, 0]} maxBarSize={16} />
+            <Bar dataKey="Praise" fill="hsl(258 75% 60%)" radius={[3, 3, 0, 0]} maxBarSize={16} />
             <Bar dataKey="Contributions" fill="hsl(200 85% 55%)" radius={[3, 3, 0, 0]} maxBarSize={16} />
           </BarChart>
         </ResponsiveContainer>

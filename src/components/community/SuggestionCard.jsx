@@ -16,6 +16,7 @@ const CATEGORY_META = {
 const STATUS_META = {
   pending_review: { label: "Pending Review", color: "text-muted-foreground bg-muted" },
   under_review:   { label: "Under Review",   color: "text-chart-4 bg-chart-4/15" },
+  approved:       { label: "Approved",       color: "text-primary bg-primary/15" },
   planned:        { label: "Planned",        color: "text-chart-3 bg-chart-3/15" },
   implemented:    { label: "Implemented",    color: "text-success bg-success/15" },
   archived:       { label: "Archived",       color: "text-muted-foreground bg-muted" },
