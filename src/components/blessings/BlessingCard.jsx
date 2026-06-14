@@ -9,6 +9,7 @@ import RichTextContent from "../RichTextContent";
 import PraiseBurst from "../PraiseBurst";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { getCommunityActorKey, isGuestActor } from "@/lib/communityActor";
+import { PRAISE_BURST_DURATION_MS, PRAISE_REFRESH_DELAY_MS } from "@/lib/praiseEffects";
 
 function downloadNameFor(title) {
   const slug = (title || "blessing").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -54,7 +55,7 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
     setLocalPraise(nextPraise);
     if (!hasPraised) {
       setPraiseBurst((value) => value + 1);
-      window.setTimeout(() => setPraiseBurst(0), 1550);
+      window.setTimeout(() => setPraiseBurst(0), PRAISE_BURST_DURATION_MS);
     }
 
     try {
@@ -65,7 +66,7 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
       if (!hasPraised && user?.email && !isGuestActor(actorKey)) {
         awardPoints(user, "upvote_blessing").then(checkLevelUp);
       }
-      window.setTimeout(() => onRefresh?.({ silent: true }), 700);
+      window.setTimeout(() => onRefresh?.({ silent: true }), PRAISE_REFRESH_DELAY_MS);
     } catch {
       setLocalPraise(previousPraise);
       onRefresh?.({ silent: true });

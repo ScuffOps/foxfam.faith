@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Sparkles } from "lucide-react";
 import PraiseBurst from "../PraiseBurst";
 import RichTextContent, { getRichTextPlainText } from "../RichTextContent";
+import { PRAISE_BURST_DURATION_MS } from "@/lib/praiseEffects";
 
 // ── Categories & tones ──────────────────────────────────────────
 export const CATEGORIES = {
@@ -199,7 +200,7 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin, isNewPr
     setPraying(true);
     setPraiseBurst((value) => value + 1);
     await onPray(prayer);
-    setTimeout(() => setPraiseBurst(0), 1550);
+    setTimeout(() => setPraiseBurst(0), PRAISE_BURST_DURATION_MS);
     setTimeout(() => setPraying(false), 1000);
   };
 

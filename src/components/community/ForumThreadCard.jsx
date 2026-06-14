@@ -8,6 +8,7 @@ import { getPublicDisplayName } from "@/lib/userIdentity";
 import { useToast } from "@/components/ui/use-toast";
 import PraiseBurst from "../PraiseBurst";
 import { getCommunityActorKey } from "@/lib/communityActor";
+import { PRAISE_BURST_DURATION_MS, PRAISE_REFRESH_DELAY_MS } from "@/lib/praiseEffects";
 
 export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
   const { toast } = useToast();
@@ -48,9 +49,9 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
       });
       if (!hasReacted) {
         setReactionBurst((value) => value + 1);
-        window.setTimeout(() => setReactionBurst(0), 1550);
+        window.setTimeout(() => setReactionBurst(0), PRAISE_BURST_DURATION_MS);
       }
-      onRefresh();
+      if (onRefresh) window.setTimeout(onRefresh, hasReacted ? 0 : PRAISE_REFRESH_DELAY_MS);
     } catch {
       toast({
         title: "Praise could not be sent",

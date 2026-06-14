@@ -10,6 +10,7 @@ import PraiseBurst from "@/components/PraiseBurst";
 import { canModerate } from "@/lib/roles";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { getCommunityActorKey } from "@/lib/communityActor";
+import { PRAISE_BURST_DURATION_MS, PRAISE_REFRESH_DELAY_MS } from "@/lib/praiseEffects";
 
 const STAGES = [
   { key: "planned", label: "Planned", icon: Clock, color: "text-chart-4", bg: "bg-chart-4/10", border: "border-chart-4/20" },
@@ -90,13 +91,13 @@ export default function Roadmap() {
       setVoteBurstId(post.id);
       window.setTimeout(() => {
         setVoteBurstId((current) => (current === post.id ? null : current));
-      }, 1550);
+      }, PRAISE_BURST_DURATION_MS);
     }
     await communityClient.entities.CommunityPost.update(post.id, {
       upvotes: hasVoted ? Math.max((post.upvotes || 0) - 1, 0) : (post.upvotes || 0) + 1,
       upvoted_by: hasVoted ? upvotedBy.filter((e) => e !== actorKey) : [...upvotedBy, actorKey],
     });
-    loadData();
+    window.setTimeout(loadData, PRAISE_REFRESH_DELAY_MS);
   };
 
   return (

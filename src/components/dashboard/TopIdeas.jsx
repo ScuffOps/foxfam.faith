@@ -5,6 +5,7 @@ import GlassCard from "../GlassCard";
 import PraiseBurst from "../PraiseBurst";
 import { getCommunityActorKey } from "@/lib/communityActor";
 import { isPubliclyHiddenFeaturePost } from "@/lib/hiddenFeatures";
+import { PRAISE_BURST_DURATION_MS } from "@/lib/praiseEffects";
 
 export default function TopIdeas() {
   const [ideas, setIdeas] = useState([]);
@@ -48,7 +49,7 @@ export default function TopIdeas() {
       setVoteBurstId(idea.id);
       window.setTimeout(() => {
         setVoteBurstId((current) => (current === idea.id ? null : current));
-      }, 1550);
+      }, PRAISE_BURST_DURATION_MS);
     }
 
     // Optimistic update

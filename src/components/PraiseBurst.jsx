@@ -1,6 +1,7 @@
 import { useEffect } from "react";
+import { MAGICAL_PRAISE_TONES } from "@/lib/praiseEffects";
 
-function playPraiseChime() {
+function playPraiseMagicBurst() {
   if (typeof window === "undefined") return;
   if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
 
@@ -13,28 +14,52 @@ function playPraiseChime() {
       const now = audioContext.currentTime;
       const master = audioContext.createGain();
       master.gain.setValueAtTime(0.0001, now);
-      master.gain.exponentialRampToValueAtTime(0.045, now + 0.012);
-      master.gain.exponentialRampToValueAtTime(0.0001, now + 0.62);
+      master.gain.exponentialRampToValueAtTime(0.055, now + 0.018);
+      master.gain.exponentialRampToValueAtTime(0.0001, now + 1.25);
       master.connect(audioContext.destination);
 
-      [1046.5, 1568, 2093].forEach((frequency, index) => {
+      MAGICAL_PRAISE_TONES.forEach(({ frequency, delay, type }, index) => {
         const tone = audioContext.createOscillator();
         const gain = audioContext.createGain();
-        const toneStart = now + index * 0.045;
-        tone.type = index === 1 ? "triangle" : "sine";
+        const toneStart = now + delay;
+        tone.type = type;
         tone.frequency.setValueAtTime(frequency, toneStart);
+        tone.frequency.exponentialRampToValueAtTime(frequency * 1.025, toneStart + 0.22);
         gain.gain.setValueAtTime(0.0001, toneStart);
-        gain.gain.exponentialRampToValueAtTime(0.42, toneStart + 0.018);
-        gain.gain.exponentialRampToValueAtTime(0.0001, toneStart + 0.34);
+        gain.gain.exponentialRampToValueAtTime(index < 2 ? 0.34 : 0.22, toneStart + 0.018);
+        gain.gain.exponentialRampToValueAtTime(0.0001, toneStart + 0.5);
         tone.connect(gain);
         gain.connect(master);
         tone.start(toneStart);
-        tone.stop(toneStart + 0.38);
+        tone.stop(toneStart + 0.58);
       });
+
+      const shimmerBuffer = audioContext.createBuffer(1, audioContext.sampleRate * 0.55, audioContext.sampleRate);
+      const channel = shimmerBuffer.getChannelData(0);
+      for (let index = 0; index < channel.length; index += 1) {
+        const fade = 1 - index / channel.length;
+        channel[index] = (Math.random() * 2 - 1) * fade * 0.22;
+      }
+      const shimmer = audioContext.createBufferSource();
+      const shimmerFilter = audioContext.createBiquadFilter();
+      const shimmerGain = audioContext.createGain();
+      shimmer.buffer = shimmerBuffer;
+      shimmerFilter.type = "bandpass";
+      shimmerFilter.frequency.setValueAtTime(2600, now + 0.08);
+      shimmerFilter.frequency.exponentialRampToValueAtTime(7200, now + 0.52);
+      shimmerFilter.Q.setValueAtTime(9, now);
+      shimmerGain.gain.setValueAtTime(0.0001, now + 0.08);
+      shimmerGain.gain.exponentialRampToValueAtTime(0.13, now + 0.14);
+      shimmerGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.74);
+      shimmer.connect(shimmerFilter);
+      shimmerFilter.connect(shimmerGain);
+      shimmerGain.connect(master);
+      shimmer.start(now + 0.08);
+      shimmer.stop(now + 0.8);
 
       window.setTimeout(() => {
         audioContext.close().catch(() => {});
-      }, 900);
+      }, 1450);
     };
 
     const resume = audioContext.state === "suspended" ? audioContext.resume() : Promise.resolve();
@@ -48,7 +73,7 @@ function playPraiseChime() {
 
 export default function PraiseBurst({ active = false }) {
   useEffect(() => {
-    if (active) playPraiseChime();
+    if (active) playPraiseMagicBurst();
   }, [active]);
 
   if (!active) return null;

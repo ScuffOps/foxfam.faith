@@ -12,6 +12,7 @@ import PraiseBurst from "../PraiseBurst";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { useGuestProfile } from "@/hooks/useGuestProfile";
 import { getCommunityActorKey } from "@/lib/communityActor";
+import { PRAISE_BURST_DURATION_MS, PRAISE_REFRESH_DELAY_MS } from "@/lib/praiseEffects";
 
 const typeIcons = {
   idea: Lightbulb,
@@ -73,12 +74,12 @@ export default function IdeaCard({ post, isAdmin, user, onRefresh }) {
           upvoted_by: [...upvotedBy, actorKey],
         });
         setVoteBurst((value) => value + 1);
-        window.setTimeout(() => setVoteBurst(0), 1550);
+        window.setTimeout(() => setVoteBurst(0), PRAISE_BURST_DURATION_MS);
         communityClient.auth.me().then((u) => {
           awardPoints(u, "upvote_idea").then(checkLevelUp);
         }).catch(() => {});
       }
-      onRefresh();
+      if (onRefresh) window.setTimeout(onRefresh, hasUpvoted ? 0 : PRAISE_REFRESH_DELAY_MS);
     } catch {
       toast({
         title: "Praise could not be sent",

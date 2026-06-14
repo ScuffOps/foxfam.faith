@@ -3,11 +3,13 @@ import { communityClient } from "@/api/communityClient";
 import { format } from "date-fns";
 import { CalendarDays, ChevronDown, ChevronUp, Edit3, MessageCircle, Send, Sparkles, Tag, Trash2 } from "lucide-react";
 import PraiseBurst from "@/components/PraiseBurst";
-import RichTextContent from "@/components/RichTextContent";
+import RichTextContent, { getRichTextPlainText } from "@/components/RichTextContent";
 import { awardPoints } from "@/hooks/usePoints";
 import { useLevelUpToast } from "@/hooks/useLevelUpToast";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { getCommunityActorKey } from "@/lib/communityActor";
+import { PRAISE_BURST_DURATION_MS, PRAISE_REFRESH_DELAY_MS } from "@/lib/praiseEffects";
+import { getReliquaryPreview } from "@/lib/reliquaryPreview";
 
 export default function ReliquaryEntryCard({ entry, user, isAdmin, featured = false, onEdit, onRefresh }) {
   const checkLevelUp = useLevelUpToast();
@@ -17,6 +19,7 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, featured = fa
   const [commentText, setCommentText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [praiseBurst, setPraiseBurst] = useState(0);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [localPraise, setLocalPraise] = useState({
     upvotes: entry.upvotes || 0,
     upvotedBy: entry.upvoted_by || [],
@@ -29,8 +32,16 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, featured = fa
     });
   }, [entry.id, entry.upvotes, entry.upvoted_by]);
 
+  useEffect(() => {
+    setIsExpanded(false);
+    setShowComments(false);
+  }, [entry.id]);
+
   const actorKey = getCommunityActorKey(user);
   const hasPraised = localPraise.upvotedBy.includes(actorKey);
+  const plainBody = getRichTextPlainText(entry.body);
+  const preview = getReliquaryPreview(plainBody);
+  const shouldShowPreview = !isExpanded && !entry.image_url && preview.text;
 
   const handlePraise = async () => {
     const previousPraise = localPraise;
@@ -44,7 +55,7 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, featured = fa
     setLocalPraise(nextPraise);
     if (!hasPraised) {
       setPraiseBurst((value) => value + 1);
-      window.setTimeout(() => setPraiseBurst(0), 1550);
+      window.setTimeout(() => setPraiseBurst(0), PRAISE_BURST_DURATION_MS);
     }
 
     try {
@@ -52,7 +63,7 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, featured = fa
         upvotes: nextPraise.upvotes,
         upvoted_by: nextPraise.upvotedBy,
       });
-      window.setTimeout(() => onRefresh?.({ silent: true }), 700);
+      window.setTimeout(() => onRefresh?.({ silent: true }), PRAISE_REFRESH_DELAY_MS);
     } catch {
       setLocalPraise(previousPraise);
       onRefresh?.({ silent: true });
@@ -73,6 +84,7 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, featured = fa
   const toggleComments = () => {
     const next = !showComments;
     setShowComments(next);
+    if (next) setIsExpanded(true);
     if (next && comments.length === 0) loadComments();
   };
 
@@ -143,16 +155,28 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, featured = fa
       </div>
 
       {entry.image_url && (
-        <div className="mt-5 overflow-hidden rounded-xl border border-border bg-secondary/35">
-          <img src={entry.image_url} alt={entry.title || "Reliquary entry image"} className="max-h-[28rem] w-full object-cover" />
+        <div className={`mt-5 overflow-hidden rounded-xl border border-border bg-secondary/35 ${isExpanded ? "" : "shadow-inner shadow-background/30"}`}>
+          <img
+            src={entry.image_url}
+            alt={entry.title || "Reliquary entry image"}
+            className={`w-full object-cover transition-[max-height,filter] duration-300 ${isExpanded ? "max-h-[28rem]" : "max-h-64"}`}
+          />
         </div>
       )}
 
-      <RichTextContent className="mt-5 whitespace-pre-wrap text-sm leading-7 text-card-foreground/90">
-        {entry.body}
-      </RichTextContent>
+      {shouldShowPreview && (
+        <p className="mt-4 whitespace-pre-line rounded-lg border border-border/70 bg-secondary/25 px-4 py-3 text-sm leading-6 text-card-foreground/80">
+          {preview.text}
+        </p>
+      )}
 
-      {entry.tags?.length > 0 && (
+      {isExpanded && (
+        <RichTextContent className="mt-5 whitespace-pre-wrap text-sm leading-7 text-card-foreground/90">
+          {entry.body}
+        </RichTextContent>
+      )}
+
+      {isExpanded && entry.tags?.length > 0 && (
         <div className="mt-5 flex flex-wrap gap-2">
           {entry.tags.map((tag) => (
             <span key={tag} className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-medium text-primary">
@@ -162,7 +186,16 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, featured = fa
         </div>
       )}
 
-      <div className="mt-5 flex items-center gap-3 border-t border-border pt-4">
+      <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-border pt-4">
+        <button
+          type="button"
+          onClick={() => setIsExpanded((current) => !current)}
+          aria-expanded={isExpanded}
+          className="flex items-center gap-1.5 rounded-lg bg-secondary px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          {isExpanded ? "Collapse" : "Read entry"}
+        </button>
         <button
           type="button"
           onClick={handlePraise}
