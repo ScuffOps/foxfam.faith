@@ -1,4 +1,4 @@
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Trash2 } from "lucide-react";
 import GlassCard from "../GlassCard";
@@ -30,13 +30,13 @@ export default function SuggestionCard({ suggestion, isAdmin, onRefresh }) {
   const stat = STATUS_META[suggestion.status] || STATUS_META.pending_review;
 
   const handleStatusChange = async (newStatus) => {
-    await base44.entities.Suggestion.update(suggestion.id, { status: newStatus });
+    await communityClient.entities.Suggestion.update(suggestion.id, { status: newStatus });
     onRefresh();
   };
 
   const handleDelete = async () => {
     if (!confirm("Delete this suggestion?")) return;
-    await base44.entities.Suggestion.delete(suggestion.id);
+    await communityClient.entities.Suggestion.delete(suggestion.id);
     onRefresh();
   };
 
@@ -63,7 +63,7 @@ export default function SuggestionCard({ suggestion, isAdmin, onRefresh }) {
 
       <div className="flex items-center justify-between gap-2 pt-1">
         <span className="text-xs text-muted-foreground">
-          by {suggestion.is_anonymous ? "Anonymous" : (suggestion.submitted_by_name || "Unknown")}
+          by {suggestion.is_anonymous ? "Guest" : (suggestion.submitted_by_name || "Guest")}
         </span>
         {isAdmin && (
           <Select value={suggestion.status} onValueChange={handleStatusChange}>

@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
-import { pushEventToGoogle } from "@/functions/pushEventToGoogle";
+import { communityClient } from "@/api/communityClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,7 +46,7 @@ export default function EventFormDialog({ open, onOpenChange, event, onSaved }) 
     setSaving(true);
     let imageUrl = form.image_url;
     if (imageFile) {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file: imageFile });
+      const { file_url } = await communityClient.integrations.Core.UploadFile({ file: imageFile });
       imageUrl = file_url;
     }
     const data = {
@@ -56,21 +55,11 @@ export default function EventFormDialog({ open, onOpenChange, event, onSaved }) 
       start_date: new Date(form.start_date).toISOString(),
       end_date: form.end_date ? new Date(form.end_date).toISOString() : new Date(form.start_date).toISOString(),
     };
-    let savedEvent;
     if (isEdit) {
-      await base44.entities.Event.update(event.id, data);
-      savedEvent = { ...event, ...data };
+      await communityClient.entities.Event.update(event.id, data);
     } else {
-      savedEvent = await base44.entities.Event.create(data);
+      await communityClient.entities.Event.create(data);
     }
-    // Push to Google Calendar (best effort)
-    try {
-      const action = isEdit ? 'update' : 'create';
-      const result = await pushEventToGoogle({ action, event: savedEvent });
-      if (result?.data?.google_event_id && !savedEvent.google_event_id) {
-        await base44.entities.Event.update(savedEvent.id, { google_event_id: result.data.google_event_id });
-      }
-    } catch {}
     setSaving(false);
     onSaved();
     onOpenChange(false);

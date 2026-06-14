@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,7 +7,7 @@ import { CalendarDays, Users, Cake, MessageSquare, ArrowRight, Check, Sparkles }
 
 const STEPS = [
   {
-    icon: <img src="https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/e241ead03_TenkoTokenrerwork.png" alt="Foxfam" className="h-16 w-16 rounded-xl object-cover mx-auto" />,
+    icon: <img src="/assets/legacy-media/e241ead03_TenkoTokenrerwork.png" alt="Foxfam" className="h-16 w-16 rounded-xl object-cover mx-auto" />,
     title: "✦ EX RUINA, VERI SURGIT ✦",
     description: "Welcome to the Forsaken Faith.\n\nWelcome home, FoxFam 🕯 ⊹˚.ˑ\n\nYour community hub for everything Scuffox; events, polls, suggestions, prayers, collabs, birthdays, and shared ideas. Let's get you set up in a few quick steps..",
   },
@@ -61,7 +61,7 @@ export default function OnboardingModal({ onComplete, onGuestContinue, isGuest =
       try {
         const updates = { onboarded: true };
         if (displayName.trim()) updates.display_name = displayName.trim();
-        await base44.auth.updateMe(updates);
+        await communityClient.auth.updateMe(updates);
       } catch {}
       setSaving(false);
       onComplete();
@@ -132,7 +132,7 @@ export default function OnboardingModal({ onComplete, onGuestContinue, isGuest =
               <Button variant="outline" onClick={onGuestContinue || onComplete}>
                 Look around
               </Button>
-              <Button onClick={() => base44.auth.redirectToLogin()} className="gap-2">
+              <Button onClick={() => communityClient.auth.redirectToLogin()} className="gap-2">
                 <Sparkles className="h-4 w-4" /> Join the Faith
               </Button>
             </div>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { Sparkles } from "lucide-react";
 import GlassCard from "../GlassCard";
 
@@ -35,7 +35,7 @@ export default function VeriThought() {
     setRevealed(false);
 
     try {
-      const all = await base44.entities.Thought.list();
+      const all = await communityClient.entities.Thought.list();
       const pool = all.length > 0 ? all : FALLBACK_THOUGHTS;
       const pick = pool[Math.floor(Math.random() * pool.length)];
       setThought(pick);

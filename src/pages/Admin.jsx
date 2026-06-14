@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { Check, X, ShieldAlert, Handshake, Lightbulb, Cake, BarChart3, CalendarPlus, Map, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FAVORED_BADGE, FAVORED_DEFAULT_TITLE } from "@/hooks/usePoints";
@@ -25,12 +25,12 @@ export default function Admin() {
 
   const loadAll = async () => {
     setLoading(true);
-    try { const me = await base44.auth.me(); setUser(me); } catch {}
+    try { const me = await communityClient.auth.me(); setUser(me); } catch {}
     const [posts, collabs, birthdays, levels] = await Promise.all([
-      base44.entities.CommunityPost.filter({ status: "pending" }).catch(() => []),
-      base44.entities.CollabRequest.filter({ status: "pending" }).catch(() => []),
-      base44.entities.Birthday.filter({ status: "pending" }).catch(() => []),
-      base44.entities.UserLevel.list("-points", 100).catch(() => []),
+      communityClient.entities.CommunityPost.filter({ status: "pending" }).catch(() => []),
+      communityClient.entities.CollabRequest.filter({ status: "pending" }).catch(() => []),
+      communityClient.entities.Birthday.filter({ status: "pending" }).catch(() => []),
+      communityClient.entities.UserLevel.list("-points", 100).catch(() => []),
     ]);
     setData({
       ideas: posts.filter((p) => p.type !== "poll"),
@@ -68,34 +68,34 @@ export default function Admin() {
 
   // --- Action handlers ---
   const updatePost = async (id, update) => {
-    await base44.entities.CommunityPost.update(id, update);
+    await communityClient.entities.CommunityPost.update(id, update);
     loadAll();
   };
   const updateCollab = async (id, status) => {
-    await base44.entities.CollabRequest.update(id, { status });
+    await communityClient.entities.CollabRequest.update(id, { status });
     loadAll();
   };
   const updateBirthday = async (id, status) => {
-    await base44.entities.Birthday.update(id, { status });
+    await communityClient.entities.Birthday.update(id, { status });
     loadAll();
   };
   const updateFavor = async (id, update) => {
-    await base44.entities.UserLevel.update(id, update);
+    await communityClient.entities.UserLevel.update(id, update);
     loadAll();
   };
   const convertToEvent = async (post) => {
-    await base44.entities.Event.create({
+    await communityClient.entities.Event.create({
       title: post.title,
       description: post.description || "",
       category: "community",
       start_date: new Date().toISOString(),
       status: "active",
     });
-    await base44.entities.CommunityPost.update(post.id, { status: "converted" });
+    await communityClient.entities.CommunityPost.update(post.id, { status: "converted" });
     loadAll();
   };
   const addToRoadmap = async (id) => {
-    await base44.entities.CommunityPost.update(id, { status: "approved", roadmap_status: "planned" });
+    await communityClient.entities.CommunityPost.update(id, { status: "approved", roadmap_status: "planned" });
     loadAll();
   };
 
@@ -149,7 +149,7 @@ export default function Admin() {
                         <span className="text-[10px] rounded-full border border-border px-2 py-0.5 text-muted-foreground capitalize">{post.type}</span>
                       </div>
                       {post.description && <RichTextContent className="mb-1 text-xs text-muted-foreground">{post.description}</RichTextContent>}
-                      <p className="text-[10px] text-muted-foreground">by {post.submitted_by_name || "Anonymous"} · {post.upvotes || 0} praise</p>
+                      <p className="text-[10px] text-muted-foreground">by {post.submitted_by_name || "Guest"} · {post.upvotes || 0} praise</p>
                     </div>
                     <ApproveReject
                       onApprove={() => updatePost(post.id, { status: "approved" })}
@@ -182,7 +182,7 @@ export default function Admin() {
                           {o.text}
                         </div>
                       ))}
-                      <p className="text-[10px] text-muted-foreground mt-2">by {post.submitted_by_name || "Anonymous"}</p>
+                      <p className="text-[10px] text-muted-foreground mt-2">by {post.submitted_by_name || "Guest"}</p>
                     </div>
                     <ApproveReject
                       onApprove={() => updatePost(post.id, { status: "approved" })}
@@ -238,7 +238,7 @@ export default function Admin() {
                       <p className="font-medium text-sm">{b.display_name}</p>
                       <p className="text-xs text-muted-foreground">{b.birthday_date}{b.is_private ? " (age private)" : ""}</p>
                       {b.note && <p className="text-xs text-muted-foreground/70 italic mt-0.5">"{b.note}"</p>}
-                      <p className="text-[10px] text-muted-foreground mt-1">submitted by {b.submitted_by_name || b.submitted_by_email || "member"}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">submitted by {b.submitted_by_name || "Guest"}</p>
                     </div>
                     <ApproveReject
                       onApprove={() => updateBirthday(b.id, "approved")}
@@ -330,7 +330,7 @@ function FavorRow({ level, onSave }) {
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
           <div className="mb-1 flex flex-wrap items-center gap-2">
-            <span className="font-medium text-sm">{level.display_name || level.user_email}</span>
+            <span className="font-medium text-sm">{level.display_name || "Guest"}</span>
             {isFavored && (
               <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${FAVORED_BADGE.bg} ${FAVORED_BADGE.color} ring-1 ${FAVORED_BADGE.ring}`}>
                 <span aria-hidden="true">{FAVORED_BADGE.icon}</span>
@@ -338,7 +338,7 @@ function FavorRow({ level, onSave }) {
               </span>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">{level.user_email} · {level.points || 0} Favor</p>
+          <p className="text-xs text-muted-foreground">{level.points || 0} Favor</p>
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,7 +66,7 @@ export default function ReliquaryForm({ open, onOpenChange, user, entry, onSaved
     setSaving(true);
     let imageUrl = form.image_url;
     if (imageFile) {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file: imageFile });
+      const { file_url } = await communityClient.integrations.Core.UploadFile({ file: imageFile });
       imageUrl = file_url;
     }
     const payload = {
@@ -76,15 +76,14 @@ export default function ReliquaryForm({ open, onOpenChange, user, entry, onSaved
       body: form.body,
       image_url: imageUrl,
       tags: form.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
-      author_name: getPublicDisplayName(user, "Veri"),
-      author_email: user?.email || "",
+      author_name: getPublicDisplayName(user, "Guest"),
       is_published: true,
     };
 
     if (isEditing) {
-      await base44.entities.ReliquaryEntry.update(entry.id, payload);
+      await communityClient.entities.ReliquaryEntry.update(entry.id, payload);
     } else {
-      await base44.entities.ReliquaryEntry.create({
+      await communityClient.entities.ReliquaryEntry.create({
         ...payload,
         comment_count: 0,
         upvotes: 0,

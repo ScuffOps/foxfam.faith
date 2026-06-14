@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { BookOpenText, Clock, Feather, Filter, MessageCircle, Plus, Search, Tag, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ReliquaryEntryCard from "@/components/reliquary/ReliquaryEntryCard";
@@ -27,11 +27,11 @@ export default function Reliquary() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const me = await base44.auth.me();
+      const me = await communityClient.auth.me();
       setUser(me);
     } catch {}
     try {
-      const all = await base44.entities.ReliquaryEntry.list("-created_date", 100);
+      const all = await communityClient.entities.ReliquaryEntry.list("-created_date", 100);
       setEntries(all);
     } catch {
       setEntries([]);

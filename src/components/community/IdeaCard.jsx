@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { Check, X, CalendarPlus, ChevronDown, ChevronUp, Lightbulb, MessageCircle, MessageSquare, Map, Newspaper, Send, Sparkles } from "lucide-react";
 import { awardPoints } from "@/hooks/usePoints";
 import { useLevelUpToast } from "@/hooks/useLevelUpToast";
@@ -9,7 +9,6 @@ import StatusBadge from "../StatusBadge";
 import GlassCard from "../GlassCard";
 import RichTextContent from "../RichTextContent";
 import PraiseBurst from "../PraiseBurst";
-import { createUserNotification } from "@/lib/notifications";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { useGuestProfile } from "@/hooks/useGuestProfile";
 import { getCommunityActorKey } from "@/lib/communityActor";
@@ -25,7 +24,7 @@ const typeColors = {
   update: "text-accent bg-accent/15",
 };
 
-export default function IdeaCard({ post, isAdmin, userEmail, onRefresh }) {
+export default function IdeaCard({ post, isAdmin, user, onRefresh }) {
   const checkLevelUp = useLevelUpToast();
   const { toast } = useToast();
   const { profile } = useGuestProfile();
@@ -36,14 +35,14 @@ export default function IdeaCard({ post, isAdmin, userEmail, onRefresh }) {
   const [loadingComments, setLoadingComments] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
-  const actorKey = getCommunityActorKey({ email: userEmail });
+  const actorKey = getCommunityActorKey(user);
   const hasUpvoted = (post.upvoted_by || []).includes(actorKey);
   const Icon = typeIcons[post.type] || Lightbulb;
 
   const loadComments = async () => {
     setLoadingComments(true);
     try {
-      const all = await base44.entities.CommunityPostComment.filter({ post_id: post.id });
+      const all = await communityClient.entities.CommunityPostComment.filter({ post_id: post.id });
       setComments(all.sort((a, b) => new Date(a.created_date) - new Date(b.created_date)));
     } catch {
       setComments([]);
@@ -64,31 +63,19 @@ export default function IdeaCard({ post, isAdmin, userEmail, onRefresh }) {
     const upvotedBy = post.upvoted_by || [];
     try {
       if (hasUpvoted) {
-        await base44.entities.CommunityPost.update(post.id, {
+        await communityClient.entities.CommunityPost.update(post.id, {
           upvotes: Math.max((post.upvotes || 0) - 1, 0),
           upvoted_by: upvotedBy.filter((e) => e !== actorKey),
         });
       } else {
-        await base44.entities.CommunityPost.update(post.id, {
+        await communityClient.entities.CommunityPost.update(post.id, {
           upvotes: (post.upvotes || 0) + 1,
           upvoted_by: [...upvotedBy, actorKey],
         });
         setVoteBurst((value) => value + 1);
         window.setTimeout(() => setVoteBurst(0), 1550);
-        base44.auth.me().then((u) => {
+        communityClient.auth.me().then((u) => {
           awardPoints(u, "upvote_idea").then(checkLevelUp);
-          if (post.submitted_by_email && post.submitted_by_email !== u.email) {
-            createUserNotification({
-              recipientEmail: post.submitted_by_email,
-              actorEmail: u.email,
-              actorName: getPublicDisplayName(u, "Someone"),
-              type: "praise_received",
-              title: "Praise received",
-              message: `${getPublicDisplayName(u, "Someone")} gave praise to "${post.title}".`,
-              sourceType: "community_post",
-              sourceId: post.id,
-            });
-          }
         }).catch(() => {});
       }
       onRefresh();
@@ -107,34 +94,19 @@ export default function IdeaCard({ post, isAdmin, userEmail, onRefresh }) {
     setSubmittingComment(true);
     try {
       let actorName = profile.name || "Guest";
-      let actorEmail = "";
       try {
-        const user = await base44.auth.me();
-        actorName = getPublicDisplayName(user, user.email || "Member");
-        actorEmail = user.email || "";
+        const currentUser = await communityClient.auth.me();
+        actorName = getPublicDisplayName(currentUser, "Guest");
       } catch {}
 
-      await base44.entities.CommunityPostComment.create({
+      await communityClient.entities.CommunityPostComment.create({
         post_id: post.id,
         message: commentText.trim(),
         author_name: actorName,
-        author_email: actorEmail,
       });
-      await base44.entities.CommunityPost.update(post.id, {
+      await communityClient.entities.CommunityPost.update(post.id, {
         comment_count: (post.comment_count || 0) + 1,
       });
-      if (post.submitted_by_email && post.submitted_by_email !== actorEmail) {
-        createUserNotification({
-          recipientEmail: post.submitted_by_email,
-          actorEmail,
-          actorName,
-          type: "comment_received",
-          title: "New feedback comment",
-          message: `${actorName} commented on "${post.title}".`,
-          sourceType: "community_post",
-          sourceId: post.id,
-        });
-      }
       setCommentText("");
       setShowComments(true);
       await loadComments();
@@ -150,27 +122,27 @@ export default function IdeaCard({ post, isAdmin, userEmail, onRefresh }) {
   };
 
   const handleApprove = async () => {
-    await base44.entities.CommunityPost.update(post.id, { status: "approved" });
+    await communityClient.entities.CommunityPost.update(post.id, { status: "approved" });
     onRefresh();
   };
   const handleReject = async () => {
-    await base44.entities.CommunityPost.update(post.id, { status: "rejected" });
+    await communityClient.entities.CommunityPost.update(post.id, { status: "rejected" });
     onRefresh();
   };
   const handleConvert = async () => {
-    await base44.entities.Event.create({
+    await communityClient.entities.Event.create({
       title: post.title,
       description: post.description || "",
       category: "community",
       start_date: new Date().toISOString(),
       status: "active",
     });
-    await base44.entities.CommunityPost.update(post.id, { status: "converted" });
+    await communityClient.entities.CommunityPost.update(post.id, { status: "converted" });
     onRefresh();
   };
 
   const handleAddToRoadmap = async () => {
-    await base44.entities.CommunityPost.update(post.id, { roadmap_status: "planned" });
+    await communityClient.entities.CommunityPost.update(post.id, { roadmap_status: "planned" });
     onRefresh();
   };
 
@@ -207,7 +179,7 @@ export default function IdeaCard({ post, isAdmin, userEmail, onRefresh }) {
           </RichTextContent>
         )}
         <div className="mt-2 flex flex-wrap items-center gap-3">
-          <span className="text-xs text-muted-foreground">by {post.submitted_by_name || "Anonymous"}</span>
+          <span className="text-xs text-muted-foreground">by {post.submitted_by_name || "Guest"}</span>
           <button
             type="button"
             onClick={toggleComments}
@@ -256,7 +228,7 @@ export default function IdeaCard({ post, isAdmin, userEmail, onRefresh }) {
                     {(comment.author_name || "?")[0].toUpperCase()}
                   </div>
                   <div className="flex-1 rounded-lg bg-secondary/50 px-3 py-2">
-                    <span className="text-xs font-semibold text-foreground">{comment.author_name || "Anonymous"} </span>
+                    <span className="text-xs font-semibold text-foreground">{comment.author_name || "Guest"} </span>
                     <RichTextContent className="inline text-xs text-muted-foreground" inline>
                       {comment.message}
                     </RichTextContent>

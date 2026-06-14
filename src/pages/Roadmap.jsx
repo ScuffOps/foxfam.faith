@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { Zap, CheckCircle2, Clock, Lightbulb, Plus, Pencil, Sparkles } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -29,8 +29,8 @@ export default function Roadmap() {
 
   const loadData = async () => {
     setLoading(true);
-    try { const me = await base44.auth.me(); setUser(me); } catch {}
-    const all = await base44.entities.CommunityPost.filter({ status: "approved" });
+    try { const me = await communityClient.auth.me(); setUser(me); } catch {}
+    const all = await communityClient.entities.CommunityPost.filter({ status: "approved" });
     setPosts(all.filter((p) => p.roadmap_status && p.roadmap_status !== "none"));
     setLoading(false);
   };
@@ -40,7 +40,7 @@ export default function Roadmap() {
   const isAdmin = canModerate(user);
 
   const handleStageChange = async (postId, newStage) => {
-    await base44.entities.CommunityPost.update(postId, { roadmap_status: newStage });
+    await communityClient.entities.CommunityPost.update(postId, { roadmap_status: newStage });
     loadData();
   };
 
@@ -60,13 +60,13 @@ export default function Roadmap() {
     if (!form.title.trim()) return;
     setSaving(true);
     if (editingPost) {
-      await base44.entities.CommunityPost.update(editingPost.id, {
+      await communityClient.entities.CommunityPost.update(editingPost.id, {
         title: form.title,
         description: form.description,
         roadmap_status: form.roadmap_status,
       });
     } else {
-      await base44.entities.CommunityPost.create({
+      await communityClient.entities.CommunityPost.create({
         title: form.title,
         description: form.description,
         type: "idea",
@@ -92,7 +92,7 @@ export default function Roadmap() {
         setVoteBurstId((current) => (current === post.id ? null : current));
       }, 1550);
     }
-    await base44.entities.CommunityPost.update(post.id, {
+    await communityClient.entities.CommunityPost.update(post.id, {
       upvotes: hasVoted ? Math.max((post.upvotes || 0) - 1, 0) : (post.upvotes || 0) + 1,
       upvoted_by: hasVoted ? upvotedBy.filter((e) => e !== actorKey) : [...upvotedBy, actorKey],
     });

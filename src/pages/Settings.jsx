@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { Settings2, Link2, Shield, LogOut, CheckCircle, Palette, Bell, ChevronDown, ChevronUp, UserCircle2, CalendarDays, MessagesSquare, Radio } from "lucide-react";
 import AlertPreferences from "../components/settings/AlertPreferences";
 import AvatarUpload from "../components/AvatarUpload";
@@ -10,15 +10,46 @@ import GlassCard from "../components/GlassCard";
 import RankBadge from "../components/RankBadge";
 import ProgressionLoop from "../components/ProgressionLoop";
 import { canUseAdminPanel, getRoleLabel } from "@/lib/roles";
+import { getPrivateUserKey } from "@/lib/communityActor";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 
-const GOOGLE_CALENDAR_CONNECTOR_ID = "69d2b6bfc53ce38433398132"; // Foxfam Calendar
-const ACCOUNT_CONNECTOR_IDS = {
-  twitch: import.meta.env.VITE_BASE44_TWITCH_CONNECTOR_ID || "",
-  discord: import.meta.env.VITE_BASE44_DISCORD_CONNECTOR_ID || "",
-  googleCalendar: GOOGLE_CALENDAR_CONNECTOR_ID,
-};
-const LINKED_ACCOUNT_STORAGE_PREFIX = "commhub_linked_account_";
+const OAUTH_PROVIDERS = [
+  {
+    key: "googleCalendar",
+    authProvider: "google",
+    provider: "Google Calendar",
+    icon: CalendarDays,
+    copy: "Link Google with calendar permission so Foxfam events can grow into real calendar sync.",
+    scopes: "openid email profile https://www.googleapis.com/auth/calendar.events",
+    pendingCopy: "Identity linked. Calendar write/sync still needs Google credentials and a Supabase server token handler.",
+  },
+  {
+    key: "twitch",
+    authProvider: "twitch",
+    provider: "Twitch",
+    icon: Radio,
+    copy: "Link Twitch so stream-facing features can recognize your community identity.",
+  },
+  {
+    key: "discord",
+    authProvider: "discord",
+    provider: "Discord",
+    icon: MessagesSquare,
+    copy: "Link Discord for community identity, future roles, and portal notifications.",
+  },
+];
+
+function getIdentityLabel(identity) {
+  const data = identity?.identity_data || {};
+  return (
+    data.full_name ||
+    data.name ||
+    data.user_name ||
+    data.username ||
+    data.preferred_username ||
+    "Connected"
+  );
+}
 
 export default function Settings() {
   const { toast } = useToast();
@@ -27,135 +58,94 @@ export default function Settings() {
   const [userLevel, setUserLevel] = useState(null);
   const [loading, setLoading] = useState(true);
   const [avatar, setAvatar] = useState(() => localStorage.getItem('commhub_user_avatar') || '');
+  const [linkedIdentities, setLinkedIdentities] = useState([]);
+  const [identityLoading, setIdentityLoading] = useState(false);
+  const [linkingProvider, setLinkingProvider] = useState("");
 
   const handleAvatarUploaded = (url) => {
     setAvatar(url);
     localStorage.setItem('commhub_user_avatar', url);
   };
-  const [gcalConnected, setGcalConnected] = useState(false);
-  const [connectingGcal, setConnectingGcal] = useState(false);
-  const [localLinkedAccounts, setLocalLinkedAccounts] = useState({});
-  const [connectingAccount, setConnectingAccount] = useState(null);
 
-  const handleGcalConnect = async () => {
-    setConnectingGcal(true);
+  async function loadLinkedIdentities() {
+    setIdentityLoading(true);
     try {
-      const url = await base44.connectors.connectAppUser(ACCOUNT_CONNECTOR_IDS.googleCalendar);
-      const popup = window.open(url, "_blank", "noopener,noreferrer");
-      if (!popup) {
-        window.location.assign(url);
-        return;
-      }
-      const timer = setInterval(() => {
-        if (!popup || popup.closed) {
-          clearInterval(timer);
-          setConnectingGcal(false);
-          setGcalConnected(true);
-          localStorage.setItem(`${LINKED_ACCOUNT_STORAGE_PREFIX}googleCalendar`, "true");
-          toast({ title: "Google Calendar connected!", description: "Two-way sync is now active." });
-        }
-      }, 500);
+      const identities = await communityClient.auth.getLinkedIdentities();
+      setLinkedIdentities(identities);
     } catch {
-      setConnectingGcal(false);
-      toast({
-        title: "Google Calendar could not connect",
-        description: "Check the Base44 connector setup, then try again.",
-      });
-    }
-  };
-
-  const handleGcalDisconnect = async () => {
-    try {
-      await base44.connectors.disconnectAppUser(ACCOUNT_CONNECTOR_IDS.googleCalendar);
-      setGcalConnected(false);
-      localStorage.removeItem(`${LINKED_ACCOUNT_STORAGE_PREFIX}googleCalendar`);
-      toast({ title: "Google Calendar disconnected" });
-    } catch {
-      toast({
-        title: "Could not disconnect Google Calendar",
-        description: "The connector may already be disconnected.",
-      });
-    }
-  };
-
-  const handleConnectorConnect = async (accountKey, label) => {
-    const connectorId = ACCOUNT_CONNECTOR_IDS[accountKey];
-    if (!connectorId) {
-      toast({
-        title: `${label} connector needs setup`,
-        description: `Add VITE_BASE44_${label.toUpperCase()}_CONNECTOR_ID after creating the Base44 connector, then this button will launch OAuth.`,
-      });
-      return;
-    }
-    setConnectingAccount(accountKey);
-    try {
-      const url = await base44.connectors.connectAppUser(connectorId);
-      const popup = window.open(url, "_blank", "noopener,noreferrer");
-      if (!popup) {
-        window.location.assign(url);
-        return;
-      }
-      const timer = setInterval(() => {
-        if (!popup || popup.closed) {
-          clearInterval(timer);
-          setConnectingAccount(null);
-          localStorage.setItem(`${LINKED_ACCOUNT_STORAGE_PREFIX}${accountKey}`, "true");
-          setLocalLinkedAccounts((current) => ({ ...current, [accountKey]: true }));
-          toast({ title: `${label} connected`, description: "Your linked account is ready for Foxfam identity features." });
-        }
-      }, 500);
-    } catch {
-      setConnectingAccount(null);
-      toast({
-        title: `${label} could not connect`,
-        description: "Check the Base44 connector configuration, then try again.",
-      });
-    }
-  };
-
-  const handleConnectorDisconnect = async (accountKey, label) => {
-    const connectorId = ACCOUNT_CONNECTOR_IDS[accountKey];
-    setConnectingAccount(accountKey);
-    try {
-      if (connectorId) {
-        await base44.connectors.disconnectAppUser(connectorId);
-      }
-      localStorage.removeItem(`${LINKED_ACCOUNT_STORAGE_PREFIX}${accountKey}`);
-      setLocalLinkedAccounts((current) => ({ ...current, [accountKey]: false }));
-      toast({ title: `${label} disconnected` });
-    } catch {
-      toast({
-        title: `${label} could not disconnect`,
-        description: "The connector may already be disconnected.",
-      });
+      setLinkedIdentities([]);
     } finally {
-      setConnectingAccount(null);
+      setIdentityLoading(false);
     }
-  };
+  }
 
   useEffect(() => {
     const load = async () => {
       try {
-        const me = await base44.auth.me();
+        const me = await communityClient.auth.me();
         setUser(me);
-        const levels = await base44.entities.UserLevel.filter({ user_email: me.email });
+        const levels = await communityClient.entities.UserLevel.filter({ user_key: getPrivateUserKey(me) });
         if (levels.length > 0) {
           setUserLevel(levels[0]);
           setUserPoints(levels[0].points || 0);
         }
+        await loadLinkedIdentities();
       } catch {}
       setLoading(false);
     };
     load();
-  }, [])
-
-  useEffect(() => {
-    setGcalConnected(localStorage.getItem(`${LINKED_ACCOUNT_STORAGE_PREFIX}googleCalendar`) === "true");
-    setLocalLinkedAccounts({
-      twitch: localStorage.getItem(`${LINKED_ACCOUNT_STORAGE_PREFIX}twitch`) === "true",
-      discord: localStorage.getItem(`${LINKED_ACCOUNT_STORAGE_PREFIX}discord`) === "true",
-    });
   }, []);
+
+  const handleConnectProvider = async (item, connected) => {
+    if (connected) {
+      await loadLinkedIdentities();
+      toast({ title: `${item.provider} connection refreshed` });
+      return;
+    }
+
+    setLinkingProvider(item.key);
+    try {
+      const options = item.scopes ? { scopes: item.scopes } : {};
+      if (user) {
+        await communityClient.auth.linkIdentity(item.authProvider, options);
+      } else {
+        await communityClient.auth.signInWithProvider(item.authProvider, options);
+      }
+    } catch (error) {
+      setLinkingProvider("");
+      toast({
+        title: `${item.provider} could not be linked`,
+        description: error?.message || "Check that this provider is enabled in Supabase Auth and try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDisconnectProvider = async (item, identity) => {
+    if (!identity) return;
+    if (linkedIdentities.length < 2) {
+      toast({
+        title: "Keep one sign-in method",
+        description: "Supabase requires at least two linked identities before one can be disconnected.",
+      });
+      return;
+    }
+
+    setLinkingProvider(item.key);
+    try {
+      await communityClient.auth.unlinkIdentity(identity);
+      await loadLinkedIdentities();
+      toast({ title: `${item.provider} disconnected` });
+    } catch (error) {
+      toast({
+        title: `${item.provider} could not be disconnected`,
+        description: error?.message || "Try again after refreshing your session.",
+        variant: "destructive",
+      });
+    } finally {
+      setLinkingProvider("");
+    }
+  };
 
   const isAdmin = canUseAdminPanel(user);
 
@@ -181,7 +171,7 @@ export default function Settings() {
             <AvatarUpload avatarUrl={avatar} onUploaded={handleAvatarUploaded} size="lg" />
             <div className="flex flex-col gap-1.5">
               <h3 className="font-heading text-sm font-semibold">{getPublicDisplayName(user, "Profile")}</h3>
-              <p className="text-xs text-muted-foreground">{user?.email}</p>
+              <p className="text-xs text-muted-foreground">{getRoleLabel(user?.role)}</p>
               <RankBadge
                 points={userPoints}
                 showProgress
@@ -208,8 +198,8 @@ export default function Settings() {
             </div>
             <div className="flex items-center justify-between rounded-lg bg-secondary/50 px-4 py-3">
               <div>
-                <p className="text-sm font-medium">Email</p>
-                <p className="text-xs text-muted-foreground">{user?.email || "Not set"}</p>
+                <p className="text-sm font-medium">Sign-in email</p>
+                <p className="text-xs text-muted-foreground">Private</p>
               </div>
             </div>
             <div className="flex items-center justify-between rounded-lg bg-secondary/50 px-4 py-3">
@@ -225,81 +215,50 @@ export default function Settings() {
         {/* Linked Accounts */}
         <SettingsSection title="Linked Accounts" icon={Link2} accentClass="bg-chart-2/15 text-chart-2">
           <div id="integrations" className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {[
-              {
-                key: "twitch",
-                provider: "Twitch",
-                icon: Radio,
-                value: user?.twitch_display_name || user?.twitch_user_id,
-                copy: "Use your Twitch display name across Foxfam.",
-                connected: Boolean(user?.twitch_display_name || user?.twitch_user_id || localLinkedAccounts.twitch),
-                onConnect: () => handleConnectorConnect("twitch", "Twitch"),
-                onDisconnect: () => handleConnectorDisconnect("twitch", "Twitch"),
-              },
-              {
-                key: "discord",
-                provider: "Discord",
-                icon: MessagesSquare,
-                value: user?.discord_username || user?.discord_user_id,
-                copy: "Prepare Discord identity for community notifications.",
-                connected: Boolean(user?.discord_username || user?.discord_user_id || localLinkedAccounts.discord),
-                onConnect: () => handleConnectorConnect("discord", "Discord"),
-                onDisconnect: () => handleConnectorDisconnect("discord", "Discord"),
-              },
-              {
-                key: "googleCalendar",
-                provider: "Google Calendar",
-                icon: CalendarDays,
-                value: gcalConnected ? "Two-way sync is active" : null,
-                copy: "Sync Foxfam events with your Google Calendar.",
-                connected: gcalConnected,
-                connecting: connectingGcal,
-                onConnect: handleGcalConnect,
-                onDisconnect: handleGcalDisconnect,
-              },
-            ].map((item) => (
-              <div key={item.provider} className="rounded-lg border border-border bg-secondary/40 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <item.icon className="h-4 w-4 text-primary" />
-                      <p className="text-sm font-medium">{item.provider}</p>
+            {OAUTH_PROVIDERS.map((item) => {
+              const identity = linkedIdentities.find((linked) => linked.provider === item.authProvider);
+              const connected = Boolean(identity);
+              const busy = linkingProvider === item.key || identityLoading;
+              return (
+                <div key={item.provider} className="rounded-lg border border-border bg-secondary/40 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <item.icon className="h-4 w-4 text-primary" />
+                        <p className="text-sm font-medium">{item.provider}</p>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">{connected ? getIdentityLabel(identity) : item.copy}</p>
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">{item.value || item.copy}</p>
+                    {connected && <CheckCircle className="h-4 w-4 shrink-0 text-success" />}
                   </div>
-                  {item.connected && <CheckCircle className="h-4 w-4 shrink-0 text-success" />}
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={item.onConnect}
-                    disabled={item.connecting || connectingAccount === item.key}
-                    className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
-                  >
-                    {item.connecting || connectingAccount === item.key
-                      ? "Connecting..."
-                      : item.connected
-                        ? "Reconnect"
-                        : `Connect ${item.provider}`}
-                  </button>
-                  {item.connected && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      onClick={item.onDisconnect}
-                      disabled={item.connecting || connectingAccount === item.key}
-                      className="text-xs text-muted-foreground underline hover:text-foreground disabled:opacity-50"
+                      onClick={() => handleConnectProvider(item, connected)}
+                      disabled={busy}
+                      className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
                     >
-                      Disconnect
+                      {connected ? "Refresh" : `Connect ${item.provider}`}
                     </button>
+                    {connected && (
+                      <button
+                        type="button"
+                        onClick={() => handleDisconnectProvider(item, identity)}
+                        disabled={busy}
+                        className="text-xs text-muted-foreground underline hover:text-foreground disabled:opacity-50"
+                      >
+                        Disconnect
+                      </button>
+                    )}
+                  </div>
+                  {item.key === "googleCalendar" && connected && (
+                    <p className="mt-3 text-xs text-success/80">
+                      {item.pendingCopy}
+                    </p>
                   )}
                 </div>
-                {item.key === "googleCalendar" && item.connected && (
-                  <p className="mt-3 text-xs text-success/80">
-                    Events you create can be pushed to Google Calendar, and connected calendar changes can sync back automatically.
-                  </p>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </SettingsSection>
 
@@ -333,7 +292,7 @@ export default function Settings() {
         <Button
           variant="outline"
           className="w-full gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
-          onClick={() => base44.auth.logout()}
+          onClick={() => communityClient.auth.logout()}
         >
           <LogOut className="h-4 w-4" /> Sign Out
         </Button>

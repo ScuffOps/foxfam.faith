@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom';
-import { base44 } from '@/api/base44Client';
+import { communityClient } from '@/api/communityClient';
 import { useQuery } from '@tanstack/react-query';
 import { canUseAdminPanel } from '@/lib/roles';
 
@@ -12,7 +12,7 @@ export default function PageNotFound({}) {
         queryKey: ['user'],
         queryFn: async () => {
             try {
-                const user = await base44.auth.me();
+                const user = await communityClient.auth.me();
                 return { user, isAuthenticated: true };
             } catch (error) {
                 return { user: null, isAuthenticated: false };

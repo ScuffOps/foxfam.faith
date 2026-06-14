@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { Camera } from "lucide-react";
 
 export default function AvatarUpload({ avatarUrl, onUploaded, size = "md" }) {
@@ -10,10 +10,10 @@ export default function AvatarUpload({ avatarUrl, onUploaded, size = "md" }) {
   const handleFile = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    const { file_url } = await communityClient.integrations.Core.UploadFile({ file });
     // Persist to User entity so others can see it
     try {
-      await base44.auth.updateMe({ avatar_url: file_url });
+      await communityClient.auth.updateMe({ avatar_url: file_url });
     } catch {}
     onUploaded(file_url);
   };

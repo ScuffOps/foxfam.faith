@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { sendToDiscord } from "@/functions/sendToDiscord";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,8 +12,43 @@ import { getRichTextPlainText } from "@/components/RichTextContent";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { canUseAdminPanel } from "@/lib/roles";
 
-const STAINED_GLASS = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/21eb9949e_StainedGlassFull.png";
-const STONE_WALL    = "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/bde055a3d_prayerwall3.png";
+const STAINED_GLASS = "/assets/legacy-media/21eb9949e_StainedGlassFull.png";
+const STONE_WALL    = "/assets/legacy-media/bde055a3d_prayerwall3.png";
+const PRAYER_VISUAL_SEED_PREFIX = "foxfam-prayer-orb:v1";
+
+function fallbackHash(value) {
+  let hash = 2166136261 >>> 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+
+async function createPrayerVisualSeed({ user, authorName, isAnonymous }) {
+  if (isAnonymous) {
+    const randomId =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    return `anonymous:${randomId}`;
+  }
+
+  const identity = String(
+    user?.email ||
+    user?.display_name ||
+    authorName ||
+    "unnamed-soul",
+  ).trim().toLowerCase();
+  const seedSource = `${PRAYER_VISUAL_SEED_PREFIX}:${identity}`;
+
+  if (typeof crypto !== "undefined" && crypto.subtle && typeof TextEncoder !== "undefined") {
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(seedSource));
+    return `identity:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+  }
+
+  return `identity:${fallbackHash(seedSource)}`;
+}
 
 export default function PrayerWall() {
   const [prayers, setPrayers] = useState([]);
@@ -29,13 +64,13 @@ export default function PrayerWall() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
+    communityClient.auth.me().then(setUser).catch(() => {});
     loadPrayers();
   }, []);
 
   const loadPrayers = async () => {
     setLoading(true);
-    const all = await base44.entities.Prayer.list("-created_date", 50);
+    const all = await communityClient.entities.Prayer.list("-created_date", 50);
     setPrayers(all);
     setLoading(false);
     return all;
@@ -46,14 +81,21 @@ export default function PrayerWall() {
     if (!plainMessage) return;
     setSubmitting(true);
     const cat = category || detectCategory(plainMessage);
-    const createdPrayer = await base44.entities.Prayer.create({
+    const publicAuthorName = authorName.trim() || getPublicDisplayName(user, "");
+    const visualSeed = await createPrayerVisualSeed({
+      user,
+      authorName: publicAuthorName,
+      isAnonymous,
+    });
+    const createdPrayer = await communityClient.entities.Prayer.create({
       message,
-      author_name: isAnonymous ? "" : (authorName.trim() || getPublicDisplayName(user, "")),
+      author_name: isAnonymous ? "" : publicAuthorName,
       is_anonymous: isAnonymous,
       support_count: 0,
       is_read: false,
       category: cat,
       custom_color: customColor || undefined,
+      visual_seed: visualSeed,
     });
     sendToDiscord({ message: plainMessage, author_name: authorName.trim(), is_anonymous: isAnonymous }).catch(() => {});
     setMessage("");
@@ -69,13 +111,14 @@ export default function PrayerWall() {
   };
 
   const handlePray = async (prayer) => {
-    await base44.entities.Prayer.update(prayer.id, { support_count: (prayer.support_count || 0) + 1 });
+    await communityClient.entities.Prayer.update(prayer.id, { support_count: (prayer.support_count || 0) + 1 });
     setPrayers((prev) => prev.map((p) => p.id === prayer.id ? { ...p, support_count: (p.support_count || 0) + 1 } : p));
   };
 
   const handleMarkRead = async (prayer) => {
-    await base44.entities.Prayer.update(prayer.id, { is_read: true });
-    setPrayers((prev) => prev.map((p) => p.id === prayer.id ? { ...p, is_read: true } : p));
+    const cherishedAt = new Date().toISOString();
+    await communityClient.entities.Prayer.update(prayer.id, { is_read: true, cherished_at: cherishedAt });
+    setPrayers((prev) => prev.map((p) => p.id === prayer.id ? { ...p, is_read: true, cherished_at: cherishedAt } : p));
   };
 
   const isAdmin = canUseAdminPanel(user);
@@ -107,7 +150,7 @@ export default function PrayerWall() {
       {/* Admin note */}
       {isAdmin && (
         <p className="text-center text-[10px] tracking-widest mb-4 font-heading" style={{ color: "rgba(140,200,140,0.35)" }}>
-          ✦ ADMIN · CLICK ANY PRAYER TO MARK AS READ ✦
+          ✦ ADMIN · OPEN A PRAYER TO MARK IT RECEIVED & CHERISHED ✦
         </p>
       )}
 

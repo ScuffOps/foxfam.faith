@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { Plus, Search, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CodexEntryCard from "@/components/codex/CodexEntryCard";
@@ -27,8 +27,8 @@ export default function Codex() {
 
   const load = async () => {
     setLoading(true);
-    try { const me = await base44.auth.me(); setUser(me); } catch {}
-    const all = await base44.entities.Codex.list("-created_date", 200);
+    try { const me = await communityClient.auth.me(); setUser(me); } catch {}
+    const all = await communityClient.entities.Codex.list("-created_date", 200);
     setEntries(all);
     setLoading(false);
   };
@@ -53,13 +53,13 @@ export default function Codex() {
   const handleSave = async (form) => {
     const payload = {
       ...form,
-      author_name: editingEntry ? form.author_name : getPublicDisplayName(user, user?.email || ""),
-      last_edited_by: editingEntry ? getPublicDisplayName(user, user?.email || "") : undefined,
+      author_name: editingEntry ? form.author_name : getPublicDisplayName(user, "Guest"),
+      last_edited_by: editingEntry ? getPublicDisplayName(user, "Guest") : undefined,
     };
     if (editingEntry) {
-      await base44.entities.Codex.update(editingEntry.id, payload);
+      await communityClient.entities.Codex.update(editingEntry.id, payload);
     } else {
-      await base44.entities.Codex.create(payload);
+      await communityClient.entities.Codex.create(payload);
     }
     setEditingEntry(null);
     load();
@@ -72,7 +72,7 @@ export default function Codex() {
 
   const handleDelete = async (entry) => {
     if (!window.confirm(`Delete "${entry.title}"?`)) return;
-    await base44.entities.Codex.delete(entry.id);
+    await communityClient.entities.Codex.delete(entry.id);
     load();
   };
 

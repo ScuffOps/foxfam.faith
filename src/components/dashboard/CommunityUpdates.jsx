@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { ArrowRight, Newspaper } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import GlassCard from "../GlassCard";
 import { getRichTextPlainText } from "../RichTextContent";
 
@@ -13,7 +13,7 @@ export default function CommunityUpdates() {
   useEffect(() => {
     const load = async () => {
       try {
-        const all = await base44.entities.CommunityPost.filter(
+        const all = await communityClient.entities.CommunityPost.filter(
           { type: "update", status: "approved" },
           "-created_date",
           4

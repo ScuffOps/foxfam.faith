@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { toast } from "@/components/ui/use-toast";
 import { awardPointAmount } from "@/hooks/usePoints";
 import { getBoopReward } from "@/lib/boopRewards";
@@ -41,7 +41,7 @@ export default function BoopTheFox() {
     setClaimedRewards(nextClaimed);
     localStorage.setItem("commhub_boop_rewards_claimed", JSON.stringify(nextClaimed));
 
-    base44.auth.me()
+    communityClient.auth.me()
       .then((user) => awardPointAmount(user, reward.points, "points_from_comments"))
       .then(() => {
         toast({

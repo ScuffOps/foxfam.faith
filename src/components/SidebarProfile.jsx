@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Bell, Settings, Sparkles, UserCircle2 } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import RankBadge from "@/components/RankBadge";
+import { getPrivateUserKey } from "@/lib/communityActor";
 import { getRoleLabel } from "@/lib/roles";
 import { getInitials, getPublicAvatar, getPublicDisplayName } from "@/lib/userIdentity";
 
@@ -17,12 +18,12 @@ export default function SidebarProfile({ onNavigate }) {
     let mounted = true;
     const load = async () => {
       try {
-        const me = await base44.auth.me();
+        const me = await communityClient.auth.me();
         if (!mounted) return;
         setUser(me);
         const [levels, notes] = await Promise.all([
-          base44.entities.UserLevel.filter({ user_email: me.email }).catch(() => []),
-          base44.entities.UserNotification.filter({ recipient_email: me.email }).catch(() => []),
+          communityClient.entities.UserLevel.filter({ user_key: getPrivateUserKey(me) }).catch(() => []),
+          communityClient.entities.UserNotification.filter({ recipient_user_id: me.id }).catch(() => []),
         ]);
         if (!mounted) return;
         setLevel(levels[0] || null);
@@ -60,7 +61,7 @@ export default function SidebarProfile({ onNavigate }) {
             <Avatar avatar={avatar} name={displayName} size="lg" />
             <div className="min-w-0">
               <p className="truncate font-heading text-sm font-semibold">{displayName}</p>
-              <p className="truncate text-xs text-muted-foreground">{user?.email || "Guest session"}</p>
+              <p className="truncate text-xs text-muted-foreground">{user ? getRoleLabel(user.role) : "Guest session"}</p>
             </div>
           </div>
           <div className="mt-3">

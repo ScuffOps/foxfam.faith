@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { Cake, PartyPopper } from "lucide-react";
 import GlassCard from "../GlassCard";
 
@@ -27,7 +27,7 @@ export default function TodaysBirthdays() {
   useEffect(() => {
     const load = async () => {
       try {
-        const all = await base44.entities.Birthday.filter({ status: "approved" });
+        const all = await communityClient.entities.Birthday.filter({ status: "approved" });
         const today = new Date();
         const todayMonth = today.getMonth();
         const thisMonthsBirthdays = all

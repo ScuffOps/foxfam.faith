@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -27,13 +27,12 @@ export default function ForumThreadForm({ open, onOpenChange, user, onCreated })
     if (!form.title.trim() || !getRichTextPlainText(form.body)) return;
     setSaving(true);
     try {
-      await base44.entities.CommunityThread.create({
+      await communityClient.entities.CommunityThread.create({
         title: form.title.trim(),
         body: form.body,
         category: form.category.trim() || "general",
         tags: form.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
-        author_name: getPublicDisplayName(user, "Favored Fox"),
-        author_email: user?.email || "",
+        author_name: getPublicDisplayName(user, "Guest"),
         comment_count: 0,
         reactions: 0,
         reacted_by: [],
@@ -46,7 +45,7 @@ export default function ForumThreadForm({ open, onOpenChange, user, onCreated })
     } catch {
       toast({
         title: "Thread could not be started",
-        description: "Your role may need forum access, or Base44 rejected the submission. Please try again.",
+        description: "Your role may need forum access, or Supabase rejected the submission. Please try again.",
       });
     } finally {
       setSaving(false);

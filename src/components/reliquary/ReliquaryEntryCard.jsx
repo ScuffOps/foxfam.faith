@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { format } from "date-fns";
 import { CalendarDays, ChevronDown, ChevronUp, Edit3, MessageCircle, Send, Sparkles, Tag, Trash2 } from "lucide-react";
 import PraiseBurst from "@/components/PraiseBurst";
@@ -7,8 +7,7 @@ import RichTextContent from "@/components/RichTextContent";
 import { awardPoints } from "@/hooks/usePoints";
 import { useLevelUpToast } from "@/hooks/useLevelUpToast";
 import { getPublicDisplayName } from "@/lib/userIdentity";
-import { createUserNotification } from "@/lib/notifications";
-import { getCommunityActorKey, isGuestActor } from "@/lib/communityActor";
+import { getCommunityActorKey } from "@/lib/communityActor";
 
 export default function ReliquaryEntryCard({ entry, user, isAdmin, featured = false, onEdit, onRefresh }) {
   const checkLevelUp = useLevelUpToast();
@@ -49,22 +48,10 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, featured = fa
     }
 
     try {
-      await base44.entities.ReliquaryEntry.update(entry.id, {
+      await communityClient.entities.ReliquaryEntry.update(entry.id, {
         upvotes: nextPraise.upvotes,
         upvoted_by: nextPraise.upvotedBy,
       });
-      if (!hasPraised && user?.email && !isGuestActor(actorKey) && entry.author_email && entry.author_email !== user.email) {
-        createUserNotification({
-          recipientEmail: entry.author_email,
-          actorEmail: user.email,
-          actorName: getPublicDisplayName(user, "Someone"),
-          type: "praise_received",
-          title: "Praise received",
-          message: `${getPublicDisplayName(user, "Someone")} gave praise to "${entry.title}".`,
-          sourceType: "reliquary_entry",
-          sourceId: entry.id,
-        });
-      }
       window.setTimeout(() => onRefresh?.({ silent: true }), 700);
     } catch {
       setLocalPraise(previousPraise);
@@ -75,7 +62,7 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, featured = fa
   const loadComments = async () => {
     setLoadingComments(true);
     try {
-      const all = await base44.entities.ReliquaryComment.filter({ entry_id: entry.id });
+      const all = await communityClient.entities.ReliquaryComment.filter({ entry_id: entry.id });
       setComments(all.sort((a, b) => new Date(a.created_date) - new Date(b.created_date)));
     } catch {
       setComments([]);
@@ -93,27 +80,15 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, featured = fa
     if (!commentText.trim()) return;
     setSubmitting(true);
     const actorName = getPublicDisplayName(user, "Guest");
-    await base44.entities.ReliquaryComment.create({
+    await communityClient.entities.ReliquaryComment.create({
       entry_id: entry.id,
       message: commentText.trim(),
       author_name: actorName,
       is_anonymous: false,
     });
-    await base44.entities.ReliquaryEntry.update(entry.id, {
+    await communityClient.entities.ReliquaryEntry.update(entry.id, {
       comment_count: (entry.comment_count || 0) + 1,
     });
-    if (user?.email && entry.author_email && entry.author_email !== user.email) {
-      createUserNotification({
-        recipientEmail: entry.author_email,
-        actorEmail: user.email,
-        actorName,
-        type: "comment_received",
-        title: "New reliquary comment",
-        message: `${actorName} commented on "${entry.title}".`,
-        sourceType: "reliquary_entry",
-        sourceId: entry.id,
-      });
-    }
     if (user?.email) awardPoints(user, "post_reliquary_comment").then(checkLevelUp);
     setCommentText("");
     setSubmitting(false);
@@ -123,7 +98,7 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, featured = fa
 
   const handleDelete = async () => {
     if (!confirm("Delete this reliquary entry?")) return;
-    await base44.entities.ReliquaryEntry.delete(entry.id);
+    await communityClient.entities.ReliquaryEntry.delete(entry.id);
     onRefresh();
   };
   const publishedDate = entry.created_date ? format(new Date(entry.created_date), "MMM d, yyyy") : "Undated";
@@ -228,7 +203,7 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, featured = fa
                   {(comment.author_name || "?")[0].toUpperCase()}
                 </div>
                 <div className="flex-1 rounded-lg bg-secondary/50 px-3 py-2">
-                  <span className="text-xs font-semibold text-foreground">{comment.author_name || "Anonymous"} </span>
+                  <span className="text-xs font-semibold text-foreground">{comment.author_name || "Guest"} </span>
                   <RichTextContent className="inline text-xs text-muted-foreground" inline>
                     {comment.message}
                   </RichTextContent>

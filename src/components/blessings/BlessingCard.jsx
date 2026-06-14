@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { BookOpen, ChevronDown, ChevronUp, Download, ExternalLink, Maximize2, MessageCircle, Send, Sparkles, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { awardPoints } from "@/hooks/usePoints";
@@ -8,7 +8,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import RichTextContent from "../RichTextContent";
 import PraiseBurst from "../PraiseBurst";
 import { getPublicDisplayName } from "@/lib/userIdentity";
-import { createUserNotification } from "@/lib/notifications";
 import { getCommunityActorKey, isGuestActor } from "@/lib/communityActor";
 
 function downloadNameFor(title) {
@@ -59,24 +58,12 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
     }
 
     try {
-      await base44.entities.Blessing.update(blessing.id, {
+      await communityClient.entities.Blessing.update(blessing.id, {
         upvotes: nextPraise.upvotes,
         upvoted_by: nextPraise.upvotedBy,
       });
       if (!hasPraised && user?.email && !isGuestActor(actorKey)) {
         awardPoints(user, "upvote_blessing").then(checkLevelUp);
-        if (blessing.author_email && blessing.author_email !== user.email) {
-          createUserNotification({
-            recipientEmail: blessing.author_email,
-            actorEmail: user.email,
-            actorName: getPublicDisplayName(user, "Someone"),
-            type: "praise_received",
-            title: "Praise received",
-            message: `${getPublicDisplayName(user, "Someone")} gave praise to "${blessing.title}".`,
-            sourceType: "blessing",
-            sourceId: blessing.id,
-          });
-        }
       }
       window.setTimeout(() => onRefresh?.({ silent: true }), 700);
     } catch {
@@ -87,7 +74,7 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
 
   const loadComments = async () => {
     setLoadingComments(true);
-    const all = await base44.entities.BlessingComment.filter({ blessing_id: blessing.id });
+    const all = await communityClient.entities.BlessingComment.filter({ blessing_id: blessing.id });
     setComments(all.sort((a, b) => new Date(a.created_date) - new Date(b.created_date)));
     setLoadingComments(false);
   };
@@ -102,26 +89,14 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
     if (!commentText.trim()) return;
     setSubmitting(true);
     const actorName = getPublicDisplayName(user, "Guest");
-    await base44.entities.BlessingComment.create({
+    await communityClient.entities.BlessingComment.create({
       blessing_id: blessing.id,
       message: commentText.trim(),
       author_name: actorName,
     });
-    await base44.entities.Blessing.update(blessing.id, {
+    await communityClient.entities.Blessing.update(blessing.id, {
       comment_count: (blessing.comment_count || 0) + 1,
     });
-    if (user?.email && blessing.author_email && blessing.author_email !== user.email) {
-      createUserNotification({
-        recipientEmail: blessing.author_email,
-        actorEmail: user.email,
-        actorName,
-        type: "comment_received",
-        title: "New blessing comment",
-        message: `${actorName} commented on "${blessing.title}".`,
-        sourceType: "blessing",
-        sourceId: blessing.id,
-      });
-    }
     if (user?.email) awardPoints(user, "post_blessing_comment").then(checkLevelUp);
     setCommentText("");
     setSubmitting(false);
@@ -131,7 +106,7 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
 
   const handleDelete = async () => {
     if (!confirm("Delete this blessing?")) return;
-    await base44.entities.Blessing.delete(blessing.id);
+    await communityClient.entities.Blessing.delete(blessing.id);
     onRefresh();
   };
 
@@ -252,7 +227,7 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
                     {(comment.author_name || "?")[0].toUpperCase()}
                   </div>
                   <div className="flex-1 rounded-lg bg-secondary/50 px-3 py-2">
-                    <span className="text-xs font-semibold text-foreground">{comment.author_name || "Anonymous"} </span>
+                    <span className="text-xs font-semibold text-foreground">{comment.author_name || "Guest"} </span>
                     <RichTextContent className="inline text-xs text-muted-foreground" inline>
                       {comment.message}
                     </RichTextContent>

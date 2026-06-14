@@ -1,10 +1,44 @@
 import UserMarkdown from "@/components/UserMarkdown";
 
+const BLOCKED_ELEMENTS = new Set(["script", "style", "iframe", "object", "embed", "link", "meta"]);
+const URL_ATTRIBUTES = new Set(["href", "src", "xlink:href", "formaction"]);
+
 function sanitizeHtml(html) {
-  return String(html || "")
+  const content = String(html || "");
+
+  if (typeof document === "undefined") {
+    return content
+      .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
+      .replace(/\son\w+=(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+      .replace(/\s(?:href|src|xlink:href|formaction)=(["'])\s*javascript:[\s\S]*?\1/gi, "")
+      .replace(/\ssrcdoc=(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+  }
+
+  const template = document.createElement("template");
+  template.innerHTML = content;
+
+  template.content.querySelectorAll("*").forEach((element) => {
+    if (BLOCKED_ELEMENTS.has(element.tagName.toLowerCase())) {
+      element.remove();
+      return;
+    }
+
+    [...element.attributes].forEach((attribute) => {
+      const name = attribute.name.toLowerCase();
+      const value = attribute.value.trim().replace(/[\u0000-\u001F\u007F\s]+/g, "");
+      if (
+        name.startsWith("on") ||
+        name === "srcdoc" ||
+        (URL_ATTRIBUTES.has(name) && value.toLowerCase().startsWith("javascript:"))
+      ) {
+        element.removeAttribute(attribute.name);
+      }
+    });
+  });
+
+  return template.innerHTML
     .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
-    .replace(/\son\w+="[^"]*"/gi, "")
-    .replace(/\son\w+='[^']*'/gi, "")
+    .replace(/\son\w+=(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
     .replace(/\shref=(["'])javascript:[\s\S]*?\1/gi, "");
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { CalendarDays, Clock } from "lucide-react";
 import { format, isAfter } from "date-fns";
 import GlassCard from "../GlassCard";
@@ -12,7 +12,7 @@ export default function UpcomingEvents() {
   useEffect(() => {
     const load = async () => {
       try {
-        const all = await base44.entities.Event.filter({ status: "active" }, "-start_date", 50);
+        const all = await communityClient.entities.Event.filter({ status: "active" }, "-start_date", 50);
         const now = new Date();
         const upcoming = all
           .filter((e) => isAfter(new Date(e.start_date), now))

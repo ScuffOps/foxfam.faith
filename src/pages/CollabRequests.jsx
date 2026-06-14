@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,10 +36,10 @@ export default function CollabRequests() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const me = await base44.auth.me();
+      const me = await communityClient.auth.me();
       setUser(me);
     } catch {}
-    const all = await base44.entities.CollabRequest.list("-created_date", 100);
+    const all = await communityClient.entities.CollabRequest.list("-created_date", 100);
     setRequests(all);
     setLoading(false);
   };
@@ -57,7 +57,7 @@ export default function CollabRequests() {
       return;
     }
     setSubmitting(true);
-    await base44.entities.CollabRequest.create({
+    await communityClient.entities.CollabRequest.create({
       ...form,
       submitted_by_name: getPublicDisplayName(user, ""),
       status: "pending",
@@ -69,7 +69,7 @@ export default function CollabRequests() {
   };
 
   const handleStatus = async (id, status) => {
-    await base44.entities.CollabRequest.update(id, { status });
+    await communityClient.entities.CollabRequest.update(id, { status });
     toast({ title: `Request ${status}.` });
     loadData();
   };

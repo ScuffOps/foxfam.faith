@@ -35,12 +35,17 @@ export default function BugReportCard({ report }) {
         </div>
       </div>
 
-      {(report.steps_to_reproduce || report.expected_behavior || report.actual_behavior) && (
-        <div className="grid gap-2 sm:grid-cols-3">
+      {(report.area || report.attempted_action || report.steps_to_reproduce || report.expected_behavior || report.recurrence || report.device || report.browser_name || report.notes) && (
+        <div className="grid gap-2 sm:grid-cols-2">
           {[
-            ["Steps", report.steps_to_reproduce],
+            ["Area", report.area],
+            ["Trying to do", report.attempted_action],
             ["Expected", report.expected_behavior],
-            ["Actual", report.actual_behavior],
+            ["Repeatability", report.recurrence],
+            ["Steps", report.steps_to_reproduce],
+            ["Device", report.device],
+            ["Browser", report.browser_name],
+            ["Notes", report.notes],
           ].filter(([, value]) => value).map(([label, value]) => (
             <div key={label} className="rounded-lg border border-border/70 bg-secondary/30 p-3">
               <p className="mb-1 text-[11px] font-semibold uppercase text-muted-foreground">{label}</p>
@@ -70,7 +75,7 @@ export default function BugReportCard({ report }) {
       )}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/70 pt-3 text-[11px] text-muted-foreground">
-        <span>by {report.submitted_by_name || "Anonymous"}</span>
+        <span>by {report.submitted_by_name || "Guest"}</span>
         <span className="flex items-center gap-1"><Monitor className="h-3 w-3" /> {report.screen_resolution || "unknown screen"}</span>
         <span className="flex min-w-0 items-center gap-1"><RadioTower className="h-3 w-3" /> <span className="truncate">{report.os || "unknown OS"}</span></span>
       </div>

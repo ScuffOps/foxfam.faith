@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { format } from "date-fns";
+import RichTextContent from "@/components/RichTextContent";
 
 const CATEGORY_META = {
   lore:         { label: "Lore",          color: "text-purple-400",  bg: "bg-purple-400/10",  border: "border-purple-400/20" },
@@ -57,10 +58,9 @@ export default function CodexEntryCard({ entry, canEdit, onEdit, onDelete }) {
 
         {expanded && (
           <div className="mt-4 pt-4 border-t border-border/50">
-            <div
-              className="prose prose-invert prose-sm max-w-none text-foreground/85 leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: entry.content }}
-            />
+            <RichTextContent className="prose prose-invert prose-sm max-w-none text-foreground/85 leading-relaxed">
+              {entry.content}
+            </RichTextContent>
             <div className="flex items-center gap-3 mt-4 text-[10px] text-muted-foreground font-heading tracking-wide">
               <span>✦ Added by {entry.author_name || "unknown"}</span>
               {entry.last_edited_by && <span>· Edited by {entry.last_edited_by}</span>}

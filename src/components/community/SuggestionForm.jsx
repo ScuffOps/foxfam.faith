@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { useGuestProfile } from "@/hooks/useGuestProfile";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -34,19 +34,19 @@ export default function SuggestionForm({ open, onOpenChange, onCreated }) {
     if (!form.title.trim() || !form.description.trim()) return;
     setSaving(true);
     try {
-      let submitterName = "Anonymous";
+      let submitterName = "Guest";
       if (!isAnonymous) {
         try {
-          const user = await base44.auth.me();
-          submitterName = getPublicDisplayName(user, user.email);
+          const user = await communityClient.auth.me();
+          submitterName = getPublicDisplayName(user, "Guest");
         } catch {
           if (profile?.name) submitterName = profile.name + (profile.discordId ? ` (${profile.discordId})` : "");
         }
       }
 
-      await base44.entities.Suggestion.create({
+      await communityClient.entities.Suggestion.create({
         ...form,
-        submitted_by_name: isAnonymous ? "Anonymous" : submitterName,
+        submitted_by_name: isAnonymous ? "Guest" : submitterName,
         is_anonymous: isAnonymous,
         status: "approved",
       });
