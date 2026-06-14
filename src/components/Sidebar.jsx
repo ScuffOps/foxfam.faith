@@ -11,6 +11,7 @@ import {
   Handshake,
   Map,
   Sparkles,
+  HeartHandshake,
   ShieldCheck,
   BookOpen,
   Feather,
@@ -51,6 +52,7 @@ const navGroups = [
     items: [
       { path: "/prayer", label: "Prayer Wall", icon: Flame },
       { path: "/blessings", label: "Blessings", icon: Sparkles },
+      { path: "/offerings", label: "Offerings", icon: HeartHandshake },
       { path: "/reliquary", label: "Reliquary", icon: Feather },
       { path: "/codex", label: "Codex", icon: BookOpen },
     ],

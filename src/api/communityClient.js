@@ -34,6 +34,7 @@ const ENTITY_TABLES = {
   CommunityThread: "community_threads",
   CommunityThreadComment: "community_thread_comments",
   Event: "events",
+  Offering: "offerings",
   Prayer: "prayers",
   ReliquaryComment: "reliquary_comments",
   ReliquaryEntry: "reliquary_entries",
