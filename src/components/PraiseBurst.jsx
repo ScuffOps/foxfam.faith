@@ -1,5 +1,6 @@
-import { useEffect } from "react";
-import { MAGICAL_PRAISE_TONES } from "@/lib/praiseEffects";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { getPraiseBurstOverlayStyle, MAGICAL_PRAISE_TONES } from "@/lib/praiseEffects";
 
 function playPraiseMagicBurst() {
   if (typeof window === "undefined") return;
@@ -72,14 +73,26 @@ function playPraiseMagicBurst() {
 }
 
 export default function PraiseBurst({ active = false }) {
+  const anchorRef = useRef(null);
+  const [overlayStyle, setOverlayStyle] = useState(null);
+
   useEffect(() => {
     if (active) playPraiseMagicBurst();
   }, [active]);
 
-  if (!active) return null;
+  useEffect(() => {
+    if (!active || typeof window === "undefined") {
+      setOverlayStyle(null);
+      return;
+    }
 
-  return (
-    <span className="praise-burst" aria-hidden="true">
+    const trigger = anchorRef.current?.closest?.(".praise-button") || anchorRef.current;
+    const rect = trigger?.getBoundingClientRect();
+    setOverlayStyle(getPraiseBurstOverlayStyle(rect, { width: window.innerWidth, height: window.innerHeight }));
+  }, [active]);
+
+  const burst = overlayStyle ? (
+    <span className="praise-burst" style={overlayStyle} aria-hidden="true">
       <span className="praise-burst__beam" />
       {Array.from({ length: 8 }, (_, index) => (
         <span
@@ -105,5 +118,12 @@ export default function PraiseBurst({ active = false }) {
         />
       ))}
     </span>
+  ) : null;
+
+  return (
+    <>
+      <span ref={anchorRef} className="praise-burst-anchor" aria-hidden="true" />
+      {active && typeof document !== "undefined" && burst ? createPortal(burst, document.body) : null}
+    </>
   );
 }
