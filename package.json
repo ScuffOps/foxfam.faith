@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
+    "test:e2e:staff-ops": "node scripts/e2e-staff-ops.mjs",
     "test:rls": "node scripts/rls-smoke.mjs",
     "typecheck": "tsc -p ./jsconfig.json",
     "preview": "vite preview"
@@ -92,6 +93,7 @@
     "eslint-plugin-react-refresh": "^0.4.18",
     "eslint-plugin-unused-imports": "^4.3.0",
     "globals": "^15.14.0",
+    "playwright": "^1.60.0",
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.2",

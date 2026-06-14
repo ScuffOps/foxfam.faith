@@ -19,6 +19,7 @@ import Admin from './pages/Admin';
 import Codex from './pages/Codex';
 import Reliquary from './pages/Reliquary';
 import Offerings from './pages/Offerings';
+import StaffOps from './pages/StaffOps';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -68,6 +69,10 @@ const AuthenticatedApp = () => {
         <Route path="/codex" element={<Codex />} />
         <Route path="/reliquary" element={<Reliquary />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/ops" element={<StaffOps />} />
+        <Route path="/ops/streams" element={<StaffOps defaultTab="streams" />} />
+        <Route path="/ops/meds" element={<StaffOps defaultTab="meds" />} />
+        <Route path="/ops/tasks" element={<StaffOps defaultTab="tasks" />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

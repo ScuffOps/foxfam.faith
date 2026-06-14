@@ -23,6 +23,7 @@ import {
   Lightbulb,
   Bug,
   ChevronDown,
+  ClipboardList,
 } from "lucide-react";
 import SidebarProfile from "./SidebarProfile";
 import { canBookCollab, canUseAdminPanel } from "@/lib/roles";
@@ -74,6 +75,7 @@ const navGroups = [
 
 const utilityNavItems = [
   { path: "/admin", label: "Admin Panel", icon: ShieldCheck, adminOnly: true },
+  { path: "/ops", label: "Staff Ops", icon: ClipboardList, adminOnly: true },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 

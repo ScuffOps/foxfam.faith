@@ -34,6 +34,7 @@ const client = createClient(supabaseUrl, supabaseKey, {
 
 const runId = `rls-smoke-${Date.now()}`;
 const createdRows = [];
+const staffOnlyTables = ["stream_logs", "medications", "medication_doses", "staff_tasks"];
 
 async function expectPass(label, action) {
   const result = await action();
@@ -88,6 +89,21 @@ await expectFail("anon invalid bug report is blocked", () =>
     },
   }),
 );
+
+for (const table of staffOnlyTables) {
+  await expectFail(`anon cannot read staff-only ${table}`, () =>
+    client.from(table).select("id,data,created_at,updated_at").limit(1),
+  );
+
+  await expectFail(`anon cannot insert staff-only ${table}`, () =>
+    client.from(table).insert({
+      data: {
+        title: `${runId} private attempt`,
+        __rls_smoke: runId,
+      },
+    }),
+  );
+}
 
 await createRow("birthdays", {
   display_name: "RLS Smoke Guest",
