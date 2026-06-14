@@ -4,6 +4,7 @@ import { Lightbulb, Sparkles } from "lucide-react";
 import GlassCard from "../GlassCard";
 import PraiseBurst from "../PraiseBurst";
 import { getCommunityActorKey } from "@/lib/communityActor";
+import { isPubliclyHiddenFeaturePost } from "@/lib/hiddenFeatures";
 
 export default function TopIdeas() {
   const [ideas, setIdeas] = useState([]);
@@ -16,10 +17,10 @@ export default function TopIdeas() {
     const load = async () => {
       try {
         const [all, me] = await Promise.all([
-          communityClient.entities.CommunityPost.filter({ type: "idea", status: "approved" }, "-upvotes", 5),
+          communityClient.entities.CommunityPost.filter({ type: "idea", status: "approved" }, "-upvotes", 10),
           communityClient.auth.me().catch(() => null),
         ]);
-        setIdeas(all);
+        setIdeas(all.filter((idea) => !isPubliclyHiddenFeaturePost(idea)).slice(0, 5));
         setUser(me);
       } catch {
         setIdeas([]);

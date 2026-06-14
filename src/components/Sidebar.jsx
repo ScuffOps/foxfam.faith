@@ -20,7 +20,6 @@ import {
   Vote,
   Mailbox,
   Lightbulb,
-  Hammer,
   Bug,
   ChevronDown,
 } from "lucide-react";
@@ -53,7 +52,6 @@ const navGroups = [
       { path: "/prayer", label: "Prayer Wall", icon: Flame },
       { path: "/blessings", label: "Blessings", icon: Sparkles },
       { path: "/reliquary", label: "Reliquary", icon: Feather },
-      { path: "/relic-forge", label: "Relic Forge", icon: Hammer },
       { path: "/codex", label: "Codex", icon: BookOpen },
     ],
   },

@@ -15,6 +15,7 @@ import ForumThreadForm from "../components/community/ForumThreadForm";
 import ForumThreadCard from "../components/community/ForumThreadCard";
 import ProgressionLoop from "../components/ProgressionLoop";
 import { canModerate } from "@/lib/roles";
+import { isPubliclyHiddenFeaturePost } from "@/lib/hiddenFeatures";
 
 const TABS = [
   { key: "feedback", label: "Feedback & Ideas" },
@@ -71,7 +72,8 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
   }, [defaultTab, searchParams]);
 
   const isAdmin = canModerate(user);
-  const pendingCount = posts.filter((p) => p.status === "pending").length;
+  const publicPosts = posts.filter((post) => !isPubliclyHiddenFeaturePost(post));
+  const pendingCount = publicPosts.filter((p) => p.status === "pending").length;
 
   const getSorted = (arr) => {
     if (sort === "top") return [...arr].sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0));
@@ -88,7 +90,7 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
   };
 
   const filtered = getSorted(
-    posts.filter((p) => {
+    publicPosts.filter((p) => {
       if (activeTab === "feedback" && (p.type === "poll" || p.type === "update")) return false;
       if (activeTab === "polls" && p.type !== "poll") return false;
       if (activeTab === "updates" && p.type !== "update") return false;

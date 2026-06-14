@@ -18,7 +18,6 @@ import Blessings from './pages/Blessings';
 import Admin from './pages/Admin';
 import Codex from './pages/Codex';
 import Reliquary from './pages/Reliquary';
-import RelicForge from './pages/RelicForge';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -66,7 +65,6 @@ const AuthenticatedApp = () => {
         <Route path="/blessings" element={<Blessings />} />
         <Route path="/codex" element={<Codex />} />
         <Route path="/reliquary" element={<Reliquary />} />
-        <Route path="/relic-forge" element={<RelicForge />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
