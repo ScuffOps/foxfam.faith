@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { communityClient, supabase } from "@/api/communityClient";
+import { communityClient, LOGIN_EVENT_NAME, supabase } from "@/api/communityClient";
+import LoginDialog from "@/components/auth/LoginDialog";
 
 const AuthContext = createContext();
 
@@ -8,6 +9,7 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [authError, setAuthError] = useState(null);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
 
   useEffect(() => {
     checkUserAuth();
@@ -17,6 +19,16 @@ export const AuthProvider = ({ children }) => {
       checkUserAuth();
     });
     return () => data.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const openLogin = (event) => {
+      event?.preventDefault();
+      setIsLoginOpen(true);
+    };
+
+    window.addEventListener(LOGIN_EVENT_NAME, openLogin);
+    return () => window.removeEventListener(LOGIN_EVENT_NAME, openLogin);
   }, []);
 
   const checkUserAuth = async () => {
@@ -47,7 +59,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const navigateToLogin = () => {
-    communityClient.auth.redirectToLogin();
+    setIsLoginOpen(true);
   };
 
   return (
@@ -61,11 +73,14 @@ export const AuthProvider = ({ children }) => {
         appPublicSettings: null,
         logout,
         navigateToLogin,
+        openLogin: () => setIsLoginOpen(true),
+        closeLogin: () => setIsLoginOpen(false),
         checkAppState: checkUserAuth,
         checkUserAuth,
       }}
     >
       {children}
+      <LoginDialog open={isLoginOpen} onOpenChange={setIsLoginOpen} />
     </AuthContext.Provider>
   );
 };

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { communityClient } from "@/api/communityClient";
-import { Settings2, Link2, Shield, LogOut, CheckCircle, Palette, Bell, ChevronDown, ChevronUp, UserCircle2, CalendarDays, MessagesSquare, Radio } from "lucide-react";
+import { Settings2, Link2, Shield, LogOut, CheckCircle, Palette, Bell, ChevronDown, ChevronUp, UserCircle2, CalendarDays, MessagesSquare, Radio, Apple } from "lucide-react";
 import AlertPreferences from "../components/settings/AlertPreferences";
 import AvatarUpload from "../components/AvatarUpload";
 import AccentColorPicker from "../components/AccentColorPicker";
@@ -36,6 +36,13 @@ const OAUTH_PROVIDERS = [
     provider: "Discord",
     icon: MessagesSquare,
     copy: "Link Discord for community identity, future roles, and portal notifications.",
+  },
+  {
+    key: "apple",
+    authProvider: "apple",
+    provider: "Apple",
+    icon: Apple,
+    copy: "Link Apple as a private sign-in option for your Foxfam account.",
   },
 ];
 

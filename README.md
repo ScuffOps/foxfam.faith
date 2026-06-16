@@ -40,6 +40,9 @@ Set these environment variables in Vercel:
 VITE_SUPABASE_URL=
 VITE_SUPABASE_PUBLISHABLE_KEY=
 VITE_SUPABASE_UPLOAD_BUCKET=community-uploads
+VITE_AUTH_GOOGLE_ENABLED=false
+VITE_AUTH_DISCORD_ENABLED=false
+VITE_AUTH_APPLE_ENABLED=false
 ```
 
 Build command: `npm run build`
@@ -56,11 +59,14 @@ https://foxfam.faith/**
 
 ## Supabase Auth Providers
 
-The app supports account linking from Settings through Supabase Auth identities:
+The app supports email magic-link sign-in plus Supabase OAuth sign-in/account linking. Keep `VITE_AUTH_GOOGLE_ENABLED`, `VITE_AUTH_DISCORD_ENABLED`, and `VITE_AUTH_APPLE_ENABLED` set to `false` until the matching Supabase Auth provider is enabled and configured; otherwise users will be sent to a provider-disabled Supabase error page.
+
+Account linking from Settings uses Supabase Auth identities:
 
 - Google Calendar uses the `google` provider with calendar event scope.
 - Twitch uses the `twitch` provider.
 - Discord uses the `discord` provider.
+- Apple uses the `apple` provider as an additional private sign-in identity.
 
 Enable each provider in Supabase Auth and add the provider client ID/secret from the corresponding developer console. Manual identity linking must be enabled in Supabase Auth settings for linked accounts to attach to an existing signed-in user.
 

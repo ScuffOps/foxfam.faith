@@ -1,18 +1,22 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Bell, Settings, Sparkles, UserCircle2 } from "lucide-react";
+import { Bell, LogIn, Settings, Sparkles, UserCircle2 } from "lucide-react";
 import { communityClient } from "@/api/communityClient";
+import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import RankBadge from "@/components/RankBadge";
 import { getPrivateUserKey } from "@/lib/communityActor";
+import { useAuth } from "@/lib/AuthContext";
 import { getRoleLabel } from "@/lib/roles";
 import { getInitials, getPublicAvatar, getPublicDisplayName } from "@/lib/userIdentity";
 
 export default function SidebarProfile({ onNavigate }) {
+  const { openLogin } = useAuth();
   const [user, setUser] = useState(null);
   const [level, setLevel] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [activeTab, setActiveTab] = useState("alerts");
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -31,6 +35,8 @@ export default function SidebarProfile({ onNavigate }) {
       } catch {
         if (!mounted) return;
         setUser(null);
+      } finally {
+        if (mounted) setIsLoading(false);
       }
     };
     load();
@@ -40,6 +46,32 @@ export default function SidebarProfile({ onNavigate }) {
   const displayName = getPublicDisplayName(user, "Guest Fox");
   const avatar = getPublicAvatar(user);
   const unreadCount = notifications.filter((note) => !note.read).length;
+
+  if (!user) {
+    return (
+      <div className="mx-3 mb-3 rounded-xl border border-border/80 bg-secondary/35 px-3 py-3">
+        <div className="flex items-center gap-3">
+          <Avatar avatar={avatar} name={displayName} />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-heading text-sm font-semibold text-foreground">{displayName}</span>
+            <span className="block truncate text-[10px] uppercase tracking-widest text-muted-foreground">
+              {isLoading ? "Checking session" : "Guest session"}
+            </span>
+          </span>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          className="mt-3 w-full gap-2"
+          disabled={isLoading}
+          onClick={openLogin}
+        >
+          <LogIn className="h-4 w-4" />
+          Sign in
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <Popover>

@@ -18,6 +18,7 @@ export const supabase = isSupabaseConfigured
 
 const UPLOAD_BUCKET = import.meta.env.VITE_SUPABASE_UPLOAD_BUCKET || "community-uploads";
 const DEFAULT_AUTH_REDIRECT_PATH = "/settings";
+export const LOGIN_EVENT_NAME = "foxfam:open-login";
 const PUBLIC_ROW_SELECT = "id,data,created_at,updated_at";
 const PUBLIC_PROFILE_SELECT =
   "id,role,display_name,avatar_url,accent_color,notification_preferences,onboarded,created_at,updated_at";
@@ -73,6 +74,13 @@ function getTable(entityName) {
   const table = ENTITY_TABLES[entityName];
   if (!table) throw new Error(`Unknown entity: ${entityName}`);
   return table;
+}
+
+function getAuthRedirectUrl(path = DEFAULT_AUTH_REDIRECT_PATH) {
+  if (typeof window === "undefined") return undefined;
+  if (!path) return window.location.origin;
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${window.location.origin}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
 function dataOnly(payload = {}) {
@@ -286,22 +294,37 @@ export const communityClient = {
       return { ...normalizeProfile(data), email: user.email || "" };
     },
 
-    async redirectToLogin() {
+    async signInWithEmail(email, options = {}) {
       const client = getClient();
-      const email = window.prompt("Enter your email for a Supabase magic link:");
-      if (!email) return null;
+      const cleanedEmail = String(email || "").trim();
+      if (!cleanedEmail) throw new Error("Enter an email address.");
       const { error } = await client.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: window.location.origin },
+        email: cleanedEmail,
+        options: {
+          emailRedirectTo: options.emailRedirectTo || getAuthRedirectUrl(options.redirectPath),
+        },
       });
       if (error) throw error;
+      return true;
+    },
+
+    async redirectToLogin() {
+      if (typeof window !== "undefined") {
+        const loginEvent = new CustomEvent(LOGIN_EVENT_NAME, { cancelable: true });
+        window.dispatchEvent(loginEvent);
+        if (loginEvent.defaultPrevented) return null;
+      }
+
+      const email = window.prompt("Enter your email for a Supabase magic link:");
+      if (!email) return null;
+      await this.signInWithEmail(email, { redirectPath: "/" });
       window.alert("Check your email for the sign-in link.");
       return null;
     },
 
     async signInWithProvider(provider, options = {}) {
       const client = getClient();
-      const redirectTo = options.redirectTo || `${window.location.origin}${DEFAULT_AUTH_REDIRECT_PATH}`;
+      const redirectTo = options.redirectTo || getAuthRedirectUrl(options.redirectPath);
       const { data, error } = await client.auth.signInWithOAuth({
         provider,
         options: {
@@ -316,7 +339,7 @@ export const communityClient = {
     async linkIdentity(provider, options = {}) {
       const client = getClient();
       await getCurrentSessionUser();
-      const redirectTo = options.redirectTo || `${window.location.origin}${DEFAULT_AUTH_REDIRECT_PATH}`;
+      const redirectTo = options.redirectTo || getAuthRedirectUrl(options.redirectPath);
       const { data, error } = await client.auth.linkIdentity({
         provider,
         options: {
