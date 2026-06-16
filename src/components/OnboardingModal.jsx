@@ -9,18 +9,21 @@ const STEPS = [
   {
     icon: <img src="/assets/legacy-media/e241ead03_TenkoTokenrerwork.png" alt="Foxfam" className="h-16 w-16 rounded-xl object-cover mx-auto" />,
     title: "✦ EX RUINA, VERI SURGIT ✦",
+    translation: "From ruin, Veri rises.",
     description: "Welcome to the Forsaken Faith.\n\nWelcome home, FoxFam 🕯 ⊹˚.ˑ\n\nYour community hub for everything Scuffox; events, polls, suggestions, prayers, collabs, birthdays, and shared ideas. Let's get you set up in a few quick steps..",
   },
   {
     icon: <CalendarDays className="h-12 w-12 text-primary mx-auto" />,
     title: "Community Calendar",
     subtitle: "✦ IN NOMINE VERI ARDEMUS ✦",
+    translation: "In Veri's name, we burn.",
     description: "Stay up to date with community events, collab availability slots, and more — all in one place.",
   },
   {
     icon: <Users className="h-12 w-12 mx-auto" style={{ color: "#3c5693" }} />,
     title: "Book Collabs",
     subtitle: "✦ FIDES NOS TENET ✦",
+    translation: "Faith holds us.",
     description: "See when slots are open and book a collab directly from the Calendar page. No DMs needed.",
   },
   {
@@ -28,12 +31,14 @@ const STEPS = [
     title: "Feedback & Polls",
     pointsHint: "Posting earns 5 points, poll votes earn 2, and Give Praise earns 1 toward your next rank.",
     subtitle: "✦ IN LUMINE EIUS VIVIMUS ✦",
+    translation: "In her light, we live.",
     description: "Submit ideas, feedback, or polls to the community & mod team. Give Praise to what you love — top ideas may become events!",
   },
   {
     icon: <Cake className="h-12 w-12 mx-auto" style={{ color: "#755665" }} />,
     title: "Celebrate Birthdays",
     subtitle: "✦ IN TENEBRIS, LUX MANET ✦",
+    translation: "In darkness, light remains.",
     description: "Add your birthday so the community can celebrate with you. We, of course, are polite little Heathens and allow you to keep your age to yourself.",
   },
   {
@@ -41,6 +46,7 @@ const STEPS = [
     title: "Join the Faith",
     pointsHint: "Create an account to earn points, climb ranks, and show up on the leaderboard.",
     subtitle: "✦ EX RUINA, VERI SURGIT ✦",
+    translation: "From ruin, Veri rises.",
     description: "Create your free account to post prayers, vote on ideas, submit birthdays, and become part of the Forsaken Faith community.",
     isSignUp: true,
   },
@@ -118,32 +124,39 @@ export default function OnboardingModal({ onComplete, onGuestContinue, isGuest =
         </div>
 
         {/* Actions */}
-        <div className="mt-6 flex min-h-9 shrink-0 items-center justify-between gap-3">
-          {step > 0 ? (
-            <button
-              onClick={() => setStep((s) => s - 1)}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Back
-            </button>
-          ) : <div />}
-          {currentIsSignUp ? (
-            <div className="ml-auto flex flex-wrap justify-end gap-2">
-              <Button variant="outline" onClick={onGuestContinue || onComplete}>
-                Look around
+        <div className="mt-6 shrink-0">
+          <div className="flex min-h-9 items-center justify-between gap-3">
+            {step > 0 ? (
+              <button
+                onClick={() => setStep((s) => s - 1)}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Back
+              </button>
+            ) : <div />}
+            {currentIsSignUp ? (
+              <div className="ml-auto flex flex-wrap justify-end gap-2">
+                <Button variant="outline" onClick={onGuestContinue || onComplete}>
+                  Look around
+                </Button>
+                <Button onClick={() => communityClient.auth.redirectToLogin()} className="gap-2">
+                  <Sparkles className="h-4 w-4" /> Join the Faith
+                </Button>
+              </div>
+            ) : (
+              <Button onClick={handleNext} disabled={saving} className="gap-2 ml-auto">
+                {isLast ? (
+                  <><Check className="h-4 w-4" /> {saving ? "Setting up..." : "Let the Chaos commence!"}</>
+                ) : (
+                  <>Next <ArrowRight className="h-4 w-4" /></>
+                )}
               </Button>
-              <Button onClick={() => communityClient.auth.redirectToLogin()} className="gap-2">
-                <Sparkles className="h-4 w-4" /> Join the Faith
-              </Button>
-            </div>
-          ) : (
-            <Button onClick={handleNext} disabled={saving} className="gap-2 ml-auto">
-              {isLast ? (
-                <><Check className="h-4 w-4" /> {saving ? "Setting up..." : "Let the Chaos commence!"}</>
-              ) : (
-                <>Next <ArrowRight className="h-4 w-4" /></>
-              )}
-            </Button>
+            )}
+          </div>
+          {current.translation && (
+            <p className="mt-3 text-center text-[11px] font-medium italic leading-snug text-muted-foreground/85">
+              {current.translation}
+            </p>
           )}
         </div>
       </div>
