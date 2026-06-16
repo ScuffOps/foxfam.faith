@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { FAVORED_BADGE, FAVORED_DEFAULT_TITLE, getRank } from "@/hooks/usePoints";
 import GlassCard from "../GlassCard";
 import { Trophy } from "lucide-react";
@@ -11,7 +11,7 @@ export default function Leaderboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    base44.entities.UserLevel.list("-points", 10)
+    communityClient.entities.UserLevel.list("-points", 10)
       .then((data) => {
         setLeaders(data.filter((d) => d.points > 0));
         setLoading(false);
@@ -55,7 +55,7 @@ export default function Leaderboard() {
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{l.display_name || l.user_email}</p>
+                  <p className="truncate text-sm font-medium">{l.display_name || "Guest"}</p>
                   <span className={`text-[10px] font-semibold ${rankColor}`}>{rankIcon} {rankName}</span>
                 </div>
 

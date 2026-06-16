@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { Lightbulb, Sparkles } from "lucide-react";
 import GlassCard from "../GlassCard";
 import PraiseBurst from "../PraiseBurst";
 import { getCommunityActorKey } from "@/lib/communityActor";
+import { isPubliclyHiddenFeaturePost } from "@/lib/hiddenFeatures";
+import { PRAISE_BURST_DURATION_MS } from "@/lib/praiseEffects";
 
 export default function TopIdeas() {
   const [ideas, setIdeas] = useState([]);
@@ -16,10 +18,10 @@ export default function TopIdeas() {
     const load = async () => {
       try {
         const [all, me] = await Promise.all([
-          base44.entities.CommunityPost.filter({ type: "idea", status: "approved" }, "-upvotes", 5),
-          base44.auth.me().catch(() => null),
+          communityClient.entities.CommunityPost.filter({ type: "idea", status: "approved" }, "-upvotes", 10),
+          communityClient.auth.me().catch(() => null),
         ]);
-        setIdeas(all);
+        setIdeas(all.filter((idea) => !isPubliclyHiddenFeaturePost(idea)).slice(0, 5));
         setUser(me);
       } catch {
         setIdeas([]);
@@ -47,7 +49,7 @@ export default function TopIdeas() {
       setVoteBurstId(idea.id);
       window.setTimeout(() => {
         setVoteBurstId((current) => (current === idea.id ? null : current));
-      }, 1550);
+      }, PRAISE_BURST_DURATION_MS);
     }
 
     // Optimistic update
@@ -57,7 +59,7 @@ export default function TopIdeas() {
     );
 
     try {
-      await base44.entities.CommunityPost.update(idea.id, updated);
+      await communityClient.entities.CommunityPost.update(idea.id, updated);
     } catch {
       // revert on failure
       setIdeas((prev) => prev.map((i) => (i.id === idea.id ? idea : i)));
@@ -104,7 +106,7 @@ export default function TopIdeas() {
                 </button>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{idea.title}</p>
-                  <p className="text-xs text-muted-foreground">by {idea.submitted_by_name || "Anonymous"}</p>
+                  <p className="text-xs text-muted-foreground">by {idea.submitted_by_name || "Guest"}</p>
                 </div>
               </div>
             );

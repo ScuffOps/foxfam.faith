@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +23,7 @@ export default function BlessingForm({ open, onOpenChange, user, onCreated }) {
 
   useEffect(() => {
     if (open) {
-      base44.entities.Codex.list("-created_date", 100).then(setCodexEntries).catch(() => {});
+      communityClient.entities.Codex.list("-created_date", 100).then(setCodexEntries).catch(() => {});
     }
   }, [open]);
 
@@ -41,14 +41,13 @@ export default function BlessingForm({ open, onOpenChange, user, onCreated }) {
     setSaving(true);
     let media_url = "";
     if (mediaFile) {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file: mediaFile });
+      const { file_url } = await communityClient.integrations.Core.UploadFile({ file: mediaFile });
       media_url = file_url;
     }
-    await base44.entities.Blessing.create({
+    await communityClient.entities.Blessing.create({
       ...form,
       media_url,
-      author_name: getPublicDisplayName(user, "Veri"),
-      author_email: user?.email || "",
+      author_name: getPublicDisplayName(user, "Guest"),
       upvotes: 0,
       upvoted_by: [],
       comment_count: 0,

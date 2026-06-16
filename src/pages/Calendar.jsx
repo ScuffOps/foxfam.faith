@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { format, addMonths, subMonths } from "date-fns";
 import { ChevronLeft, ChevronRight, Plus, List, Grid3X3, Kanban, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,11 +27,11 @@ export default function Calendar() {
 
   const loadEvents = async () => {
     setLoading(true);
-    try { const me = await base44.auth.me(); setUser(me); } catch {}
+    try { const me = await communityClient.auth.me(); setUser(me); } catch {}
     try {
       const [all, approvedBirthdays] = await Promise.all([
-        base44.entities.Event.filter({ status: "active" }).catch(() => []),
-        base44.entities.Birthday.filter({ status: "approved" }, "-created_date", 500).catch(() => []),
+        communityClient.entities.Event.filter({ status: "active" }).catch(() => []),
+        communityClient.entities.Birthday.filter({ status: "approved" }, "-created_date", 500).catch(() => []),
       ]);
       setEvents(Array.isArray(all) ? all : []);
       setBirthdays(Array.isArray(approvedBirthdays) ? approvedBirthdays : []);
@@ -112,7 +112,7 @@ export default function Calendar() {
 
   const handleDelete = async () => {
     if (editingEvent) {
-      await base44.entities.Event.delete(editingEvent.id);
+      await communityClient.entities.Event.delete(editingEvent.id);
       setShowForm(false);
       setEditingEvent(null);
       loadEvents();

@@ -1,5 +1,5 @@
 {
-  "name": "base44-app",
+  "name": "foxfam-faith",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -8,12 +8,12 @@
     "build": "vite build",
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
+    "test:e2e:staff-ops": "node scripts/e2e-staff-ops.mjs",
+    "test:rls": "node scripts/rls-smoke.mjs",
     "typecheck": "tsc -p ./jsconfig.json",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@base44/sdk": "^0.8.28",
-    "@base44/vite-plugin": "^1.0.16",
     "@hello-pangea/dnd": "^17.0.0",
     "@hookform/resolvers": "^4.1.2",
     "@radix-ui/react-accordion": "^1.2.3",
@@ -45,6 +45,7 @@
     "@radix-ui/react-tooltip": "^1.1.8",
     "@stripe/react-stripe-js": "^3.0.0",
     "@stripe/stripe-js": "^5.2.0",
+    "@supabase/supabase-js": "^2.76.1",
     "@tanstack/react-query": "^5.84.1",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
@@ -92,6 +93,7 @@
     "eslint-plugin-react-refresh": "^0.4.18",
     "eslint-plugin-unused-imports": "^4.3.0",
     "globals": "^15.14.0",
+    "playwright": "^1.60.0",
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.2",

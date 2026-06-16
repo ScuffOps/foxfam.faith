@@ -2,12 +2,12 @@ import { useState, useEffect, useRef } from "react";
 import ParticleOverlay from "@/components/ParticleOverlay";
 
 const LAYERS = [
-  { src: "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/6066c0983_scenelayer-grass.png", depth: 0.008, style: { bottom: 0, left: 0, width: "100%", opacity: 0.9 } },
-  { src: "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/e4422d62f_scenelayer-wall.png", depth: 0.015, style: { bottom: 0, left: 0, width: "100%", opacity: 1 } },
-  { src: "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/983cbe8b6_scenelayer-shadow.png", depth: 0.012, style: { bottom: 0, left: 0, width: "100%", opacity: 0.55, mixBlendMode: "multiply" } },
-  { src: "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/809268ef7_scenelayer-frontgrass.png", depth: 0.03, style: { bottom: 0, left: 0, width: "100%", opacity: 1 } },
-  { src: "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/da04239b4_scenelayer-topfern.png", depth: 0.04, style: { bottom: 0, left: 0, width: "40%", opacity: 1 } },
-  { src: "https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/b09341c6f_scenelayer-altar.png", depth: 0.048, style: { bottom: 0, left: "50%", transform: "translateX(-50%)", width: "clamp(400px, 88vw, 760px)", opacity: 1 } },
+  { src: "/assets/legacy-media/6066c0983_scenelayer-grass.png", depth: 0.008, style: { bottom: 0, left: 0, width: "100%", opacity: 0.9 } },
+  { src: "/assets/legacy-media/e4422d62f_scenelayer-wall.png", depth: 0.015, style: { bottom: 0, left: 0, width: "100%", opacity: 1 } },
+  { src: "/assets/legacy-media/983cbe8b6_scenelayer-shadow.png", depth: 0.012, style: { bottom: 0, left: 0, width: "100%", opacity: 0.55, mixBlendMode: "multiply" } },
+  { src: "/assets/legacy-media/809268ef7_scenelayer-frontgrass.png", depth: 0.03, style: { bottom: 0, left: 0, width: "100%", opacity: 1 } },
+  { src: "/assets/legacy-media/da04239b4_scenelayer-topfern.png", depth: 0.04, style: { bottom: 0, left: 0, width: "40%", opacity: 1 } },
+  { src: "/assets/legacy-media/b09341c6f_scenelayer-altar.png", depth: 0.048, style: { bottom: 0, left: "50%", transform: "translateX(-50%)", width: "clamp(400px, 88vw, 760px)", opacity: 1 } },
 ];
 
 export default function Splash({ onEnter }) {
@@ -16,6 +16,7 @@ export default function Splash({ onEnter }) {
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
   const timerRef = useRef(null);
   const rafRef = useRef(null);
+  const phaseRef = useRef("idle");
   const rawMouse = useRef({ x: 0, y: 0 });
 
   // Throttle mouse updates via rAF to reduce layout thrashing
@@ -32,18 +33,20 @@ export default function Splash({ onEnter }) {
   };
 
   const handleClick = () => {
-    if (phase !== "idle") return;
+    if (phaseRef.current !== "idle") return;
+    phaseRef.current = "igniting";
     setPhase("igniting");
-    const newParticles = Array.from({ length: 20 }, (_, i) => ({
+    const newParticles = Array.from({ length: 24 }, (_, i) => ({
       id: i,
-      angle: (i / 20) * 360 + Math.random() * 20,
-      speed: 0.6 + Math.random() * 1.2,
-      size: 18 + Math.random() * 30,
-      delay: Math.random() * 0.3,
-      drift: (Math.random() - 0.5) * 60,
+      angle: 245 + (i / 23) * 110 + Math.random() * 8,
+      speed: 0.55 + Math.random() * 0.85,
+      size: 10 + Math.random() * 18,
+      delay: Math.random() * 0.24,
+      drift: (Math.random() - 0.5) * 24,
     }));
     setParticles(newParticles);
     timerRef.current = setTimeout(() => {
+      phaseRef.current = "fading";
       setPhase("fading");
       setTimeout(() => onEnter(), 1000);
     }, 1400);
@@ -98,23 +101,6 @@ export default function Splash({ onEnter }) {
         );
       })}
 
-      {/* Lantern — focal point, large and centered */}
-      <img
-        src="/assets/lantern.png"
-        alt=""
-        className="absolute pointer-events-none"
-        style={{
-          bottom: "clamp(92px, 11vh, 130px)",
-          left: "50%",
-          width: "clamp(96px, 9vw, 150px)",
-          height: "auto",
-          transform: "translateX(-50%)",
-          zIndex: 7,
-          imageRendering: "auto",
-          filter: "drop-shadow(0 0 24px rgba(80,190,255,0.75)) drop-shadow(0 0 54px rgba(40,130,255,0.42))",
-        }}
-      />
-
       {/* Dark gradient overlay */}
       <div className="absolute inset-0 pointer-events-none" style={{
         background: "radial-gradient(ellipse at 50% 100%, rgba(10,20,60,0.3) 0%, transparent 70%)",
@@ -123,47 +109,124 @@ export default function Splash({ onEnter }) {
 
       <ParticleOverlay style={{ zIndex: 30 }} />
 
-      {/* Lantern glow — isolated on its own layer, no blur on every frame */}
-      <div className="absolute pointer-events-none" style={{
-        bottom: "clamp(72px, 8vh, 104px)",
-        left: "50%",
-        width: "clamp(190px, 18vw, 300px)",
-        height: "clamp(190px, 18vw, 300px)",
-        background: "radial-gradient(circle, rgba(80,190,255,0.55) 0%, rgba(40,130,255,0.25) 40%, transparent 70%)",
-        borderRadius: "50%",
-        filter: "blur(18px)",
-        animation: "pulseGlow 4s ease-in-out infinite",
-        transform: "translateX(-50%)",
-        zIndex: 9,
-        willChange: "opacity, transform",
-      }} />
+      {/* Static lantern focal point */}
+      <button
+        data-testid="splash-lantern-stage"
+        type="button"
+        aria-label="Enter Foxfam.Faith"
+        onPointerDown={(event) => {
+          event.stopPropagation();
+          handleClick();
+        }}
+        onClick={(event) => {
+          event.stopPropagation();
+          handleClick();
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          event.stopPropagation();
+          handleClick();
+        }}
+        className="splash-lantern-stage absolute cursor-pointer border-0 bg-transparent p-0"
+        style={{
+          top: "54%",
+          left: "50%",
+          width: "clamp(180px, 18vw, 270px)",
+          aspectRatio: "1 / 1",
+          transform: "translate(-50%, -50%)",
+          zIndex: 18,
+          willChange: "opacity",
+        }}
+      >
+        <div
+          className="absolute inset-[-22%] rounded-full"
+          style={{
+            background: "radial-gradient(circle, rgba(113,229,255,0.38) 0%, rgba(31,143,255,0.2) 34%, rgba(21,67,146,0.08) 56%, transparent 73%)",
+            filter: "blur(18px)",
+            animation: "pulseGlow 4s ease-in-out infinite",
+          }}
+        />
+
+        <img
+          data-testid="splash-lantern"
+          src="/assets/lantern.png"
+          alt=""
+          className="absolute inset-0 h-full w-full object-contain pointer-events-none"
+          style={{
+            zIndex: 2,
+            imageRendering: "auto",
+            filter: "drop-shadow(0 0 24px rgba(80,190,255,0.78)) drop-shadow(0 0 62px rgba(40,130,255,0.52))",
+          }}
+        />
+
+        <div
+          data-testid="splash-lantern-flames"
+          className={`splash-lantern-flames absolute inset-0 pointer-events-none ${phase !== "idle" ? "is-lit" : ""}`}
+          style={{
+            zIndex: 3,
+            mixBlendMode: "screen",
+          }}
+        >
+          <div
+            className="absolute rounded-full"
+            style={{
+              left: "50%",
+              top: "58%",
+              width: "34%",
+              height: "45%",
+              transform: "translate(-50%, -50%)",
+              background: "radial-gradient(ellipse at 50% 72%, rgba(195,250,255,0.95) 0%, rgba(64,199,255,0.76) 35%, rgba(27,106,255,0.35) 61%, transparent 78%)",
+              filter: "blur(4px)",
+              animation: phase === "idle" ? "none" : "lanternCoreFlame 0.9s ease-out forwards",
+            }}
+          />
+          {phase !== "idle" && particles.map((p) => {
+            const rad = (p.angle * Math.PI) / 180;
+            const tx = Math.cos(rad) * 42 * p.speed + p.drift;
+            const ty = Math.sin(rad) * 52 * p.speed - 34;
+            return (
+              <div
+                key={p.id}
+                className="absolute rounded-full"
+                style={{
+                  width: p.size,
+                  height: p.size * 1.9,
+                  background: "radial-gradient(ellipse at 50% 82%, rgba(210,252,255,0.96) 0%, rgba(79,211,255,0.78) 36%, rgba(25,97,255,0.34) 68%, transparent 100%)",
+                  filter: "blur(2.5px)",
+                  left: "50%",
+                  top: "58%",
+                  transform: "translate(-50%, -50%)",
+                  animation: `lanternFlameRise 1.05s cubic-bezier(0.16,0.88,0.34,1) ${p.delay}s forwards`,
+                  "--tx": `${tx}px`,
+                  "--ty": `${ty}px`,
+                }}
+              />
+            );
+          })}
+        </div>
+
+        <div
+          data-testid="splash-lantern-hit-target"
+          aria-hidden="true"
+          onPointerDown={(event) => {
+            event.stopPropagation();
+            handleClick();
+          }}
+          onClick={(event) => {
+            event.stopPropagation();
+            handleClick();
+          }}
+          className="absolute inset-[12%] rounded-full"
+          style={{
+            zIndex: 4,
+            background: "rgba(255,255,255,0.001)",
+          }}
+        />
+      </button>
 
       {/* Center content — positioned near the top dark area */}
       <div className="absolute flex flex-col items-center" style={{ zIndex: 10, top: "8%", left: "50%", transform: "translateX(-50%)", width: "100%" }}>
-        {phase !== "idle" && particles.map((p) => {
-          const rad = (p.angle * Math.PI) / 180;
-          const tx = Math.cos(rad) * 130 * p.speed + p.drift;
-          const ty = Math.sin(rad) * 130 * p.speed - 80;
-          return (
-            <div
-              key={p.id}
-              className="absolute rounded-full pointer-events-none"
-              style={{
-                width: p.size,
-                height: p.size * 1.8,
-                background: "radial-gradient(ellipse at 50% 80%, rgba(120,230,255,0.95) 0%, rgba(40,140,255,0.7) 40%, transparent 100%)",
-                filter: "blur(3px)",
-                left: "50%",
-                top: "50%",
-                transform: "translate(-50%, -50%)",
-                animation: `flameShoot 1.2s cubic-bezier(0.2,0,0.8,1) ${p.delay}s forwards`,
-                "--tx": `${tx}px`,
-                "--ty": `${ty}px`,
-              }}
-            />
-          );
-        })}
-
         <div className="text-center" style={{ opacity: phase === "igniting" ? 0 : 1, transition: "opacity 0.3s" }}>
           <p className="text-[10px] tracking-[0.4em] uppercase mb-3 font-heading" style={{ color: "rgba(100,180,255,0.45)" }}>
             ✦ Forsaken Faith · Ex Ruina Veri Surgit ✦
@@ -194,18 +257,36 @@ export default function Splash({ onEnter }) {
       </div>
 
       <style>{`
+        .splash-lantern-stage:focus {
+          outline: none;
+        }
+        .splash-lantern-flames {
+          opacity: 0;
+          transition: opacity 0.12s ease;
+        }
+        .splash-lantern-stage:focus .splash-lantern-flames,
+        .splash-lantern-stage:active .splash-lantern-flames,
+        .splash-lantern-flames.is-lit {
+          opacity: 1;
+        }
         @keyframes breathe {
           0%, 100% { opacity: 0.4; }
           50% { opacity: 0.9; }
         }
         @keyframes pulseGlow {
-          0%, 100% { opacity: 0.45; transform: translateX(-50%) scale(1); }
-          50% { opacity: 0.9; transform: translateX(-50%) scale(1.18); }
+          0%, 100% { opacity: 0.5; transform: scale(1); }
+          50% { opacity: 0.92; transform: scale(1.12); }
         }
-        @keyframes flameShoot {
-          0% { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
-          60% { opacity: 0.8; }
-          100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0); opacity: 0; }
+        @keyframes lanternCoreFlame {
+          0% { transform: translate(-50%, -50%) scale(0.35, 0.2); opacity: 0; }
+          32% { opacity: 1; }
+          100% { transform: translate(-50%, -56%) scale(1.08, 1.22); opacity: 0.95; }
+        }
+        @keyframes lanternFlameRise {
+          0% { transform: translate(-50%, -50%) scale(0.45); opacity: 0; }
+          18% { opacity: 0.94; }
+          72% { opacity: 0.72; }
+          100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0.12); opacity: 0; }
         }
       `}</style>
     </div>

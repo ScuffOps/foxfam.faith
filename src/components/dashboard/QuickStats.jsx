@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { CalendarDays, Cake, Lightbulb, BarChart3 } from "lucide-react";
 import GlassCard from "../GlassCard";
 
@@ -12,9 +12,9 @@ export default function QuickStats() {
     const load = async () => {
       try {
         const [events, birthdays, posts] = await Promise.all([
-          base44.entities.Event.filter({ status: "active" }),
-          base44.entities.Birthday.filter({ status: "approved" }),
-          base44.entities.CommunityPost.filter({ status: "approved" }),
+          communityClient.entities.Event.filter({ status: "active" }),
+          communityClient.entities.Birthday.filter({ status: "approved" }),
+          communityClient.entities.CommunityPost.filter({ status: "approved" }),
         ]);
         setStats({
           events: events.length,

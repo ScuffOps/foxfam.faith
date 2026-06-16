@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { BarChart3, Check, X, CalendarPlus } from "lucide-react";
 import { awardPoints } from "@/hooks/usePoints";
 import { useLevelUpToast } from "@/hooks/useLevelUpToast";
@@ -10,11 +10,11 @@ import GlassCard from "../GlassCard";
 import RichTextContent from "../RichTextContent";
 import { getCommunityActorKey } from "@/lib/communityActor";
 
-export default function PollCard({ post, isAdmin, userEmail, onRefresh }) {
+export default function PollCard({ post, isAdmin, user, onRefresh }) {
   const checkLevelUp = useLevelUpToast();
   const { toast } = useToast();
   const [voting, setVoting] = useState(false);
-  const actorKey = getCommunityActorKey({ email: userEmail });
+  const actorKey = getCommunityActorKey(user);
   const options = post.poll_options || [];
   const totalVotes = options.reduce((sum, o) => sum + (o.votes || 0), 0);
   const userVotedOption = options.find((o) => (o.voted_by || []).includes(actorKey));
@@ -29,8 +29,8 @@ export default function PollCard({ post, isAdmin, userEmail, onRefresh }) {
       return o;
     });
     try {
-      await base44.entities.CommunityPost.update(post.id, { poll_options: updated });
-      base44.auth.me().then((u) => awardPoints(u, "vote_poll").then(checkLevelUp)).catch(() => {});
+      await communityClient.entities.CommunityPost.update(post.id, { poll_options: updated });
+      communityClient.auth.me().then((u) => awardPoints(u, "vote_poll").then(checkLevelUp)).catch(() => {});
       onRefresh();
     } catch {
       toast({
@@ -43,23 +43,23 @@ export default function PollCard({ post, isAdmin, userEmail, onRefresh }) {
   };
 
   const handleApprove = async () => {
-    await base44.entities.CommunityPost.update(post.id, { status: "approved" });
+    await communityClient.entities.CommunityPost.update(post.id, { status: "approved" });
     onRefresh();
   };
   const handleReject = async () => {
-    await base44.entities.CommunityPost.update(post.id, { status: "rejected" });
+    await communityClient.entities.CommunityPost.update(post.id, { status: "rejected" });
     onRefresh();
   };
   const handleConvert = async () => {
     const topOption = [...options].sort((a, b) => (b.votes || 0) - (a.votes || 0))[0];
-    await base44.entities.Event.create({
+    await communityClient.entities.Event.create({
       title: `${post.title}${topOption ? ` - ${topOption.text}` : ""}`,
       description: post.description || "",
       category: "community",
       start_date: new Date().toISOString(),
       status: "active",
     });
-    await base44.entities.CommunityPost.update(post.id, { status: "converted" });
+    await communityClient.entities.CommunityPost.update(post.id, { status: "converted" });
     onRefresh();
   };
 
@@ -109,7 +109,7 @@ export default function PollCard({ post, isAdmin, userEmail, onRefresh }) {
       </div>
       <div className="mt-3 flex items-center justify-between">
         <span className="text-xs text-muted-foreground">
-          {totalVotes} total votes · by {post.submitted_by_name || "Anonymous"}
+          {totalVotes} total votes · by {post.submitted_by_name || "Guest"}
         </span>
         <div className="flex gap-1">
           {isAdmin && post.status === "pending" && (

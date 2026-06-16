@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { useGuestProfile } from "@/hooks/useGuestProfile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,20 +26,17 @@ export default function BirthdaySubmitForm({ onSubmitted }) {
     e.preventDefault();
     if (!form.display_name || !form.birthday_date) return;
     setSubmitting(true);
-    let submitterName = "Anonymous";
-    let submitterEmail = "";
+    let submitterName = "Guest";
     try {
-      const user = await base44.auth.me();
-      submitterName = getPublicDisplayName(user, user.email);
-      submitterEmail = user.email;
+      const user = await communityClient.auth.me();
+      submitterName = getPublicDisplayName(user, "Guest");
     } catch {
       if (profile.name) submitterName = profile.name + (profile.discordId ? ` (${profile.discordId})` : "");
     }
-    await base44.entities.Birthday.create({
+    await communityClient.entities.Birthday.create({
       ...form,
       status: "approved",
       submitted_by_name: submitterName,
-      submitted_by_email: submitterEmail,
     });
     toast({ title: "Birthday added!", description: "It is live on the birthday calendar." });
     setForm({ display_name: "", birthday_date: "", note: "", is_private: false });

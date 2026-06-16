@@ -1,8 +1,8 @@
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 
 export async function createUserNotification({
-  recipientEmail,
-  actorEmail = "",
+  recipientUserId,
+  actorKey = "",
   actorName = "",
   type = "activity",
   title,
@@ -11,12 +11,12 @@ export async function createUserNotification({
   sourceType = "",
   sourceId = "",
 }) {
-  if (!recipientEmail || !title) return null;
+  if (!recipientUserId || !title) return null;
 
   try {
-    return await base44.entities.UserNotification.create({
-      recipient_email: recipientEmail,
-      actor_email: actorEmail,
+    return await communityClient.entities.UserNotification.create({
+      recipient_user_id: recipientUserId,
+      actor_key: actorKey,
       actor_name: actorName,
       type,
       title,

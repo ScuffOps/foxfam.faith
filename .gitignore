@@ -1,7 +1,7 @@
-#env
+# env
 .env
-.env.*
-base44/.app.jsonc
+.env.local
+.env.*.local
 
 # Logs
 /logs
@@ -12,10 +12,13 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies and builds
 node_modules
 dist
 dist-ssr
-*.local
+.vite
+.playwright-cli/
+preview/
 
 # Editor directories and files
 .vscode/*
@@ -27,8 +30,5 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
-.env
-.vite
-.playwright-cli/
-preview/
+.vercel
+.env*

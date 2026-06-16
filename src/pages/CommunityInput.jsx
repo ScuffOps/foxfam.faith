@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { Plus, Search, ArrowUp, TrendingUp, Clock, BarChart3, Mailbox, MessagesSquare, Bug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PostForm from "../components/community/PostForm";
@@ -8,12 +8,14 @@ import IdeaCard from "../components/community/IdeaCard";
 import PollCard from "../components/community/PollCard";
 import BugReportForm from "../components/community/BugReportForm";
 import BugReportCard from "../components/community/BugReportCard";
+import { BUG_REPORT_DESCRIPTION } from "@/lib/bugReport";
 import SuggestionForm from "../components/community/SuggestionForm";
 import SuggestionCard from "../components/community/SuggestionCard";
 import ForumThreadForm from "../components/community/ForumThreadForm";
 import ForumThreadCard from "../components/community/ForumThreadCard";
 import ProgressionLoop from "../components/ProgressionLoop";
 import { canModerate } from "@/lib/roles";
+import { isPubliclyHiddenFeaturePost } from "@/lib/hiddenFeatures";
 
 const TABS = [
   { key: "feedback", label: "Feedback & Ideas" },
@@ -49,12 +51,12 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
 
   const loadData = async () => {
     setLoading(true);
-    try { const me = await base44.auth.me(); setUser(me); } catch {}
+    try { const me = await communityClient.auth.me(); setUser(me); } catch {}
     const [all, allSuggestions, allThreads, allBugReports] = await Promise.all([
-      base44.entities.CommunityPost.list("-created_date", 200).catch(() => []),
-      base44.entities.Suggestion.list("-created_date", 200).catch(() => []),
-      base44.entities.CommunityThread.list("-created_date", 100).catch(() => []),
-      base44.entities.BugReport.list("-created_date", 100).catch(() => []),
+      communityClient.entities.CommunityPost.list("-created_date", 200).catch(() => []),
+      communityClient.entities.Suggestion.list("-created_date", 200).catch(() => []),
+      communityClient.entities.CommunityThread.list("-created_date", 100).catch(() => []),
+      communityClient.entities.BugReport.list("-created_date", 100).catch(() => []),
     ]);
     setPosts(all);
     setSuggestions(allSuggestions);
@@ -70,7 +72,8 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
   }, [defaultTab, searchParams]);
 
   const isAdmin = canModerate(user);
-  const pendingCount = posts.filter((p) => p.status === "pending").length;
+  const publicPosts = posts.filter((post) => !isPubliclyHiddenFeaturePost(post));
+  const pendingCount = publicPosts.filter((p) => p.status === "pending").length;
 
   const getSorted = (arr) => {
     if (sort === "top") return [...arr].sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0));
@@ -87,7 +90,7 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
   };
 
   const filtered = getSorted(
-    posts.filter((p) => {
+    publicPosts.filter((p) => {
       if (activeTab === "feedback" && (p.type === "poll" || p.type === "update")) return false;
       if (activeTab === "polls" && p.type !== "poll") return false;
       if (activeTab === "updates" && p.type !== "update") return false;
@@ -178,7 +181,7 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
           <div className="mb-4 flex flex-col gap-2 rounded-xl border border-border bg-card/55 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="font-heading text-base font-semibold">Bug Reports</h2>
-              <p className="text-xs text-muted-foreground">Submit screenshots, screencaps, and auto-captured device details.</p>
+              <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">{BUG_REPORT_DESCRIPTION}</p>
             </div>
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -321,9 +324,9 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
         <div className="space-y-2">
           {filtered.map((post) =>
             post.type === "poll" ? (
-              <PollCard key={post.id} post={post} isAdmin={isAdmin} userEmail={user?.email} onRefresh={loadData} />
+              <PollCard key={post.id} post={post} isAdmin={isAdmin} user={user} onRefresh={loadData} />
             ) : (
-              <IdeaCard key={post.id} post={post} isAdmin={isAdmin} userEmail={user?.email} onRefresh={loadData} />
+              <IdeaCard key={post.id} post={post} isAdmin={isAdmin} user={user} onRefresh={loadData} />
             )
           )}
         </div>

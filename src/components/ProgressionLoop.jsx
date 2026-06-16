@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, ChevronDown, ChevronUp, GripHorizontal, RotateCcw, Sparkles, Trophy } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { Button } from "@/components/ui/button";
 import { PROGRESSION_ACTIONS, getRankProgress } from "@/hooks/usePoints";
+import { getPrivateUserKey } from "@/lib/communityActor";
 import GlassCard from "./GlassCard";
 import RankBadge from "./RankBadge";
 
@@ -217,8 +218,8 @@ export default function ProgressionLoop({
     if (!positionable || typeof window === "undefined" || !cardRef.current) return nextPosition;
 
     const rect = cardRef.current.getBoundingClientRect();
-    const baseLeft = rect.left - position.x;
-    const baseTop = rect.top - position.y;
+    const baseLeft = rect.left - nextPosition.x;
+    const baseTop = rect.top - nextPosition.y;
     const margin = 12;
     const minX = margin - baseLeft;
     const maxX = window.innerWidth - rect.width - margin - baseLeft;
@@ -230,7 +231,7 @@ export default function ProgressionLoop({
 
     if (x === nextPosition.x && y === nextPosition.y) return nextPosition;
     return { x, y };
-  }, [position.x, position.y, positionable]);
+  }, [positionable]);
 
   useEffect(() => {
     if (typeof points === "number") {
@@ -243,8 +244,8 @@ export default function ProgressionLoop({
     let active = true;
     const loadProgress = async () => {
       try {
-        const user = await base44.auth.me();
-        const levels = await base44.entities.UserLevel.filter({ user_email: user.email });
+        const user = await communityClient.auth.me();
+        const levels = await communityClient.entities.UserLevel.filter({ user_key: getPrivateUserKey(user) });
         if (active) {
           const level = levels[0];
           setCurrentPoints(level?.points || 0);
@@ -279,7 +280,10 @@ export default function ProgressionLoop({
 
   useEffect(() => {
     if (!positionable || typeof window === "undefined") return;
-    const handleResize = () => setPosition((value) => clampPosition(value));
+    const handleResize = () => setPosition((value) => {
+      const next = clampPosition(value);
+      return next.x === value.x && next.y === value.y ? value : next;
+    });
     window.addEventListener("resize", handleResize);
     handleResize();
     return () => window.removeEventListener("resize", handleResize);

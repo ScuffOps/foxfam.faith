@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Sparkles } from "lucide-react";
 import PraiseBurst from "../PraiseBurst";
 import RichTextContent, { getRichTextPlainText } from "../RichTextContent";
+import { PRAISE_BURST_DURATION_MS } from "@/lib/praiseEffects";
 
 // ── Categories & tones ──────────────────────────────────────────
 export const CATEGORIES = {
@@ -39,6 +40,16 @@ function seededRand(seed) {
     h ^= h << 13; h ^= h >> 17; h ^= h << 5;
     return ((h >>> 0) / 4294967296);
   };
+}
+
+function getPrayerVisualIdentitySeed(prayer) {
+  if (prayer.visual_seed) return prayer.visual_seed;
+  if (prayer.is_anonymous) return `anonymous:${prayer.id || "unknown"}`;
+
+  const author = String(prayer.author_name || "").trim().toLowerCase();
+  if (author) return `identity:${author}`;
+
+  return `prayer:${prayer.id || "unknown"}`;
 }
 
 // ── Rune / sigil generator ─────────────────────────────────────
@@ -175,7 +186,8 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin, isNewPr
   const isRead = !!prayer.is_read;
   const isHeld = (prayer.support_count || 0) > 0;
 
-  const seed = prayer.id || "x";
+  const identitySeed = getPrayerVisualIdentitySeed(prayer);
+  const seed = `${identitySeed}:${prayer.id || "x"}`;
   const rand = seededRand(seed);
   const breatheDur = (3.5 + rand() * 2.5).toFixed(1);
   const floatDelay = (rand() * 2).toFixed(1);
@@ -188,7 +200,7 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin, isNewPr
     setPraying(true);
     setPraiseBurst((value) => value + 1);
     await onPray(prayer);
-    setTimeout(() => setPraiseBurst(0), 1550);
+    setTimeout(() => setPraiseBurst(0), PRAISE_BURST_DURATION_MS);
     setTimeout(() => setPraying(false), 1000);
   };
 
@@ -196,8 +208,16 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin, isNewPr
     e.stopPropagation();
     if (markingRead || !onMarkRead) return;
     setMarkingRead(true);
-    await onMarkRead(prayer);
-    setTimeout(() => setMarkingRead(false), 600);
+    try {
+      await onMarkRead(prayer);
+    } finally {
+      setTimeout(() => setMarkingRead(false), 600);
+    }
+  };
+
+  const handleRelease = (e) => {
+    e.stopPropagation();
+    setExpanded(false);
   };
 
   return (
@@ -499,13 +519,13 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin, isNewPr
                 zIndex: 0,
               }}>
                 <span style={{
-                  fontSize: 80,
+                  fontSize: 58,
                   fontFamily: "var(--font-heading)",
                   color: "rgba(255,255,255,0.025)",
                   letterSpacing: "0.1em",
                   transform: "rotate(-15deg)",
                   userSelect: "none",
-                }}>SEEN</span>
+                }}>CHERISHED</span>
               </div>
             )}
 
@@ -535,14 +555,14 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin, isNewPr
                     borderRadius: 4,
                     padding: "1px 6px",
                   }}>
-                    ✓ READ BY ADMIN
+                    RECEIVED & CHERISHED
                   </span>
                 )}
               </div>
 
               {isHeld && (
                 <p style={{ color: isRead ? "rgba(120,120,150,0.35)" : primary, fontSize: 8, letterSpacing: "0.25em", textAlign: "center", marginBottom: 14, opacity: 0.45, fontFamily: "var(--font-heading)" }}>
-                  ✦ seen · held · {prayer.support_count} {prayer.support_count === 1 ? "soul" : "souls"} ✦
+                  ✦ held by {prayer.support_count} {prayer.support_count === 1 ? "soul" : "souls"} ✦
                 </p>
               )}
 
@@ -554,7 +574,7 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin, isNewPr
               {/* Footer */}
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <span className="text-xs" style={{ color: "rgba(150,170,220,0.38)" }}>
-                  {prayer.is_anonymous ? "🕊️ Anonymous" : (prayer.author_name || "A soul")}
+                  {prayer.is_anonymous ? "Guest" : (prayer.author_name || "Guest")}
                 </span>
                 <div className="flex items-center gap-2">
                   {/* Admin mark as read */}
@@ -570,7 +590,7 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin, isNewPr
                         opacity: markingRead ? 0.5 : 1,
                       }}
                     >
-                      {markingRead ? "..." : "✓ Mark as read"}
+                      {markingRead ? "Holding..." : "Received & Cherished"}
                     </button>
                   )}
                   <button
@@ -591,12 +611,19 @@ export default function PrayerOrb({ prayer, onPray, onMarkRead, isAdmin, isNewPr
                     <span>Give Praise</span>
                     <span>{prayer.support_count || 0}</span>
                   </button>
+                  <button
+                    onClick={handleRelease}
+                    className="rounded-full px-3 py-1.5 text-xs transition-all"
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(150,170,220,0.18)",
+                      color: "rgba(180,195,230,0.72)",
+                    }}
+                  >
+                    Release
+                  </button>
                 </div>
               </div>
-
-              <p className="text-center mt-5 text-[9px]" style={{ color: "rgba(100,110,180,0.28)", letterSpacing: "0.22em" }}>
-                CLICK OUTSIDE TO RELEASE
-              </p>
             </div>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import BirthdaySubmitForm from "../components/birthdays/BirthdaySubmitForm";
 import GuestProfileBanner from "../components/GuestProfileBanner";
 import BirthdayList from "../components/birthdays/BirthdayList";
@@ -16,10 +16,10 @@ export default function Birthdays() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const me = await base44.auth.me();
+      const me = await communityClient.auth.me();
       setUser(me);
     } catch {}
-    const all = await base44.entities.Birthday.list("-created_date", 200);
+    const all = await communityClient.entities.Birthday.list("-created_date", 200);
     setBirthdays(all);
     setLoading(false);
   };
@@ -29,13 +29,13 @@ export default function Birthdays() {
   const isAdmin = canModerate(user);
 
   const handleApprove = async (id) => {
-    await base44.entities.Birthday.update(id, { status: "approved" });
+    await communityClient.entities.Birthday.update(id, { status: "approved" });
     toast({ title: "Birthday approved!" });
     loadData();
   };
 
   const handleReject = async (id) => {
-    await base44.entities.Birthday.update(id, { status: "rejected" });
+    await communityClient.entities.Birthday.update(id, { status: "rejected" });
     toast({ title: "Birthday rejected" });
     loadData();
   };

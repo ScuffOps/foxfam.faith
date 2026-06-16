@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { format, subDays, eachDayOfInterval, isSameDay } from "date-fns";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import GlassCard from "../GlassCard";
@@ -27,8 +27,8 @@ export default function ActivityChart() {
     const load = async () => {
       try {
         const [blessings, posts] = await Promise.all([
-          base44.entities.Blessing.list("-created_date", 200),
-          base44.entities.CommunityPost.list("-created_date", 200),
+          communityClient.entities.Blessing.list("-created_date", 200),
+          communityClient.entities.CommunityPost.list("-created_date", 200),
         ]);
 
         const days = eachDayOfInterval({ start: subDays(new Date(), 29), end: new Date() });

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BlessingCard from "../components/blessings/BlessingCard";
@@ -14,8 +14,8 @@ export default function Blessings() {
 
   const loadData = async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
-    try { const me = await base44.auth.me(); setUser(me); } catch {}
-    const all = await base44.entities.Blessing.list("-created_date", 50).catch(() => []);
+    try { const me = await communityClient.auth.me(); setUser(me); } catch {}
+    const all = await communityClient.entities.Blessing.list("-created_date", 50).catch(() => []);
     setBlessings(all);
     setLoading(false);
   };

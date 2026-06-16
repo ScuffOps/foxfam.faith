@@ -1,42 +1,32 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { ChevronDown, ChevronUp, MessageCircle, Send, Trash2 } from "lucide-react";
 import { useGuestProfile } from "@/hooks/useGuestProfile";
 import GlassCard from "../GlassCard";
 import RichTextContent from "../RichTextContent";
 import { getPublicDisplayName } from "@/lib/userIdentity";
-import { createUserNotification } from "@/lib/notifications";
 import { useToast } from "@/components/ui/use-toast";
 import PraiseBurst from "../PraiseBurst";
-
-function getGuestForumId() {
-  const key = "commhub_forum_guest_id";
-  let id = localStorage.getItem(key);
-  if (!id) {
-    id = `guest_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    localStorage.setItem(key, id);
-  }
-  return id;
-}
+import { getCommunityActorKey } from "@/lib/communityActor";
+import { PRAISE_BURST_DURATION_MS, PRAISE_REFRESH_DELAY_MS } from "@/lib/praiseEffects";
 
 export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
   const { toast } = useToast();
   const { profile } = useGuestProfile();
-  const [guestId] = useState(getGuestForumId);
   const [showReplies, setShowReplies] = useState(false);
   const [comments, setComments] = useState([]);
   const [loadingComments, setLoadingComments] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [reactionBurst, setReactionBurst] = useState(0);
-  const actorId = user?.email || `guest:${guestId}`;
-  const actorName = user ? getPublicDisplayName(user, user.email) : profile.name || "Guest";
+  const actorId = getCommunityActorKey(user);
+  const actorName = user ? getPublicDisplayName(user, "Guest") : profile.name || "Guest";
   const hasReacted = (thread.reacted_by || []).includes(actorId);
 
   const loadComments = async () => {
     setLoadingComments(true);
     try {
-      const all = await base44.entities.CommunityThreadComment.filter({ thread_id: thread.id });
+      const all = await communityClient.entities.CommunityThreadComment.filter({ thread_id: thread.id });
       setComments(all.sort((a, b) => new Date(a.created_date) - new Date(b.created_date)));
     } catch {
       setComments([]);
@@ -53,15 +43,15 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
   const handleReact = async () => {
     const reactedBy = thread.reacted_by || [];
     try {
-      await base44.entities.CommunityThread.update(thread.id, {
+      await communityClient.entities.CommunityThread.update(thread.id, {
         reactions: hasReacted ? Math.max((thread.reactions || 0) - 1, 0) : (thread.reactions || 0) + 1,
         reacted_by: hasReacted ? reactedBy.filter((id) => id !== actorId) : [...reactedBy, actorId],
       });
       if (!hasReacted) {
         setReactionBurst((value) => value + 1);
-        window.setTimeout(() => setReactionBurst(0), 1550);
+        window.setTimeout(() => setReactionBurst(0), PRAISE_BURST_DURATION_MS);
       }
-      onRefresh();
+      if (onRefresh) window.setTimeout(onRefresh, hasReacted ? 0 : PRAISE_REFRESH_DELAY_MS);
     } catch {
       toast({
         title: "Praise could not be sent",
@@ -74,26 +64,14 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
     if (!commentText.trim() || thread.is_locked) return;
     setSubmitting(true);
     try {
-      await base44.entities.CommunityThreadComment.create({
+      await communityClient.entities.CommunityThreadComment.create({
         thread_id: thread.id,
         message: commentText.trim(),
         author_name: actorName,
       });
-      await base44.entities.CommunityThread.update(thread.id, {
+      await communityClient.entities.CommunityThread.update(thread.id, {
         comment_count: (thread.comment_count || 0) + 1,
       });
-      if (thread.author_email && thread.author_email !== user?.email) {
-        createUserNotification({
-          recipientEmail: thread.author_email,
-          actorEmail: user?.email || actorId,
-          actorName,
-          type: "reply_received",
-          title: "New forum reply",
-          message: `${actorName} replied to "${thread.title}".`,
-          sourceType: "community_thread",
-          sourceId: thread.id,
-        });
-      }
       setCommentText("");
       setShowReplies(true);
       loadComments();
@@ -110,7 +88,7 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
 
   const handleDelete = async () => {
     if (!confirm("Delete this forum thread?")) return;
-    await base44.entities.CommunityThread.delete(thread.id);
+    await communityClient.entities.CommunityThread.delete(thread.id);
     onRefresh();
   };
 
@@ -193,7 +171,7 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
                   {(comment.author_name || "?")[0].toUpperCase()}
                 </div>
                 <div className="flex-1 rounded-lg bg-secondary/50 px-3 py-2">
-                  <span className="text-xs font-semibold text-foreground">{comment.author_name || "Anonymous"} </span>
+                  <span className="text-xs font-semibold text-foreground">{comment.author_name || "Guest"} </span>
                   <RichTextContent className="inline text-xs text-muted-foreground" inline>
                     {comment.message}
                   </RichTextContent>

@@ -1,5 +1,6 @@
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { createUserNotification } from "@/lib/notifications";
+import { getPrivateUserKey } from "@/lib/communityActor";
 import { getPublicAvatar, getPublicDisplayName } from "@/lib/userIdentity";
 
 // Points awarded per action
@@ -114,7 +115,7 @@ export function getRankProgress(points) {
  * Returns { leveledUp: boolean, newRank: RankObject } so callers can fire a toast.
  */
 export async function awardPoints(user, action) {
-  if (!user?.email) return { leveledUp: false, newRank: null };
+  if (!getPrivateUserKey(user)) return { leveledUp: false, newRank: null };
   const pts = POINT_VALUES[action];
   if (!pts) return { leveledUp: false, newRank: null };
 
@@ -132,26 +133,28 @@ export async function awardPoints(user, action) {
 }
 
 export async function awardPointAmount(user, points, field = "points_from_comments") {
-  if (!user?.email) return;
+  const userKey = getPrivateUserKey(user);
+  if (!userKey) return;
   const pts = Math.max(0, Number(points) || 0);
   if (!pts) return;
 
-  const existing = await base44.entities.UserLevel.filter({ user_email: user.email });
+  const existing = await communityClient.entities.UserLevel.filter({ user_key: userKey });
 
   let oldPoints = 0;
   if (existing.length > 0) {
     const record = existing[0];
     oldPoints = record.points || 0;
-    await base44.entities.UserLevel.update(record.id, {
+    await communityClient.entities.UserLevel.update(record.id, {
       points: oldPoints + pts,
       [field]: (record[field] || 0) + pts,
-      display_name: getPublicDisplayName(user, record.display_name || user.email),
+      display_name: getPublicDisplayName(user, record.display_name || "Guest"),
       avatar_url: getPublicAvatar(user) || record.avatar_url,
+      user_key: userKey,
     });
   } else {
-    await base44.entities.UserLevel.create({
-      user_email: user.email,
-      display_name: getPublicDisplayName(user, user.email),
+    await communityClient.entities.UserLevel.create({
+      user_key: userKey,
+      display_name: getPublicDisplayName(user, "Guest"),
       avatar_url: getPublicAvatar(user),
       points: pts,
       [field]: pts,
@@ -164,8 +167,8 @@ export async function awardPointAmount(user, points, field = "points_from_commen
   const leveledUp = newRank.name !== oldRank.name;
 
   createUserNotification({
-    recipientEmail: user.email,
-    actorEmail: user.email,
+    recipientUserId: user.id,
+    actorKey: userKey,
     actorName: getPublicDisplayName(user, "You"),
     type: "favor_gain",
     title: `+${pts} Favor`,

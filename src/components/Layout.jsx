@@ -4,24 +4,25 @@ import MobileNav from "./MobileNav";
 import OnboardingModal from "./OnboardingModal";
 import Splash from "../pages/Splash";
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 
 const GUEST_ONBOARDING_KEY = "commhub_guest_onboarding_seen";
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showSplash, setShowSplash] = useState(() => !sessionStorage.getItem("splash_seen"));
+  const forceSplash = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("splash");
+  const [showSplash, setShowSplash] = useState(() => forceSplash || !sessionStorage.getItem("splash_seen"));
 
   const handleEnterSite = () => {
-    sessionStorage.setItem("splash_seen", "1");
+    if (!forceSplash) sessionStorage.setItem("splash_seen", "1");
     setShowSplash(false);
   };
 
   const [isGuest, setIsGuest] = useState(false);
 
   useEffect(() => {
-    base44.auth.me().then((user) => {
+    communityClient.auth.me().then((user) => {
       if (user && !user.onboarded) {
         setIsGuest(false);
         setShowOnboarding(true);

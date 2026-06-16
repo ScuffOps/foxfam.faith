@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import {
   CalendarDays,
   Cake,
@@ -11,6 +11,7 @@ import {
   Handshake,
   Map,
   Sparkles,
+  HeartHandshake,
   ShieldCheck,
   BookOpen,
   Feather,
@@ -20,9 +21,9 @@ import {
   Vote,
   Mailbox,
   Lightbulb,
-  Hammer,
   Bug,
   ChevronDown,
+  ClipboardList,
 } from "lucide-react";
 import SidebarProfile from "./SidebarProfile";
 import { canBookCollab, canUseAdminPanel } from "@/lib/roles";
@@ -52,8 +53,8 @@ const navGroups = [
     items: [
       { path: "/prayer", label: "Prayer Wall", icon: Flame },
       { path: "/blessings", label: "Blessings", icon: Sparkles },
+      { path: "/offerings", label: "Offerings", icon: HeartHandshake },
       { path: "/reliquary", label: "Reliquary", icon: Feather },
-      { path: "/relic-forge", label: "Relic Forge", icon: Hammer },
       { path: "/codex", label: "Codex", icon: BookOpen },
     ],
   },
@@ -74,6 +75,7 @@ const navGroups = [
 
 const utilityNavItems = [
   { path: "/admin", label: "Admin Panel", icon: ShieldCheck, adminOnly: true },
+  { path: "/ops", label: "Staff Ops", icon: ClipboardList, adminOnly: true },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -83,7 +85,7 @@ export default function Sidebar({ onClose }) {
   const [openGroups, setOpenGroups] = useState({});
 
   useEffect(() => {
-    base44.auth.me().then((u) => setUserRole(u?.role)).catch(() => {});
+    communityClient.auth.me().then((u) => setUserRole(u?.role)).catch(() => {});
   }, []);
 
   const user = userRole ? { role: userRole } : null;
@@ -148,10 +150,10 @@ export default function Sidebar({ onClose }) {
           className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity"
           onClick={() => { sessionStorage.removeItem("splash_seen"); window.location.reload(); }}
         >
-          <img src="https://media.base44.com/images/public/69d2a9d37042d6fe0e285ca4/e241ead03_TenkoTokenrerwork.png" alt="Foxfam" className="h-9 w-9 rounded-lg object-cover" />
+          <img src="/assets/legacy-media/e241ead03_TenkoTokenrerwork.png" alt="Foxfam" className="h-9 w-9 rounded-lg object-cover" />
           <div>
-            <h1 className="font-heading text-base font-bold text-foreground">CommHub</h1>
-            <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Calendar + Input</p>
+            <h1 className="font-heading text-base font-bold text-foreground">Foxfam</h1>
+            <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Shrine + Community Portal</p>
           </div>
         </div>
         {onClose && (

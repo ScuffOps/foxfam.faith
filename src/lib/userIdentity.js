@@ -9,16 +9,22 @@ export function getGuestProfile() {
   }
 }
 
+function cleanName(value) {
+  const trimmed = String(value || "").trim();
+  return trimmed || "";
+}
+
 export function getPublicDisplayName(user, fallback = "Guest") {
   const guest = getGuestProfile();
-  return (
-    user?.twitch_display_name ||
-    user?.display_name ||
-    user?.username ||
-    guest?.name ||
-    (user?.email ? user.email.split("@")[0] : "") ||
-    fallback
-  );
+  return cleanName(user?.twitch_display_name)
+    || cleanName(user?.display_name)
+    || cleanName(user?.username)
+    || cleanName(user?.user_metadata?.user_name)
+    || cleanName(user?.user_metadata?.preferred_username)
+    || cleanName(user?.user_metadata?.name)
+    || cleanName(guest?.name)
+    || cleanName(fallback)
+    || "Guest";
 }
 
 export function getPublicAvatar(user) {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { useGuestProfile } from "@/hooks/useGuestProfile";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -27,12 +27,10 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
     if (!form.title) return;
     setSaving(true);
     try {
-      let submitterName = "Anonymous";
-      let submitterEmail = "";
+      let submitterName = "Guest";
       try {
-        const user = await base44.auth.me();
-        submitterName = getPublicDisplayName(user, user.email || "Member");
-        submitterEmail = user.email || "";
+        const user = await communityClient.auth.me();
+        submitterName = getPublicDisplayName(user, "Guest");
       } catch {
         if (profile.name) submitterName = profile.name + (profile.discordId ? ` (${profile.discordId})` : "");
       }
@@ -41,7 +39,6 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
         ...form,
         status: isMod && form.type === "update" ? "approved" : "pending",
         submitted_by_name: submitterName,
-        submitted_by_email: submitterEmail,
         upvotes: 0,
         upvoted_by: [],
         comment_count: 0,
@@ -58,8 +55,8 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
           }));
       }
 
-      await base44.entities.CommunityPost.create(data);
-      try { const u = await base44.auth.me(); awardPoints(u, "submit_post").then(checkLevelUp); } catch {}
+      await communityClient.entities.CommunityPost.create(data);
+      try { const u = await communityClient.auth.me(); awardPoints(u, "submit_post").then(checkLevelUp); } catch {}
       setForm({ title: "", description: "", type: "idea" });
       setPollOptions(["", ""]);
       onCreated?.();

@@ -47,8 +47,8 @@ const ALERT_TYPES = [
   },
   {
     key: "veri_thoughts",
-    label: "Veri Thoughts",
-    description: "Random wisdom from Veri delivered to you",
+    label: "Scuffox Thoughts",
+    description: "Fresh Scuffox lines delivered to you",
     icon: Sparkles,
     color: "text-primary",
     bg: "bg-primary/15",

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { communityClient } from "@/api/communityClient";
 import { BookOpen } from "lucide-react";
 import GlassCard from "../GlassCard";
 
@@ -16,7 +16,7 @@ export default function RecentCodexEntries() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    base44.entities.Codex.list("-created_date", 5)
+    communityClient.entities.Codex.list("-created_date", 5)
       .then(setEntries)
       .catch(() => setEntries([]))
       .finally(() => setLoading(false));
