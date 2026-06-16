@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Comfortaa:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,7 +6,7 @@
 
 @layer base {
   :root {
-    --font-heading: 'Bebas Neue', 'Arial Narrow', system-ui, sans-serif;
+    --font-heading: 'Meticula', 'Comfortaa', system-ui, sans-serif;
     --font-body: 'Meticula', 'Comfortaa', system-ui, sans-serif;
 
     --background: 230 60% 8%;
@@ -108,9 +108,9 @@
   .font-heading {
     font-family: var(--font-heading);
     font-variant-caps: small-caps;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0.02em;
+    font-weight: 700;
   }
 }
 
