@@ -59,7 +59,7 @@ https://foxfam.faith/**
 
 ## Supabase Auth Providers
 
-The app supports email magic-link sign-in plus Supabase OAuth sign-in/account linking. Keep `VITE_AUTH_GOOGLE_ENABLED`, `VITE_AUTH_DISCORD_ENABLED`, and `VITE_AUTH_APPLE_ENABLED` set to `false` until the matching Supabase Auth provider is enabled and configured; otherwise users will be sent to a provider-disabled Supabase error page.
+The app supports email/password sign-in plus Supabase OAuth sign-in/account linking. Keep `VITE_AUTH_GOOGLE_ENABLED`, `VITE_AUTH_DISCORD_ENABLED`, and `VITE_AUTH_APPLE_ENABLED` set to `false` until the matching Supabase Auth provider is enabled and configured; otherwise users will be sent to a provider-disabled Supabase error page.
 
 Account linking from Settings uses Supabase Auth identities:
 

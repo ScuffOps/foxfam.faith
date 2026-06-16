@@ -294,18 +294,35 @@ export const communityClient = {
       return { ...normalizeProfile(data), email: user.email || "" };
     },
 
-    async signInWithEmail(email, options = {}) {
+    async signInWithEmailPassword(email, password) {
       const client = getClient();
       const cleanedEmail = String(email || "").trim();
       if (!cleanedEmail) throw new Error("Enter an email address.");
-      const { error } = await client.auth.signInWithOtp({
+      if (!password) throw new Error("Enter your password.");
+      const { error } = await client.auth.signInWithPassword({
         email: cleanedEmail,
-        options: {
-          emailRedirectTo: options.emailRedirectTo || getAuthRedirectUrl(options.redirectPath),
-        },
+        password,
       });
       if (error) throw error;
       return true;
+    },
+
+    async signUpWithEmailPassword({ email, password, displayName = "" } = {}) {
+      const client = getClient();
+      const cleanedEmail = String(email || "").trim();
+      const cleanedDisplayName = String(displayName || "").trim();
+      if (!cleanedEmail) throw new Error("Enter an email address.");
+      if (!password || password.length < 6) throw new Error("Use a password with at least 6 characters.");
+      const { data, error } = await client.auth.signUp({
+        email: cleanedEmail,
+        password,
+        options: {
+          emailRedirectTo: getAuthRedirectUrl(),
+          data: cleanedDisplayName ? { display_name: cleanedDisplayName, name: cleanedDisplayName } : undefined,
+        },
+      });
+      if (error) throw error;
+      return data;
     },
 
     async redirectToLogin() {
@@ -315,10 +332,11 @@ export const communityClient = {
         if (loginEvent.defaultPrevented) return null;
       }
 
-      const email = window.prompt("Enter your email for a Supabase magic link:");
+      const email = window.prompt("Enter your email:");
       if (!email) return null;
-      await this.signInWithEmail(email, { redirectPath: "/" });
-      window.alert("Check your email for the sign-in link.");
+      const password = window.prompt("Enter your password:");
+      if (!password) return null;
+      await this.signInWithEmailPassword(email, password);
       return null;
     },
 
