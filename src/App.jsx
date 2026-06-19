@@ -71,9 +71,14 @@ const AuthenticatedApp = () => {
         <Route path="/reliquary" element={<Reliquary />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/ops" element={<StaffOps />} />
+        <Route path="/ops/handbook" element={<StaffOps defaultTab="handbook" />} />
+        <Route path="/ops/commands" element={<StaffOps defaultTab="commands" />} />
+        <Route path="/ops/schedule" element={<StaffOps defaultTab="schedule" />} />
+        <Route path="/ops/time" element={<StaffOps defaultTab="time" />} />
         <Route path="/ops/streams" element={<StaffOps defaultTab="streams" />} />
         <Route path="/ops/meds" element={<StaffOps defaultTab="meds" />} />
         <Route path="/ops/tasks" element={<StaffOps defaultTab="tasks" />} />
+        <Route path="/ops/members" element={<StaffOps defaultTab="members" />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

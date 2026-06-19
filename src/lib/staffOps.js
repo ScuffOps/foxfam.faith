@@ -31,9 +31,19 @@ const optionalDateTime = z.preprocess(
   z.string().optional(),
 );
 
+const optionalNumber = z.preprocess(
+  (value) => {
+    if (value === "" || value == null) return undefined;
+    return Number(value);
+  },
+  z.number().finite().nonnegative().optional(),
+);
+
 const streamRatingSchema = z.enum(["quiet", "good", "great", "legendary"]);
 const taskStatusSchema = z.enum(["in_queue", "working_on", "blocked", "done"]);
 const taskPrioritySchema = z.enum(["low", "normal", "high", "urgent"]);
+const shiftStatusSchema = z.enum(["scheduled", "confirmed", "covered", "missed"]);
+const timeEntryStatusSchema = z.enum(["draft", "submitted", "approved", "paid"]);
 
 const streamLogSchema = z.object({
   title: requiredTrimmedString,
@@ -76,6 +86,41 @@ const staffTaskSchema = z.object({
   link_url: optionalUrl,
 });
 
+const modShiftSchema = z.object({
+  staff_name: requiredTrimmedString,
+  role: optionalTrimmedString,
+  stream_title: optionalTrimmedString,
+  starts_at: optionalDateTime,
+  ends_at: optionalDateTime,
+  duty_notes: optionalTrimmedString,
+  status: shiftStatusSchema.default("scheduled"),
+});
+
+const staffTimeEntrySchema = z.object({
+  staff_name: requiredTrimmedString,
+  work_date: optionalDateTime,
+  started_at: optionalDateTime,
+  ended_at: optionalDateTime,
+  break_minutes: optionalNumber.default(0),
+  payable: z.boolean().default(true),
+  status: timeEntryStatusSchema.default("draft"),
+  notes: optionalTrimmedString,
+});
+
+const botCommandSchema = z.object({
+  command: requiredTrimmedString,
+  action: optionalTrimmedString,
+  type: optionalTrimmedString,
+  user_requirement: optionalTrimmedString,
+  cooldown: optionalTrimmedString,
+  bot_used: optionalTrimmedString,
+  alternate: optionalTrimmedString,
+  source: z.enum(["manual", "mixitup", "streamelements", "streamlabs"]).default("manual"),
+  external_id: optionalTrimmedString,
+  enabled: z.boolean().default(true),
+  notes: optionalTrimmedString,
+});
+
 export const TASK_STATUS_LABELS = {
   in_queue: "In Queue",
   working_on: "Working On",
@@ -95,6 +140,27 @@ export const STREAM_RATING_LABELS = {
   good: "Good",
   great: "Great",
   legendary: "Legendary",
+};
+
+export const SHIFT_STATUS_LABELS = {
+  scheduled: "Scheduled",
+  confirmed: "Confirmed",
+  covered: "Covered",
+  missed: "Missed",
+};
+
+export const TIME_ENTRY_STATUS_LABELS = {
+  draft: "Draft",
+  submitted: "Submitted",
+  approved: "Approved",
+  paid: "Paid",
+};
+
+export const COMMAND_SOURCE_LABELS = {
+  manual: "Manual",
+  mixitup: "MixItUp",
+  streamelements: "StreamElements",
+  streamlabs: "Streamlabs",
 };
 
 function compactPayload(payload) {
@@ -147,6 +213,45 @@ export function parseStaffTaskForm(form) {
   });
 }
 
+export function parseModShiftForm(form) {
+  const parsed = modShiftSchema.parse(form);
+  return compactPayload({
+    ...parsed,
+    starts_at: parseDateTime(parsed.starts_at),
+    ends_at: parseDateTime(parsed.ends_at),
+  });
+}
+
+export function parseStaffTimeEntryForm(form) {
+  const parsed = staffTimeEntrySchema.parse(form);
+  return compactPayload({
+    ...parsed,
+    work_date: parseDateTime(parsed.work_date),
+    started_at: parseDateTime(parsed.started_at),
+    ended_at: parseDateTime(parsed.ended_at),
+  });
+}
+
+export function parseBotCommandForm(form) {
+  const parsed = botCommandSchema.parse(form);
+  const command = parsed.command.startsWith("!") || parsed.command.startsWith("/")
+    ? parsed.command
+    : `!${parsed.command}`;
+  return compactPayload({
+    ...parsed,
+    command,
+  });
+}
+
 export function isOpenTask(task) {
   return task?.status !== "done";
+}
+
+export function getTimeEntryHours(entry) {
+  if (!entry?.started_at || !entry?.ended_at) return 0;
+  const start = new Date(entry.started_at);
+  const end = new Date(entry.ended_at);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return 0;
+  const breakMinutes = Number(entry.break_minutes || 0);
+  return Math.max(0, (end.getTime() - start.getTime()) / 36e5 - breakMinutes / 60);
 }
