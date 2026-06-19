@@ -41,7 +41,7 @@ export default function Layout() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="app-viewport flex overflow-hidden bg-background">
       {showSplash && <Splash onEnter={handleEnterSite} />}
       {showOnboarding && (
         <OnboardingModal

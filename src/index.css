@@ -92,6 +92,12 @@
     @apply bg-background text-foreground font-body;
   }
 
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
   button,
   input,
   textarea,
@@ -216,26 +222,34 @@
 .clockyboii-shell {
   position: relative;
   isolation: isolate;
+  min-width: 0;
 }
 
 .clockyboii-shell::before {
   content: "";
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: -2;
   pointer-events: none;
   background:
     linear-gradient(180deg, rgba(3, 5, 15, 0.34), rgba(3, 5, 15, 0.78)),
-    url("/assets/clockyboii-redeux.png") center top / clamp(960px, 78vw, 1500px) auto no-repeat;
+    url("/assets/clockyboii-redeux.png") center center / cover no-repeat;
 }
 
 .clockyboii-shell::after {
   content: "";
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
   background: radial-gradient(circle at 50% 18%, rgba(0, 145, 255, 0.16), transparent 36%);
+}
+
+.app-viewport {
+  height: 100vh;
+  min-height: 100vh;
+  height: 100dvh;
+  min-height: 100dvh;
 }
 
 .community-dashboard {
