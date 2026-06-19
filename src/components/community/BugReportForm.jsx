@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useGuestProfile } from "@/hooks/useGuestProfile";
 import { BUG_REPORT_DESCRIPTION, BUG_SEVERITY_LABELS, bugReportSchema, formatFileSize, getClientBugMetadata } from "@/lib/bugReport";
 import { getPublicDisplayName } from "@/lib/userIdentity";
+import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 
 const AREA_OPTIONS = [
   "Dashboard",
@@ -105,7 +106,7 @@ export default function BugReportForm({ open, onOpenChange, onCreated }) {
   const { toast } = useToast();
   const { profile } = useGuestProfile();
   const inputRef = useRef(null);
-  const [form, setForm] = useState(INITIAL_FORM);
+  const [form, setForm, { clearDraft }] = usePersistentDraft("bug-report.new", INITIAL_FORM);
   const [attachments, setAttachments] = useState([]);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -191,7 +192,7 @@ export default function BugReportForm({ open, onOpenChange, onCreated }) {
         ...getClientBugMetadata(),
       });
 
-      setForm(INITIAL_FORM);
+      clearDraft(INITIAL_FORM);
       setAttachments([]);
       setError("");
       onCreated?.();

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { communityClient } from "@/api/communityClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -9,10 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { EVENT_CATEGORY_OPTIONS } from "@/lib/categoryColors";
 import { ImagePlus, Loader2, X } from "lucide-react";
+import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 
-export default function EventFormDialog({ open, onOpenChange, event, onSaved }) {
-  const isEdit = !!event;
-  const [form, setForm] = useState({
+function toEventForm(event) {
+  return {
     title: event?.title || "",
     description: event?.description || "",
     category: event?.category || "personal",
@@ -23,10 +23,24 @@ export default function EventFormDialog({ open, onOpenChange, event, onSaved }) 
     image_url: event?.image_url || "",
     recurring: event?.recurring || false,
     recurrence_type: event?.recurrence_type || "none",
-  });
+  };
+}
+
+export default function EventFormDialog({ open, onOpenChange, event, onSaved }) {
+  const isEdit = !!event;
+  const initialForm = useMemo(() => toEventForm(event), [event]);
+  const draftScope = event?.id ? `event.edit.${event.id}` : "event.new";
+  const [form, setForm, { clearDraft }] = usePersistentDraft(draftScope, initialForm);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(event?.image_url || "");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setImageFile(null);
+      setImagePreview(form.image_url);
+    }
+  }, [form.image_url, open]);
 
   const handleImageFile = (e) => {
     const file = e.target.files?.[0];
@@ -61,6 +75,7 @@ export default function EventFormDialog({ open, onOpenChange, event, onSaved }) 
       await communityClient.entities.Event.create(data);
     }
     setSaving(false);
+    clearDraft(initialForm);
     onSaved();
     onOpenChange(false);
   };

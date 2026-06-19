@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { communityClient } from "@/api/communityClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -9,10 +9,13 @@ import { getPublicDisplayName } from "@/lib/userIdentity";
 import { ImagePlus, Loader2, BookOpen, X } from "lucide-react";
 import { awardPoints } from "@/hooks/usePoints";
 import { useLevelUpToast } from "@/hooks/useLevelUpToast";
+import { usePersistentDraft } from "@/hooks/usePersistentDraft";
+
+const INITIAL_BLESSING_FORM = { title: "", content: "", link_url: "", link_preview_title: "" };
 
 export default function BlessingForm({ open, onOpenChange, user, onCreated }) {
   const checkLevelUp = useLevelUpToast();
-  const [form, setForm] = useState({ title: "", content: "", link_url: "", link_preview_title: "" });
+  const [form, setForm, { clearDraft }] = usePersistentDraft("blessing.new", INITIAL_BLESSING_FORM);
   const [mediaFile, setMediaFile] = useState(null);
   const [mediaPreview, setMediaPreview] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -57,7 +60,7 @@ export default function BlessingForm({ open, onOpenChange, user, onCreated }) {
     });
     if (user) awardPoints(user, "post_blessing").then(checkLevelUp);
     setSaving(false);
-    setForm({ title: "", content: "", link_url: "", link_preview_title: "" });
+    clearDraft(INITIAL_BLESSING_FORM);
     setMediaFile(null);
     setMediaPreview(null);
     setSelectedCodex(null);

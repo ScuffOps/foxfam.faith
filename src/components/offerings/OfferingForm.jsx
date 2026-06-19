@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useGuestProfile } from "@/hooks/useGuestProfile";
 import { buildOfferingPayload, OFFERING_KIND_OPTIONS } from "@/lib/offerings";
 import { getPublicDisplayName } from "@/lib/userIdentity";
+import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 
 const MAX_OFFERING_FILE_SIZE = 25 * 1024 * 1024;
 const OFFERING_FILE_ACCEPT = "image/*,audio/*,video/*,.pdf,.txt,.md,.doc,.docx";
@@ -31,20 +32,20 @@ function getFileSizeLabel(bytes) {
 export default function OfferingForm({ open, onOpenChange, user, onCreated }) {
   const { toast } = useToast();
   const { profile } = useGuestProfile();
-  const [form, setForm] = useState(initialForm);
+  const [form, setForm, { clearDraft }] = usePersistentDraft("offering.new", initialForm);
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (!open) return;
-    setForm({
-      ...initialForm,
-      creatorName: getPublicDisplayName(user, profile.name || "Guest"),
-    });
+    setForm((current) => ({
+      ...current,
+      creatorName: current.creatorName || getPublicDisplayName(user, profile.name || "Guest"),
+    }));
     setFile(null);
     setError("");
-  }, [open, profile.name, user]);
+  }, [open, profile.name, setForm, user]);
 
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
 
@@ -80,7 +81,10 @@ export default function OfferingForm({ open, onOpenChange, user, onCreated }) {
       });
 
       await communityClient.entities.Offering.create(payload);
-      setForm(initialForm);
+      clearDraft({
+        ...initialForm,
+        creatorName: getPublicDisplayName(user, profile.name || "Guest"),
+      });
       setFile(null);
       onCreated?.();
       onOpenChange(false);

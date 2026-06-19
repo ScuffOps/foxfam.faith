@@ -8,6 +8,7 @@ import RichTextEditor from "@/components/RichTextEditor";
 import { getRichTextPlainText } from "@/components/RichTextContent";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { ImagePlus, Loader2, X } from "lucide-react";
+import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 
 const initialForm = {
   title: "",
@@ -31,7 +32,8 @@ function toForm(entry) {
 }
 
 export default function ReliquaryForm({ open, onOpenChange, user, entry, onSaved }) {
-  const [form, setForm] = useState(initialForm);
+  const draftScope = entry?.id ? `reliquary.edit.${entry.id}` : "reliquary.new";
+  const [form, setForm, { clearDraft, updateDraft }] = usePersistentDraft(draftScope, toForm(entry));
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
   const [saving, setSaving] = useState(false);
@@ -39,14 +41,12 @@ export default function ReliquaryForm({ open, onOpenChange, user, entry, onSaved
 
   useEffect(() => {
     if (open) {
-      const nextForm = toForm(entry);
-      setForm(nextForm);
       setImageFile(null);
-      setImagePreview(nextForm.image_url);
+      setImagePreview(form.image_url);
     }
-  }, [entry, open]);
+  }, [form.image_url, open]);
 
-  const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+  const update = updateDraft;
 
   const handleImageFile = (event) => {
     const file = event.target.files?.[0];
@@ -92,7 +92,7 @@ export default function ReliquaryForm({ open, onOpenChange, user, entry, onSaved
     }
 
     setSaving(false);
-    setForm(initialForm);
+    clearDraft(initialForm);
     setImageFile(null);
     setImagePreview("");
     onSaved?.();

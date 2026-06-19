@@ -541,6 +541,103 @@
   }
 }
 
+.dashboard-updates-ticker {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(9.25rem, auto) minmax(0, 1fr);
+  align-items: stretch;
+  min-height: 3.25rem;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(178, 213, 255, 0.16);
+  background:
+    radial-gradient(circle at 6% 0%, rgba(124, 92, 191, 0.24), transparent 42%),
+    linear-gradient(135deg, rgba(18, 21, 45, 0.78), rgba(8, 10, 22, 0.68));
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.dashboard-updates-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1rem;
+  color: hsl(var(--primary));
+  font-family: var(--font-heading);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  background: rgba(255, 255, 255, 0.045);
+  border-right: 1px solid rgba(178, 213, 255, 0.12);
+}
+
+.dashboard-ticker-window {
+  min-width: 0;
+  overflow: hidden;
+  outline: none;
+}
+
+.dashboard-ticker-track {
+  display: flex;
+  width: max-content;
+  min-width: 200%;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  animation: dashboard-ticker-scroll 32s linear infinite;
+}
+
+.dashboard-ticker-window:hover .dashboard-ticker-track,
+.dashboard-ticker-window:focus .dashboard-ticker-track {
+  animation-play-state: paused;
+}
+
+.dashboard-ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  white-space: nowrap;
+  color: hsl(var(--foreground));
+  font-size: 0.86rem;
+}
+
+.dashboard-ticker-item span,
+.dashboard-ticker-item em {
+  color: hsl(var(--muted-foreground));
+  font-style: normal;
+}
+
+.dashboard-ticker-tone {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.dashboard-customizer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+@keyframes dashboard-ticker-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@media (max-width: 640px) {
+  .dashboard-updates-ticker {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-updates-label {
+    justify-content: center;
+    border-right: 0;
+    border-bottom: 1px solid rgba(178, 213, 255, 0.12);
+  }
+}
+
 .dashboard-stat-card {
   min-height: 9.4rem;
   display: flex;
@@ -634,7 +731,8 @@
   .praise-burst__spark,
   .praise-burst__beam,
   .praise-burst__float,
-  .praise-button.is-praising {
+  .praise-button.is-praising,
+  .dashboard-ticker-track {
     transition: none;
     animation: none;
     transform: none;

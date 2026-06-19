@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Bell, LogIn, Settings, Sparkles, UserCircle2 } from "lucide-react";
 import { communityClient } from "@/api/communityClient";
@@ -16,6 +16,7 @@ export default function SidebarProfile({ onNavigate }) {
   const [level, setLevel] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [activeTab, setActiveTab] = useState("alerts");
+  const [profileOpen, setProfileOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -42,6 +43,21 @@ export default function SidebarProfile({ onNavigate }) {
     load();
     return () => { mounted = false; };
   }, []);
+
+  const markNotificationsRead = useCallback(async () => {
+    const unreadNotifications = notifications.filter((note) => !note.read);
+    if (unreadNotifications.length === 0) return;
+
+    setNotifications((current) => current.map((note) => ({ ...note, read: true })));
+
+    await communityClient.notifications.markRead(unreadNotifications.map((note) => note.id));
+  }, [notifications]);
+
+  useEffect(() => {
+    if (profileOpen && activeTab === "alerts") {
+      markNotificationsRead();
+    }
+  }, [activeTab, markNotificationsRead, profileOpen]);
 
   const displayName = getPublicDisplayName(user, "Guest Fox");
   const avatar = getPublicAvatar(user);
@@ -74,9 +90,11 @@ export default function SidebarProfile({ onNavigate }) {
   }
 
   return (
-    <Popover>
+    <Popover open={profileOpen} onOpenChange={setProfileOpen}>
       <PopoverTrigger asChild>
-        <button className="mx-3 mb-3 flex w-[calc(100%-1.5rem)] items-center gap-3 rounded-xl border border-border/80 bg-secondary/35 px-3 py-3 text-left transition-all hover:border-primary/35 hover:bg-secondary/55">
+        <button
+          className="mx-3 mb-3 flex w-[calc(100%-1.5rem)] items-center gap-3 rounded-xl border border-border/80 bg-secondary/35 px-3 py-3 text-left transition-all hover:border-primary/35 hover:bg-secondary/55"
+        >
           <Avatar avatar={avatar} name={displayName} />
           <span className="min-w-0 flex-1">
             <span className="block truncate font-heading text-sm font-semibold text-foreground">{displayName}</span>

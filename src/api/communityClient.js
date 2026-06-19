@@ -39,6 +39,7 @@ const ENTITY_TABLES = {
   Prayer: "prayers",
   ReliquaryComment: "reliquary_comments",
   ReliquaryEntry: "reliquary_entries",
+  ScuffoxUpdate: "scuffox_updates",
   Medication: "medications",
   MedDose: "medication_doses",
   ModShift: "mod_shifts",
@@ -287,6 +288,20 @@ const userEntity = {
   },
 };
 
+
+const notificationApi = {
+  async markRead(ids = []) {
+    const notificationIds = [...new Set(ids.filter(Boolean))];
+    if (notificationIds.length === 0) return true;
+
+    const client = getClient();
+    await getCurrentSessionUser();
+    const { error } = await client.rpc("mark_user_notifications_read", { notification_ids: notificationIds });
+    if (error) throw error;
+    return true;
+  },
+};
+
 const entities = Object.fromEntries(
   Object.keys(ENTITY_TABLES).map((entityName) => [entityName, createEntityApi(entityName)]),
 );
@@ -411,6 +426,8 @@ export const communityClient = {
   },
 
   entities,
+
+  notifications: notificationApi,
 
   integrations: {
     Core: {

@@ -10,6 +10,7 @@ import { getRichTextPlainText } from "@/components/RichTextContent";
 import { FORUM_SECTIONS, normalizeForumCategory } from "@/lib/forumSections";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { useToast } from "@/components/ui/use-toast";
+import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 
 const getInitialForm = (category = "general") => ({
   title: "",
@@ -20,7 +21,7 @@ const getInitialForm = (category = "general") => ({
 
 export default function ForumThreadForm({ open, onOpenChange, user, onCreated, defaultCategory = "general" }) {
   const { toast } = useToast();
-  const [form, setForm] = useState(() => getInitialForm(defaultCategory));
+  const [form, setForm, { clearDraft }] = usePersistentDraft("forum-thread.new", getInitialForm(defaultCategory));
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -44,7 +45,7 @@ export default function ForumThreadForm({ open, onOpenChange, user, onCreated, d
         reacted_by: [],
         is_locked: false,
       });
-      setForm(getInitialForm(defaultCategory));
+      clearDraft(getInitialForm(defaultCategory));
       onCreated?.();
       onOpenChange(false);
       toast({ title: "Thread started", description: "Your forum thread is live." });
