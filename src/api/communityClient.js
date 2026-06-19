@@ -41,8 +41,11 @@ const ENTITY_TABLES = {
   ReliquaryEntry: "reliquary_entries",
   Medication: "medications",
   MedDose: "medication_doses",
+  ModShift: "mod_shifts",
+  BotCommand: "bot_commands",
   Suggestion: "suggestions",
   StaffTask: "staff_tasks",
+  StaffTimeEntry: "staff_time_entries",
   StreamLog: "stream_logs",
   SyncState: "sync_states",
   Thought: "thoughts",
@@ -258,11 +261,26 @@ const userEntity = {
 
   async update(id, payload = {}) {
     const client = getClient();
+    const displayName = payload.display_name;
+    if (Object.keys(dataOnly(payload)).length !== 1 || typeof displayName !== "string") {
+      throw new Error("Only display names can be changed from this screen.");
+    }
+    const { data, error } = await client.rpc("set_profile_display_name", {
+      target_profile_id: id,
+      new_display_name: displayName,
+    });
+    if (error) throw error;
+    return normalizeProfile(Array.isArray(data) ? data[0] : data);
+  },
+
+  async setRole(id, role, reason = "") {
+    const client = getClient();
     const { data, error } = await client
-      .from("profiles")
-      .update(dataOnly(payload))
-      .eq("id", id)
-      .select(PUBLIC_PROFILE_SELECT)
+      .rpc("set_profile_role", {
+        target_profile_id: id,
+        new_role: role,
+        reason: reason || null,
+      })
       .single();
     if (error) throw error;
     return normalizeProfile(data);

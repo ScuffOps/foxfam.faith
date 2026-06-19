@@ -41,7 +41,7 @@ export default function Layout() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="app-viewport flex overflow-hidden bg-background">
       {showSplash && <Splash onEnter={handleEnterSite} />}
       {showOnboarding && (
         <OnboardingModal
@@ -51,7 +51,7 @@ export default function Layout() {
         />
       )}
       {/* Desktop Sidebar */}
-      <div className="hidden md:block">
+      <div className="relative z-10 hidden shrink-0 md:block">
         <Sidebar />
       </div>
 
@@ -69,7 +69,7 @@ export default function Layout() {
       )}
 
       {/* Main Content */}
-      <div className="clockyboii-shell flex flex-1 flex-col overflow-hidden">
+      <div className="clockyboii-shell relative z-10 flex flex-1 flex-col overflow-hidden">
         <MobileNav onMenuClick={() => setSidebarOpen(true)} />
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 lg:p-8">
           <Outlet />

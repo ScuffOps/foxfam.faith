@@ -22,6 +22,18 @@ export const ROLE_LABELS = {
   [ROLE_VALUES.guest]:   "Guest",
 };
 
+export const ROLE_OPTIONS = [
+  ROLE_VALUES.admin,
+  ROLE_VALUES.leadMod,
+  ROLE_VALUES.mod,
+  ROLE_VALUES.favored,
+  ROLE_VALUES.creator,
+  ROLE_VALUES.foxfam,
+  ROLE_VALUES.verified,
+  ROLE_VALUES.user,
+  ROLE_VALUES.guest,
+];
+
 // Map old/legacy role strings to canonical values
 const LEGACY_ROLE_MAP = {
   regular:   ROLE_VALUES.user,
@@ -70,6 +82,10 @@ export function canModerate(user) {
 
 export function canUseAdminPanel(user) {
   return canModerate(user);
+}
+
+export function canManageRoles(user) {
+  return hasRole(user, ROLE_VALUES.admin);
 }
 
 export function canCreateForumThread(user) {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { communityClient } from "@/api/communityClient";
-import { Plus, Search, ArrowUp, TrendingUp, Clock, BarChart3, Mailbox, MessagesSquare, Bug } from "lucide-react";
+import { Plus, Search, ArrowUp, TrendingUp, Clock, BarChart3, Mailbox, Bug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PostForm from "../components/community/PostForm";
 import IdeaCard from "../components/community/IdeaCard";
@@ -11,8 +11,6 @@ import BugReportCard from "../components/community/BugReportCard";
 import { BUG_REPORT_DESCRIPTION } from "@/lib/bugReport";
 import SuggestionForm from "../components/community/SuggestionForm";
 import SuggestionCard from "../components/community/SuggestionCard";
-import ForumThreadForm from "../components/community/ForumThreadForm";
-import ForumThreadCard from "../components/community/ForumThreadCard";
 import ProgressionLoop from "../components/ProgressionLoop";
 import { canModerate } from "@/lib/roles";
 import { isPubliclyHiddenFeaturePost } from "@/lib/hiddenFeatures";
@@ -23,8 +21,13 @@ const TABS = [
   { key: "updates", label: "Updates" },
   { key: "bugs", label: "Bug Reports" },
   { key: "suggestions", label: "Suggestion Box" },
-  { key: "forum", label: "Forum" },
 ];
+
+const getValidTab = (tab, fallback = "feedback") => {
+  if (TABS.some((item) => item.key === tab)) return tab;
+  if (TABS.some((item) => item.key === fallback)) return fallback;
+  return "feedback";
+};
 
 const SORT_OPTIONS = [
   { key: "top", label: "Top", icon: ArrowUp },
@@ -36,15 +39,13 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
   const [searchParams] = useSearchParams();
   const [posts, setPosts] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
-  const [threads, setThreads] = useState([]);
   const [bugReports, setBugReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [showBugForm, setShowBugForm] = useState(false);
   const [showSuggestionForm, setShowSuggestionForm] = useState(false);
-  const [showThreadForm, setShowThreadForm] = useState(false);
-  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || defaultTab);
+  const [activeTab, setActiveTab] = useState(() => getValidTab(searchParams.get("tab") || defaultTab));
   const [sort, setSort] = useState("top");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("approved");
@@ -52,23 +53,21 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
   const loadData = async () => {
     setLoading(true);
     try { const me = await communityClient.auth.me(); setUser(me); } catch {}
-    const [all, allSuggestions, allThreads, allBugReports] = await Promise.all([
+    const [all, allSuggestions, allBugReports] = await Promise.all([
       communityClient.entities.CommunityPost.list("-created_date", 200).catch(() => []),
       communityClient.entities.Suggestion.list("-created_date", 200).catch(() => []),
-      communityClient.entities.CommunityThread.list("-created_date", 100).catch(() => []),
       communityClient.entities.BugReport.list("-created_date", 100).catch(() => []),
     ]);
     setPosts(all);
     setSuggestions(allSuggestions);
-    setThreads(allThreads);
     setBugReports(allBugReports);
     setLoading(false);
   };
 
   useEffect(() => { loadData(); }, []);
   useEffect(() => {
-    const nextTab = searchParams.get("tab") || defaultTab;
-    if (TABS.some((tab) => tab.key === nextTab)) setActiveTab(nextTab);
+    const nextTab = getValidTab(searchParams.get("tab") || defaultTab);
+    setActiveTab(nextTab);
   }, [defaultTab, searchParams]);
 
   const isAdmin = canModerate(user);
@@ -116,10 +115,6 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
         ) : activeTab === "suggestions" ? (
           <Button onClick={() => setShowSuggestionForm(true)} className="gap-2">
             <Mailbox className="h-4 w-4" /> New Suggestion
-          </Button>
-        ) : activeTab === "forum" ? (
-          <Button onClick={() => setShowThreadForm(true)} className="gap-2">
-            <MessagesSquare className="h-4 w-4" /> New Thread
           </Button>
         ) : (
           <Button onClick={() => setShowForm(true)} className="gap-2">
@@ -217,50 +212,8 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
         </div>
       )}
 
-      {/* Forum tab content */}
-      {activeTab === "forum" && (
-        <div>
-          <div className="mb-4 flex flex-col gap-2 rounded-xl border border-border bg-card/55 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="font-heading text-base font-semibold">Foxfam Forum</h2>
-              <p className="text-xs text-muted-foreground">Everyone can start threads, comment, and give praise.</p>
-            </div>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search threads..."
-                className="h-8 w-full rounded-lg border border-border bg-secondary/50 pl-8 pr-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring sm:w-56"
-              />
-            </div>
-          </div>
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
-            </div>
-          ) : threads.length === 0 ? (
-            <div className="rounded-xl border border-border bg-card p-12 text-center">
-              <MessagesSquare className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">No forum threads yet.</p>
-              <Button className="mt-4 gap-2" onClick={() => setShowThreadForm(true)}>
-                <Plus className="h-4 w-4" /> Start the first thread
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {threads
-                .filter((thread) => !search || thread.title.toLowerCase().includes(search.toLowerCase()) || (thread.body || "").toLowerCase().includes(search.toLowerCase()))
-                .map((thread) => (
-                  <ForumThreadCard key={thread.id} thread={thread} user={user} isAdmin={isAdmin} onRefresh={loadData} />
-                ))}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Toolbar — only for non-suggestion tabs */}
-      {activeTab !== "suggestions" && activeTab !== "forum" && activeTab !== "bugs" && <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {activeTab !== "suggestions" && activeTab !== "bugs" && <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
         {/* Sort */}
         <div className="flex items-center gap-1 rounded-lg border border-border bg-secondary/50 p-0.5">
@@ -311,7 +264,7 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
       </div>}
 
       {/* Posts — only for non-suggestion tabs */}
-      {activeTab !== "suggestions" && activeTab !== "forum" && activeTab !== "bugs" && (loading ? (
+      {activeTab !== "suggestions" && activeTab !== "bugs" && (loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
         </div>
@@ -335,7 +288,6 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
       <PostForm open={showForm} onOpenChange={setShowForm} onCreated={loadData} isMod={isAdmin} />
       <BugReportForm open={showBugForm} onOpenChange={setShowBugForm} onCreated={loadData} />
       <SuggestionForm open={showSuggestionForm} onOpenChange={setShowSuggestionForm} onCreated={loadData} />
-      <ForumThreadForm open={showThreadForm} onOpenChange={setShowThreadForm} user={user} onCreated={loadData} />
     </div>
   );
 }
