@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard';
 import Calendar from './pages/Calendar';
 import Birthdays from './pages/Birthdays';
 import CommunityInput from './pages/CommunityInput';
+import Forum from './pages/Forum';
 import Settings from './pages/Settings';
 import PrayerWall from './pages/PrayerWall';
 import CollabRequests from './pages/CollabRequests';
@@ -54,7 +55,7 @@ const AuthenticatedApp = () => {
         <Route path="/events" element={<Calendar />} />
         <Route path="/birthdays" element={<Birthdays />} />
         <Route path="/community" element={<CommunityInput />} />
-        <Route path="/forum" element={<CommunityInput defaultTab="forum" />} />
+        <Route path="/forum" element={<Forum />} />
         <Route path="/polls" element={<CommunityInput defaultTab="polls" />} />
         <Route path="/updates" element={<CommunityInput defaultTab="updates" />} />
         <Route path="/feedback" element={<CommunityInput defaultTab="feedback" />} />

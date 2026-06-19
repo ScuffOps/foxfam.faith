@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
 import { communityClient } from "@/api/communityClient";
-import { Check, X, ShieldAlert, Handshake, Lightbulb, Cake, BarChart3, CalendarPlus, Map, Crown } from "lucide-react";
+import { Check, X, ShieldAlert, Handshake, Lightbulb, Cake, BarChart3, CalendarPlus, Map, Crown, UserCog } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/use-toast";
 import { FAVORED_BADGE, FAVORED_DEFAULT_TITLE } from "@/hooks/usePoints";
 import GlassCard from "../components/GlassCard";
 import ActivityChart from "../components/dashboard/ActivityChart";
 import RichTextContent from "../components/RichTextContent";
-import { canUseAdminPanel } from "@/lib/roles";
+import { canManageRoles, canUseAdminPanel, getRoleLabel, ROLE_OPTIONS } from "@/lib/roles";
 
 const TABS = [
   { key: "ideas", label: "Ideas & Feedback", icon: Lightbulb },
@@ -15,22 +18,32 @@ const TABS = [
   { key: "birthdays", label: "Birthdays", icon: Cake },
   { key: "activity", label: "Activity", icon: BarChart3 },
   { key: "favor", label: "Favored", icon: Crown },
+  { key: "roles", label: "Roles", icon: UserCog, adminOnly: true },
 ];
 
 export default function Admin() {
+  const { toast } = useToast();
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState("ideas");
-  const [data, setData] = useState({ ideas: [], polls: [], collabs: [], birthdays: [], favor: [] });
+  const [data, setData] = useState({ ideas: [], polls: [], collabs: [], birthdays: [], favor: [], profiles: [] });
   const [loading, setLoading] = useState(true);
 
   const loadAll = async () => {
     setLoading(true);
-    try { const me = await communityClient.auth.me(); setUser(me); } catch {}
-    const [posts, collabs, birthdays, levels] = await Promise.all([
+    let me = null;
+    try {
+      me = await communityClient.auth.me();
+      setUser(me);
+    } catch {
+      setUser(null);
+    }
+
+    const [posts, collabs, birthdays, levels, profiles] = await Promise.all([
       communityClient.entities.CommunityPost.filter({ status: "pending" }).catch(() => []),
       communityClient.entities.CollabRequest.filter({ status: "pending" }).catch(() => []),
       communityClient.entities.Birthday.filter({ status: "pending" }).catch(() => []),
       communityClient.entities.UserLevel.list("-points", 100).catch(() => []),
+      canManageRoles(me) ? communityClient.entities.User.list().catch(() => []) : Promise.resolve([]),
     ]);
     setData({
       ideas: posts.filter((p) => p.type !== "poll"),
@@ -38,6 +51,7 @@ export default function Admin() {
       collabs,
       birthdays,
       favor: levels,
+      profiles,
     });
     setLoading(false);
   };
@@ -45,6 +59,7 @@ export default function Admin() {
   useEffect(() => { loadAll(); }, []);
 
   const isAdmin = canUseAdminPanel(user);
+  const isRoleAdmin = canManageRoles(user);
 
   if (!loading && !isAdmin) {
     return (
@@ -63,8 +78,10 @@ export default function Admin() {
     birthdays: data.birthdays.length,
     activity: 0,
     favor: data.favor.filter((level) => level.is_favored).length,
+    roles: data.profiles.length,
   };
   const totalPending = counts.ideas + counts.polls + counts.collabs + counts.birthdays;
+  const visibleTabs = TABS.filter((tab) => !tab.adminOnly || isRoleAdmin);
 
   // --- Action handlers ---
   const updatePost = async (id, update) => {
@@ -82,6 +99,25 @@ export default function Admin() {
   const updateFavor = async (id, update) => {
     await communityClient.entities.UserLevel.update(id, update);
     loadAll();
+  };
+  const updateProfileRole = async (profile, role, reason) => {
+    try {
+      const updated = await communityClient.entities.User.setRole(profile.id, role, reason);
+      setData((current) => ({
+        ...current,
+        profiles: current.profiles.map((item) => (item.id === updated.id ? updated : item)),
+      }));
+      toast({
+        title: "Access level updated",
+        description: `${updated.display_name || "Guest"} is now ${getRoleLabel(updated.role)}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Access update failed",
+        description: error?.message || "Only admins can change access levels.",
+        variant: "destructive",
+      });
+    }
   };
   const convertToEvent = async (post) => {
     await communityClient.entities.Event.create({
@@ -110,7 +146,7 @@ export default function Admin() {
 
       {/* Tabs */}
       <div className="mb-5 flex items-center gap-1 border-b border-border">
-        {TABS.map(({ key, label, icon: Icon }) => (
+        {visibleTabs.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             onClick={() => setActiveTab(key)}
@@ -270,9 +306,97 @@ export default function Admin() {
               )}
             />
           )}
+
+          {activeTab === "roles" && isRoleAdmin && (
+            <Section
+              items={data.profiles}
+              empty="No profiles found yet."
+              renderItem={(profile) => (
+                <RoleRow
+                  key={profile.id}
+                  profile={profile}
+                  currentUserId={user?.id}
+                  onSave={(role, reason) => updateProfileRole(profile, role, reason)}
+                />
+              )}
+            />
+          )}
         </>
       )}
     </div>
+  );
+}
+
+function RoleRow({ profile, currentUserId, onSave }) {
+  const [selectedRole, setSelectedRole] = useState(profile.role);
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+  const isSelf = profile.id === currentUserId;
+  const hasChanged = selectedRole !== profile.role;
+
+  useEffect(() => {
+    setSelectedRole(profile.role);
+  }, [profile.role]);
+
+  const handleSave = async () => {
+    if (!hasChanged || isSelf) return;
+    setSaving(true);
+    try {
+      await onSave(selectedRole, reason);
+      setReason("");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <GlassCard>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium text-sm">{profile.display_name || "Guest"}</span>
+            <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
+              {getRoleLabel(profile.role)}
+            </span>
+            {isSelf && (
+              <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
+                You
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-[10px] text-muted-foreground/70">Profile ID: {profile.id}</p>
+          {isSelf && (
+            <p className="mt-2 text-xs text-muted-foreground">Self-role changes are blocked to avoid locking out the last admin.</p>
+          )}
+        </div>
+
+        <div className="grid w-full gap-2 md:max-w-sm">
+          <Select value={selectedRole} onValueChange={setSelectedRole} disabled={isSelf || saving}>
+            <SelectTrigger className="h-9 bg-secondary/50">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ROLE_OPTIONS.map((role) => (
+                <SelectItem key={role} value={role}>
+                  {getRoleLabel(role)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Textarea
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            disabled={isSelf || saving}
+            className="min-h-16 bg-secondary/50 text-xs"
+            placeholder="Optional note for the audit log"
+          />
+          <Button size="sm" disabled={!hasChanged || isSelf || saving} onClick={handleSave} className="justify-self-end gap-1.5">
+            <UserCog className="h-3.5 w-3.5" />
+            {saving ? "Saving..." : "Save Access"}
+          </Button>
+        </div>
+      </div>
+    </GlassCard>
   );
 }
 

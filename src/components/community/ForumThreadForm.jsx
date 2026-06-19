@@ -1,25 +1,31 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { communityClient } from "@/api/communityClient";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import RichTextEditor from "@/components/RichTextEditor";
 import { getRichTextPlainText } from "@/components/RichTextContent";
+import { FORUM_SECTIONS, normalizeForumCategory } from "@/lib/forumSections";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { useToast } from "@/components/ui/use-toast";
 
-const initialForm = {
+const getInitialForm = (category = "general") => ({
   title: "",
   body: "",
-  category: "general",
+  category: normalizeForumCategory(category),
   tags: "",
-};
+});
 
-export default function ForumThreadForm({ open, onOpenChange, user, onCreated }) {
+export default function ForumThreadForm({ open, onOpenChange, user, onCreated, defaultCategory = "general" }) {
   const { toast } = useToast();
-  const [form, setForm] = useState(initialForm);
+  const [form, setForm] = useState(() => getInitialForm(defaultCategory));
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) setForm((current) => ({ ...current, category: normalizeForumCategory(defaultCategory) }));
+  }, [defaultCategory, open]);
 
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
 
@@ -30,7 +36,7 @@ export default function ForumThreadForm({ open, onOpenChange, user, onCreated })
       await communityClient.entities.CommunityThread.create({
         title: form.title.trim(),
         body: form.body,
-        category: form.category.trim() || "general",
+        category: normalizeForumCategory(form.category),
         tags: form.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
         author_name: getPublicDisplayName(user, "Guest"),
         comment_count: 0,
@@ -38,7 +44,7 @@ export default function ForumThreadForm({ open, onOpenChange, user, onCreated })
         reacted_by: [],
         is_locked: false,
       });
-      setForm(initialForm);
+      setForm(getInitialForm(defaultCategory));
       onCreated?.();
       onOpenChange(false);
       toast({ title: "Thread started", description: "Your forum thread is live." });
@@ -65,8 +71,19 @@ export default function ForumThreadForm({ open, onOpenChange, user, onCreated })
               <Input value={form.title} onChange={(event) => update("title", event.target.value)} placeholder="Start a discussion..." className="mt-1.5 bg-secondary" />
             </div>
             <div>
-              <Label>Category</Label>
-              <Input value={form.category} onChange={(event) => update("category", event.target.value)} placeholder="general" className="mt-1.5 bg-secondary" />
+              <Label>Subforum</Label>
+              <Select value={form.category} onValueChange={(value) => update("category", value)}>
+                <SelectTrigger className="mt-1.5 bg-secondary">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {FORUM_SECTIONS.map((section) => (
+                    <SelectItem key={section.id} value={section.id}>
+                      {section.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

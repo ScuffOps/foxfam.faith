@@ -7,7 +7,7 @@ const LAYERS = [
   { src: "/assets/legacy-media/983cbe8b6_scenelayer-shadow.png", depth: 0.012, style: { bottom: 0, left: 0, width: "100%", opacity: 0.55, mixBlendMode: "multiply" } },
   { src: "/assets/legacy-media/809268ef7_scenelayer-frontgrass.png", depth: 0.03, style: { bottom: 0, left: 0, width: "100%", opacity: 1 } },
   { src: "/assets/legacy-media/da04239b4_scenelayer-topfern.png", depth: 0.04, style: { bottom: 0, left: 0, width: "40%", opacity: 1 } },
-  { src: "/assets/legacy-media/b09341c6f_scenelayer-altar.png", depth: 0.048, style: { bottom: 0, left: "50%", transform: "translateX(-50%)", width: "clamp(400px, 88vw, 760px)", opacity: 1 } },
+  { src: "/assets/legacy-media/b09341c6f_scenelayer-altar.png", depth: 0, style: { bottom: 0, left: "50%", transform: "translateX(-50%)", width: "clamp(400px, 88vw, 760px)", opacity: 1 } },
 ];
 
 export default function Splash({ onEnter }) {
@@ -130,11 +130,11 @@ export default function Splash({ onEnter }) {
         }}
         className="splash-lantern-stage absolute cursor-pointer border-0 bg-transparent p-0"
         style={{
-          top: "54%",
+          bottom: "clamp(28px, 5vw, 58px)",
           left: "50%",
-          width: "clamp(180px, 18vw, 270px)",
+          width: "clamp(210px, 22vw, 330px)",
           aspectRatio: "1 / 1",
-          transform: "translate(-50%, -50%)",
+          transform: "translateX(-50%)",
           zIndex: 18,
           willChange: "opacity",
         }}

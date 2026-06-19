@@ -267,6 +267,19 @@ const userEntity = {
     if (error) throw error;
     return normalizeProfile(data);
   },
+
+  async setRole(id, role, reason = "") {
+    const client = getClient();
+    const { data, error } = await client
+      .rpc("set_profile_role", {
+        target_profile_id: id,
+        new_role: role,
+        reason: reason || null,
+      })
+      .single();
+    if (error) throw error;
+    return normalizeProfile(data);
+  },
 };
 
 const entities = Object.fromEntries(

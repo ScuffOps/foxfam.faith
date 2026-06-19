@@ -13,4 +13,7 @@ test("splash lantern is a static focal stage with attached flame effects", () =>
   assert.match(source, /data-testid="splash-lantern"/);
   assert.match(source, /data-testid="splash-lantern-hit-target"/);
   assert.match(source, /\.splash-lantern-stage:focus \.splash-lantern-flames/);
+  assert.match(source, /bottom: "clamp\(28px, 5vw, 58px\)"/);
+  assert.doesNotMatch(source, /top: "54%"/);
+  assert.match(source, /scenelayer-altar\.png", depth: 0/);
 });

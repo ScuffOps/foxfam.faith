@@ -32,6 +32,10 @@ const rootNavItems = [
   { path: "/", label: "Dashboard/Home", icon: Home },
 ];
 
+const standaloneNavItems = [
+  { path: "/forum", label: "Forum", icon: MessageSquare },
+];
+
 const navGroups = [
   {
     key: "calendar",
@@ -62,9 +66,8 @@ const navGroups = [
     key: "community",
     label: "Community",
     icon: MessageSquare,
-    activePaths: ["/community"],
+    activePaths: ["/community", "/polls", "/feedback", "/bugs", "/suggestions"],
     items: [
-      { path: "/forum", label: "Forum", icon: MessageSquare },
       { path: "/polls", label: "Polls", icon: Vote },
       { path: "/feedback", label: "Feedback", icon: Lightbulb },
       { path: "/bugs", label: "Bug Reports", icon: Bug },
@@ -100,6 +103,7 @@ export default function Sidebar({ onClose }) {
   const visibleGroups = navGroups
     .map((group) => ({ ...group, items: group.items.filter(canShowItem) }))
     .filter((group) => group.items.length > 0);
+  const visibleStandaloneItems = standaloneNavItems.filter(canShowItem);
   const visibleUtilityItems = utilityNavItems.filter(canShowItem);
 
   const isPathActive = (path) =>
@@ -197,6 +201,8 @@ export default function Sidebar({ onClose }) {
               </div>
             );
           })}
+
+          {visibleStandaloneItems.map((item) => renderLink(item))}
 
           <div className="pt-2">
             {visibleUtilityItems.map((item) => renderLink(item))}
