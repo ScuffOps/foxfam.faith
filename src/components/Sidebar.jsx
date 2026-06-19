@@ -6,6 +6,7 @@ import {
   Cake,
   MessageSquare,
   Settings,
+  UserCircle2,
   X,
   Flame,
   Handshake,
@@ -29,7 +30,7 @@ import SidebarProfile from "./SidebarProfile";
 import { canBookCollab, canUseAdminPanel } from "@/lib/roles";
 
 const rootNavItems = [
-  { path: "/", label: "Dashboard/Home", icon: Home },
+  { path: "/", label: "Dashboard", icon: Home },
 ];
 
 const standaloneNavItems = [
@@ -77,6 +78,7 @@ const navGroups = [
 ];
 
 const utilityNavItems = [
+  { path: "/profile", label: "Profile", icon: UserCircle2 },
   { path: "/admin", label: "Admin Panel", icon: ShieldCheck, adminOnly: true },
   { path: "/ops", label: "Staff Ops", icon: ClipboardList, adminOnly: true },
   { path: "/settings", label: "Settings", icon: Settings },
@@ -157,7 +159,7 @@ export default function Sidebar({ onClose }) {
           <img src="/assets/legacy-media/e241ead03_TenkoTokenrerwork.png" alt="Foxfam" className="h-9 w-9 rounded-lg object-cover" />
           <div>
             <h1 className="font-heading text-base font-bold text-foreground">Foxfam</h1>
-            <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Shrine + Community Portal</p>
+            <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Care vs Chaos Portal</p>
           </div>
         </div>
         {onClose && (
@@ -213,7 +215,7 @@ export default function Sidebar({ onClose }) {
       {/* Footer */}
       <div className="border-t border-border px-5 py-4">
         <p className="text-xs text-muted-foreground">
-          Community Calendar v1.0
+          Care vs chaos, badly calendared.
         </p>
       </div>
     </div>

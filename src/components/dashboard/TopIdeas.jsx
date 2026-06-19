@@ -81,7 +81,7 @@ export default function TopIdeas() {
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-primary" />
         </div>
       ) : ideas.length === 0 ? (
-        <p className="dashboard-empty rounded-lg py-5 text-center text-sm text-muted-foreground">No ideas yet</p>
+        <p className="dashboard-empty rounded-lg py-5 text-center text-sm text-muted-foreground">No ideas yet. Dangerous calm.</p>
       ) : (
         <div className="space-y-2.5">
           {ideas.map((idea) => {

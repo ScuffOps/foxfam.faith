@@ -135,7 +135,7 @@ export default function Calendar() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-heading text-2xl font-bold md:text-3xl">Calendar</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Manage your events and schedule</p>
+          <p className="mt-1 text-sm text-muted-foreground">Theoretically, a schedule. Emotionally, a loose prophecy.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setShowCollabBooking(!showCollabBooking)} className="gap-2">

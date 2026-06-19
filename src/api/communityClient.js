@@ -52,6 +52,8 @@ const ENTITY_TABLES = {
   Thought: "thoughts",
   UserLevel: "user_levels",
   UserNotification: "user_notifications",
+  UserRelic: "user_relics",
+  UserRelicCharm: "user_relic_charms",
 };
 
 const RESERVED_ROW_KEYS = new Set([

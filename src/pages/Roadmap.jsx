@@ -105,7 +105,7 @@ export default function Roadmap() {
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           <h1 className="font-heading text-2xl font-bold md:text-3xl">Roadmap</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Community-driven feature requests and what's coming next</p>
+          <p className="mt-1 text-sm text-muted-foreground">Earned ideas, visible progress, and receipts for the chaos.</p>
         </div>
         {isAdmin && (
           <Button onClick={openAdd} size="sm" className="shrink-0 gap-1.5">
@@ -133,7 +133,7 @@ export default function Roadmap() {
 
                 {stagePosts.length === 0 ? (
                   <div className="rounded-xl border border-border border-dashed bg-card/30 p-6 text-center">
-                    <p className="text-xs text-muted-foreground">Nothing here yet</p>
+                    <p className="text-xs text-muted-foreground">Nothing here yet. Somehow the chaos is undocumented.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -246,8 +246,8 @@ export default function Roadmap() {
       {!loading && posts.length === 0 && (
         <div className="rounded-xl border border-dashed border-border bg-card/30 p-16 text-center">
           <Zap className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground">No roadmap items yet.</p>
-          <p className="mt-1 text-xs text-muted-foreground/60">Admins can promote approved ideas to the roadmap from the Community page.</p>
+          <p className="text-sm text-muted-foreground">No roadmap items yet. Suspicious restraint.</p>
+          <p className="mt-1 text-xs text-muted-foreground/60">Mods can promote approved ideas when the bit becomes a plan.</p>
         </div>
       )}
     </div>

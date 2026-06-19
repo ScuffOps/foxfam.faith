@@ -41,7 +41,7 @@ export default function UpcomingEvents() {
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-primary" />
         </div>
       ) : events.length === 0 ? (
-        <p className="dashboard-empty rounded-lg py-5 text-center text-sm text-muted-foreground">No upcoming events</p>
+        <p className="dashboard-empty rounded-lg py-5 text-center text-sm text-muted-foreground">No upcoming events. Veri beat the calendar allegations for once.</p>
       ) : (
         <div className="space-y-2.5">
           {events.map((e) => (

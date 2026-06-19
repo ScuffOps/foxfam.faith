@@ -36,7 +36,7 @@ export default function RecentCodexEntries() {
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-primary" />
         </div>
       ) : entries.length === 0 ? (
-        <p className="py-4 text-center text-sm text-muted-foreground">The Codex is empty — be the first to add an entry!</p>
+        <p className="py-4 text-center text-sm text-muted-foreground">The Codex is empty. Unacceptable, but fixable.</p>
       ) : (
         <div className="space-y-2.5">
           {entries.map((entry) => {
