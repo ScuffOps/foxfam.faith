@@ -10,16 +10,19 @@ import { useToast } from "@/components/ui/use-toast";
 import GlassCard from "../GlassCard";
 import { Cake, Send } from "lucide-react";
 import { getPublicDisplayName } from "@/lib/userIdentity";
+import { usePersistentDraft } from "@/hooks/usePersistentDraft";
+
+const INITIAL_BIRTHDAY_FORM = {
+  display_name: "",
+  birthday_date: "",
+  note: "",
+  is_private: false,
+};
 
 export default function BirthdaySubmitForm({ onSubmitted }) {
   const { profile } = useGuestProfile();
   const { toast } = useToast();
-  const [form, setForm] = useState({
-    display_name: "",
-    birthday_date: "",
-    note: "",
-    is_private: false,
-  });
+  const [form, setForm, { clearDraft }] = usePersistentDraft("birthday-submit.new", INITIAL_BIRTHDAY_FORM);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -39,7 +42,7 @@ export default function BirthdaySubmitForm({ onSubmitted }) {
       submitted_by_name: submitterName,
     });
     toast({ title: "Birthday added!", description: "It is live on the birthday calendar." });
-    setForm({ display_name: "", birthday_date: "", note: "", is_private: false });
+    clearDraft(INITIAL_BIRTHDAY_FORM);
     setSubmitting(false);
     onSubmitted?.();
   };

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   BookOpen,
+  Bell,
   Bot,
   CalendarClock,
   CheckCircle2,
@@ -29,6 +30,8 @@ import { DEFAULT_COMMAND_REFERENCE, STAFF_HANDBOOK_SECTIONS } from "@/lib/staffH
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import {
   COMMAND_SOURCE_LABELS,
+  SCUFFOX_UPDATE_STATUS_LABELS,
+  SCUFFOX_UPDATE_TONE_LABELS,
   SHIFT_STATUS_LABELS,
   STREAM_RATING_LABELS,
   TASK_PRIORITY_LABELS,
@@ -41,6 +44,7 @@ import {
   parseMedicationDoseForm,
   parseMedicationForm,
   parseModShiftForm,
+  parseScuffoxUpdateForm,
   parseStaffTaskForm,
   parseStaffTimeEntryForm,
   parseStreamLogForm,
@@ -48,6 +52,7 @@ import {
 
 const TABS = [
   { key: "handbook", label: "Handbook", icon: BookOpen },
+  { key: "updates", label: "Updates", icon: Bell },
   { key: "commands", label: "Commands", icon: Bot },
   { key: "schedule", label: "Schedule", icon: CalendarClock },
   { key: "time", label: "Time Tracker", icon: Clock },
@@ -119,6 +124,15 @@ const DEFAULT_TIME_FORM = {
   notes: "",
 };
 
+const DEFAULT_UPDATE_FORM = {
+  title: "",
+  message: "",
+  tone: "announcement",
+  status: "active",
+  starts_at: "",
+  expires_at: "",
+};
+
 const DEFAULT_COMMAND_FORM = {
   command: "",
   action: "",
@@ -174,6 +188,7 @@ export default function StaffOps({ defaultTab = "handbook" }) {
     shifts: [],
     timeEntries: [],
     commands: [],
+    updates: [],
     users: [],
   });
   const [streamForm, setStreamForm] = useState(DEFAULT_STREAM_FORM);
@@ -183,6 +198,7 @@ export default function StaffOps({ defaultTab = "handbook" }) {
   const [shiftForm, setShiftForm] = useState(DEFAULT_SHIFT_FORM);
   const [timeForm, setTimeForm] = useState(DEFAULT_TIME_FORM);
   const [commandForm, setCommandForm] = useState(DEFAULT_COMMAND_FORM);
+  const [updateFormState, setUpdateFormState] = useState(DEFAULT_UPDATE_FORM);
   const [memberForm, setMemberForm] = useState(DEFAULT_MEMBER_FORM);
 
   const isStaff = canModerate(user);
@@ -202,12 +218,13 @@ export default function StaffOps({ defaultTab = "handbook" }) {
           shifts: [],
           timeEntries: [],
           commands: [],
+          updates: [],
           users: [],
         });
         return;
       }
 
-      const [streamLogs, medications, medDoses, tasks, shifts, timeEntries, commands, users] = await Promise.all([
+      const [streamLogs, medications, medDoses, tasks, shifts, timeEntries, commands, updates, users] = await Promise.all([
         communityClient.entities.StreamLog.list("-created_date", 100),
         communityClient.entities.Medication.list("-created_date", 100),
         communityClient.entities.MedDose.list("-created_date", 100),
@@ -215,6 +232,7 @@ export default function StaffOps({ defaultTab = "handbook" }) {
         communityClient.entities.ModShift.list("-created_date", 200).catch(() => []),
         communityClient.entities.StaffTimeEntry.list("-created_date", 200).catch(() => []),
         communityClient.entities.BotCommand.list("-created_date", 500).catch(() => []),
+        communityClient.entities.ScuffoxUpdate.list("-created_date", 200).catch(() => []),
         communityClient.entities.User.list().catch(() => []),
       ]);
       setData({
@@ -225,6 +243,7 @@ export default function StaffOps({ defaultTab = "handbook" }) {
         shifts: sortNewest(shifts),
         timeEntries: sortNewest(timeEntries),
         commands: sortNewest(commands),
+        updates: sortNewest(updates),
         users,
       });
     } catch (error) {
@@ -381,6 +400,49 @@ export default function StaffOps({ defaultTab = "handbook" }) {
     }
   }
 
+  async function handleCreateUpdate(event) {
+    event.preventDefault();
+    setSaving("update");
+    try {
+      await communityClient.entities.ScuffoxUpdate.create({
+        ...parseScuffoxUpdateForm(updateFormState),
+        posted_by_name: staffName,
+      });
+      setUpdateFormState(DEFAULT_UPDATE_FORM);
+      await loadData();
+      toast({ title: "Scuffox update posted" });
+    } catch (error) {
+      toast({ title: "Update needs attention", description: getValidationMessage(error), variant: "destructive" });
+    } finally {
+      setSaving("");
+    }
+  }
+
+  async function updateScuffoxUpdateStatus(update, status) {
+    setSaving(update.id);
+    try {
+      await communityClient.entities.ScuffoxUpdate.update(update.id, { status });
+      await loadData();
+    } catch (error) {
+      toast({ title: "Update status failed", description: getValidationMessage(error), variant: "destructive" });
+    } finally {
+      setSaving("");
+    }
+  }
+
+  async function deleteScuffoxUpdate(update) {
+    setSaving(update.id);
+    try {
+      await communityClient.entities.ScuffoxUpdate.delete(update.id);
+      await loadData();
+      toast({ title: "Scuffox update removed" });
+    } catch (error) {
+      toast({ title: "Update delete failed", description: getValidationMessage(error), variant: "destructive" });
+    } finally {
+      setSaving("");
+    }
+  }
+
   async function handleCreateCommand(event) {
     event.preventDefault();
     setSaving("command");
@@ -497,6 +559,8 @@ export default function StaffOps({ defaultTab = "handbook" }) {
           <span>·</span>
           <span>{data.shifts.length} shifts</span>
           <span>·</span>
+          <span>{data.updates.filter((update) => update.status === "active").length} updates</span>
+          <span>·</span>
           <span>{totalPayableHours.toFixed(1)} payable hrs</span>
           <span>·</span>
           <span>{data.streamLogs.length} stream logs</span>
@@ -556,6 +620,71 @@ export default function StaffOps({ defaultTab = "handbook" }) {
                     </ul>
                   </GlassCard>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "updates" && (
+            <div className="grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
+              <GlassCard>
+                <SectionHeader icon={Bell} title="Post Scuffox Update" subtitle="Announcements, mood updates, stream info, and dashboard notes." />
+                <form className="mt-5 space-y-3" onSubmit={handleCreateUpdate}>
+                  <Input value={updateFormState.title} onChange={(event) => updateForm(setUpdateFormState, "title", event.target.value)} placeholder="Update title" />
+                  <Textarea value={updateFormState.message} onChange={(event) => updateForm(setUpdateFormState, "message", event.target.value)} placeholder="What should the ticker say?" rows={4} />
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Select value={updateFormState.tone} onValueChange={(value) => updateForm(setUpdateFormState, "tone", value)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(SCUFFOX_UPDATE_TONE_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Select value={updateFormState.status} onValueChange={(value) => updateForm(setUpdateFormState, "status", value)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(SCUFFOX_UPDATE_STATUS_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Input type="datetime-local" value={updateFormState.starts_at} onChange={(event) => updateForm(setUpdateFormState, "starts_at", event.target.value)} />
+                    <Input type="datetime-local" value={updateFormState.expires_at} onChange={(event) => updateForm(setUpdateFormState, "expires_at", event.target.value)} />
+                  </div>
+                  <Button type="submit" disabled={saving === "update"} className="w-full gap-2">
+                    <Plus className="h-4 w-4" />
+                    Post Update
+                  </Button>
+                </form>
+              </GlassCard>
+
+              <div className="space-y-3">
+                {data.updates.length === 0 ? (
+                  <EmptyState title="No Scuffox updates yet" />
+                ) : (
+                  data.updates.map((update) => (
+                    <GlassCard key={update.id}>
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="font-heading text-base font-semibold">{update.title}</h3>
+                            <Badge variant="outline">{SCUFFOX_UPDATE_STATUS_LABELS[update.status] || "Active"}</Badge>
+                            <Badge variant="outline">{SCUFFOX_UPDATE_TONE_LABELS[update.tone] || "Announcement"}</Badge>
+                          </div>
+                          <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{update.message}</p>
+                          <p className="mt-3 text-xs text-muted-foreground">
+                            by {update.posted_by_name || "Staff"}{update.expires_at ? ` - expires ${formatDateTime(update.expires_at)}` : ""}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {update.status !== "active" && <Button size="sm" variant="outline" disabled={saving === update.id} onClick={() => updateScuffoxUpdateStatus(update, "active")}>Activate</Button>}
+                          {update.status !== "archived" && <Button size="sm" variant="outline" disabled={saving === update.id} onClick={() => updateScuffoxUpdateStatus(update, "archived")}>Archive</Button>}
+                          <Button size="icon" variant="ghost" disabled={saving === update.id} onClick={() => deleteScuffoxUpdate(update)} aria-label={`Delete ${update.title}`}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </GlassCard>
+                  ))
+                )}
               </div>
             </div>
           )}

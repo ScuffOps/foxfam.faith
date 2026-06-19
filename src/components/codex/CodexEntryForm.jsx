@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import ReactQuill from "react-quill";
+import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 
 const CATEGORIES = [
   { value: "lore",        label: "📜 Lore" },
@@ -16,19 +17,16 @@ const CATEGORIES = [
 const DEFAULT = { title: "", content: "", category: "lore", tags: [], cover_emoji: "" };
 
 export default function CodexEntryForm({ open, onOpenChange, entry, onSave }) {
-  const [form, setForm] = useState(DEFAULT);
+  const draftScope = entry?.id ? `codex.edit.${entry.id}` : "codex.new";
+  const [form, setForm, { clearDraft }] = usePersistentDraft(draftScope, { ...DEFAULT, ...(entry || {}) });
   const [tagInput, setTagInput] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (entry) {
-      setForm({ ...DEFAULT, ...entry });
-      setTagInput("");
-    } else {
-      setForm(DEFAULT);
+    if (open) {
       setTagInput("");
     }
-  }, [entry, open]);
+  }, [draftScope, open]);
 
   const addTag = (e) => {
     if ((e.key === "Enter" || e.key === ",") && tagInput.trim()) {
@@ -45,6 +43,7 @@ export default function CodexEntryForm({ open, onOpenChange, entry, onSave }) {
     if (!form.title.trim() || !form.content.trim()) return;
     setSaving(true);
     await onSave(form);
+    clearDraft(DEFAULT);
     setSaving(false);
     onOpenChange(false);
   };

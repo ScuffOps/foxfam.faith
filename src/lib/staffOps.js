@@ -44,6 +44,8 @@ const taskStatusSchema = z.enum(["in_queue", "working_on", "blocked", "done"]);
 const taskPrioritySchema = z.enum(["low", "normal", "high", "urgent"]);
 const shiftStatusSchema = z.enum(["scheduled", "confirmed", "covered", "missed"]);
 const timeEntryStatusSchema = z.enum(["draft", "submitted", "approved", "paid"]);
+const scuffoxUpdateStatusSchema = z.enum(["draft", "active", "archived"]);
+const scuffoxUpdateToneSchema = z.enum(["announcement", "mood", "info", "stream", "quiet"]);
 
 const streamLogSchema = z.object({
   title: requiredTrimmedString,
@@ -107,6 +109,15 @@ const staffTimeEntrySchema = z.object({
   notes: optionalTrimmedString,
 });
 
+const scuffoxUpdateSchema = z.object({
+  title: requiredTrimmedString,
+  message: requiredTrimmedString,
+  tone: scuffoxUpdateToneSchema.default("announcement"),
+  status: scuffoxUpdateStatusSchema.default("active"),
+  starts_at: optionalDateTime,
+  expires_at: optionalDateTime,
+});
+
 const botCommandSchema = z.object({
   command: requiredTrimmedString,
   action: optionalTrimmedString,
@@ -154,6 +165,20 @@ export const TIME_ENTRY_STATUS_LABELS = {
   submitted: "Submitted",
   approved: "Approved",
   paid: "Paid",
+};
+
+export const SCUFFOX_UPDATE_STATUS_LABELS = {
+  draft: "Draft",
+  active: "Active",
+  archived: "Archived",
+};
+
+export const SCUFFOX_UPDATE_TONE_LABELS = {
+  announcement: "Announcement",
+  mood: "Mood",
+  info: "Info",
+  stream: "Stream",
+  quiet: "Quiet",
 };
 
 export const COMMAND_SOURCE_LABELS = {
@@ -229,6 +254,15 @@ export function parseStaffTimeEntryForm(form) {
     work_date: parseDateTime(parsed.work_date),
     started_at: parseDateTime(parsed.started_at),
     ended_at: parseDateTime(parsed.ended_at),
+  });
+}
+
+export function parseScuffoxUpdateForm(form) {
+  const parsed = scuffoxUpdateSchema.parse(form);
+  return compactPayload({
+    ...parsed,
+    starts_at: parseDateTime(parsed.starts_at),
+    expires_at: parseDateTime(parsed.expires_at),
   });
 }
 

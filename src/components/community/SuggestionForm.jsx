@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { useToast } from "@/components/ui/use-toast";
+import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 
 const CATEGORIES = [
   { value: "bug_report", label: "🐛 Bug Report" },
@@ -21,10 +22,12 @@ const CATEGORIES = [
   { value: "other_feedback", label: "💬 Other Feedback" },
 ];
 
+const INITIAL_SUGGESTION_FORM = { title: "", description: "", category: "other_feedback" };
+
 export default function SuggestionForm({ open, onOpenChange, onCreated }) {
   const { toast } = useToast();
   const { profile } = useGuestProfile();
-  const [form, setForm] = useState({ title: "", description: "", category: "other_feedback" });
+  const [form, setForm, { clearDraft }] = usePersistentDraft("suggestion.new", INITIAL_SUGGESTION_FORM);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -51,7 +54,7 @@ export default function SuggestionForm({ open, onOpenChange, onCreated }) {
         status: "approved",
       });
 
-      setForm({ title: "", description: "", category: "other_feedback" });
+      clearDraft(INITIAL_SUGGESTION_FORM);
       setIsAnonymous(false);
       onCreated?.();
       onOpenChange(false);
