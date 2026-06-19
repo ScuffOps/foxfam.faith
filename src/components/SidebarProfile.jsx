@@ -157,6 +157,14 @@ export default function SidebarProfile({ onNavigate }) {
           {activeTab === "settings" && (
             <div className="space-y-2">
               <Link
+                to="/profile"
+                onClick={onNavigate}
+                className="flex items-center gap-2 rounded-lg bg-secondary/45 px-3 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
+              >
+                <UserCircle2 className="h-4 w-4" />
+                Open profile
+              </Link>
+              <Link
                 to="/settings"
                 onClick={onNavigate}
                 className="flex items-center gap-2 rounded-lg bg-secondary/45 px-3 py-2 text-sm text-foreground transition-colors hover:bg-secondary"

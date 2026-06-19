@@ -30,7 +30,7 @@ export default function Blessings() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="font-heading text-2xl font-bold md:text-3xl">Blessings</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Uplifting posts, links & media from Veri ✦</p>
+          <p className="mt-1 text-sm text-muted-foreground">Little sparks from Veri: care, chaos, and occasional schedule denial.</p>
         </div>
         {isAdmin && (
           <Button onClick={() => setShowForm(true)} className="gap-2">
@@ -46,7 +46,7 @@ export default function Blessings() {
       ) : blessings.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card/30 p-16 text-center">
           <Sparkles className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground">No blessings posted yet.</p>
+          <p className="text-sm text-muted-foreground">No blessings yet. The altar is buffering.</p>
           {isAdmin && (
             <Button className="mt-4 gap-2" onClick={() => setShowForm(true)}>
               <Plus className="h-4 w-4" /> Post the first one

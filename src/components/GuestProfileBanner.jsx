@@ -42,14 +42,14 @@ export default function GuestProfileBanner() {
       {editing ? (
         <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            Submitting as a guest? Let the community know who you are (optional).
+            Guest mode is allowed. Being perceived is optional, but suspiciously useful.
           </p>
           <div>
             <Label className="text-xs">Display Name</Label>
             <Input
               value={form.name}
               onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-              placeholder="Your name or username"
+              placeholder="Name for gentle perceived-ness"
               className="mt-1 h-8 bg-secondary text-sm"
             />
           </div>

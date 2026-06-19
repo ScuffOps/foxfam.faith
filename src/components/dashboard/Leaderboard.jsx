@@ -33,7 +33,7 @@ export default function Leaderboard() {
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted border-t-primary" />
         </div>
       ) : leaders.length === 0 ? (
-        <p className="py-6 text-center text-xs text-muted-foreground">No activity yet — be the first to earn points!</p>
+        <p className="py-6 text-center text-xs text-muted-foreground">No Favor yet. Go be lovingly perceived.</p>
       ) : (
         <div className="space-y-2">
           {leaders.map((l, i) => {

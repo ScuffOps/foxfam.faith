@@ -143,14 +143,14 @@ function ProgressionContent({
             <>
               <p className="text-sm font-medium">{progress.pointsToNext} Favor to {progress.next.name}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Earn Favor by posting, voting, and reacting to community moments.
+                Earn Favor by showing up, reacting, voting, and being endearingly too invested.
               </p>
             </>
           ) : (
             <>
               <p className="text-sm font-medium">Top rank reached</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Keep showing up to hold your place on the leaderboard.
+                Top rank. The app is clapping, quietly, because we have boundaries.
               </p>
             </>
           )}
@@ -185,7 +185,7 @@ function ProgressionContent({
         <Button asChild size="sm" className="mt-5 gap-2">
           <Link to="/community">
             <Sparkles className="h-4 w-4" />
-            Take the next action
+            Go earn attention
           </Link>
         </Button>
       )}

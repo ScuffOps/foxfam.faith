@@ -12,6 +12,7 @@ import Birthdays from './pages/Birthdays';
 import CommunityInput from './pages/CommunityInput';
 import Forum from './pages/Forum';
 import Settings from './pages/Settings';
+import Profile from './pages/Profile';
 import PrayerWall from './pages/PrayerWall';
 import CollabRequests from './pages/CollabRequests';
 import Roadmap from './pages/Roadmap';
@@ -21,6 +22,7 @@ import Codex from './pages/Codex';
 import Reliquary from './pages/Reliquary';
 import Offerings from './pages/Offerings';
 import StaffOps from './pages/StaffOps';
+import RelicForge from './pages/RelicForge';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -62,6 +64,7 @@ const AuthenticatedApp = () => {
         <Route path="/bugs" element={<CommunityInput defaultTab="bugs" />} />
         <Route path="/suggestions" element={<CommunityInput defaultTab="suggestions" />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/profile" element={<Profile />} />
         <Route path="/prayer" element={<PrayerWall />} />
         <Route path="/collabs" element={<CollabRequests />} />
         <Route path="/roadmap" element={<Roadmap />} />
@@ -69,6 +72,7 @@ const AuthenticatedApp = () => {
         <Route path="/offerings" element={<Offerings />} />
         <Route path="/codex" element={<Codex />} />
         <Route path="/reliquary" element={<Reliquary />} />
+        <Route path="/relic-forge" element={<RelicForge />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/ops" element={<StaffOps />} />
         <Route path="/ops/handbook" element={<StaffOps defaultTab="handbook" />} />

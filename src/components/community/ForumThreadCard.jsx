@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { communityClient } from "@/api/communityClient";
-import { ChevronDown, ChevronUp, MessageCircle, Send, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Lock, MessageCircle, Send, Trash2, Unlock } from "lucide-react";
 import { useGuestProfile } from "@/hooks/useGuestProfile";
 import GlassCard from "../GlassCard";
 import RichTextContent from "../RichTextContent";
@@ -94,6 +94,43 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
     onRefresh();
   };
 
+  const handleToggleLock = async () => {
+    try {
+      await communityClient.entities.CommunityThread.update(thread.id, {
+        is_locked: !thread.is_locked,
+      });
+      onRefresh();
+      toast({
+        title: thread.is_locked ? "Thread unlocked" : "Thread locked",
+        description: thread.is_locked
+          ? "The circle may resume its scheduled emotional processing."
+          : "Replies are paused. Care won over chaos for once.",
+      });
+    } catch {
+      toast({
+        title: "Thread could not be updated",
+        description: "Your role may not have forum moderation access yet.",
+      });
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (!confirm("Delete this forum reply?")) return;
+    try {
+      await communityClient.entities.CommunityThreadComment.delete(commentId);
+      await communityClient.entities.CommunityThread.update(thread.id, {
+        comment_count: Math.max((thread.comment_count || 0) - 1, 0),
+      });
+      await loadComments();
+      onRefresh();
+    } catch {
+      toast({
+        title: "Reply could not be deleted",
+        description: "Your role may not have forum moderation access yet.",
+      });
+    }
+  };
+
   return (
     <GlassCard className="space-y-4">
       <div className="flex items-start justify-between gap-3">
@@ -112,9 +149,26 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
           <p className="mt-1 text-xs text-muted-foreground">by {thread.author_name || "Favored Fox"}</p>
         </div>
         {isAdmin && (
-          <button type="button" onClick={handleDelete} className="shrink-0 text-muted-foreground transition-colors hover:text-destructive">
-            <Trash2 className="h-4 w-4" />
-          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={handleToggleLock}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              title={thread.is_locked ? "Unlock thread" : "Lock thread"}
+              aria-label={thread.is_locked ? "Unlock thread" : "Lock thread"}
+            >
+              {thread.is_locked ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+              title="Delete thread"
+              aria-label="Delete thread"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
         )}
       </div>
 
@@ -173,10 +227,25 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
                   {(comment.author_name || "?")[0].toUpperCase()}
                 </div>
                 <div className="flex-1 rounded-lg bg-secondary/50 px-3 py-2">
-                  <span className="text-xs font-semibold text-foreground">{comment.author_name || "Guest"} </span>
-                  <RichTextContent className="inline text-xs text-muted-foreground" inline>
-                    {comment.message}
-                  </RichTextContent>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="text-xs font-semibold text-foreground">{comment.author_name || "Guest"} </span>
+                      <RichTextContent className="inline text-xs text-muted-foreground" inline>
+                        {comment.message}
+                      </RichTextContent>
+                    </div>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteComment(comment.id)}
+                        className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                        title="Delete reply"
+                        aria-label="Delete reply"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))

@@ -107,9 +107,9 @@ export default function LoginDialog({ open, onOpenChange }) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="border-border bg-card/95 text-card-foreground shadow-2xl backdrop-blur-xl sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-heading">Enter the Shrine</DialogTitle>
+          <DialogTitle className="font-heading">Come be perceived</DialogTitle>
           <DialogDescription>
-            Sign in to save your profile, earn favor, vote in polls, post prayers, and join community loops.
+            Sign in to save your profile, earn Favor, vote on the chaos, and keep your devotion receipts.
           </DialogDescription>
         </DialogHeader>
 
@@ -169,7 +169,7 @@ export default function LoginDialog({ open, onOpenChange }) {
                 autoComplete="nickname"
                 value={displayName}
                 onChange={(event) => setDisplayName(event.target.value)}
-                placeholder="Nickname or username"
+                placeholder="Name we may lovingly perceive"
                 className="bg-secondary/45"
               />
             </div>

@@ -19,7 +19,7 @@ const OAUTH_PROVIDERS = [
     authProvider: "google",
     provider: "Google Calendar",
     icon: CalendarDays,
-    copy: "Link Google with calendar permission so Foxfam events can grow into real calendar sync.",
+    copy: "Link Google so the theoretical schedule can become a real calendar object.",
     scopes: "openid email profile https://www.googleapis.com/auth/calendar.events",
     pendingCopy: "Identity linked. Calendar write/sync still needs Google credentials and a Supabase server token handler.",
   },
@@ -28,21 +28,21 @@ const OAUTH_PROVIDERS = [
     authProvider: "twitch",
     provider: "Twitch",
     icon: Radio,
-    copy: "Link Twitch so stream-facing features can recognize your community identity.",
+    copy: "Link Twitch so stream-facing features know which beloved chaos witness you are.",
   },
   {
     key: "discord",
     authProvider: "discord",
     provider: "Discord",
     icon: MessagesSquare,
-    copy: "Link Discord for community identity, future roles, and portal notifications.",
+    copy: "Link Discord for identity, roles, and the future ping machinery.",
   },
   {
     key: "apple",
     authProvider: "apple",
     provider: "Apple",
     icon: Apple,
-    copy: "Link Apple as a private sign-in option for your Foxfam account.",
+    copy: "Link Apple if you prefer your login ritual a little quieter.",
   },
 ];
 
@@ -168,7 +168,7 @@ export default function Settings() {
     <div className="mx-auto max-w-3xl animate-fade-in">
       <div className="mb-8">
         <h1 className="font-heading text-2xl font-bold md:text-3xl">Settings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Manage your account and integrations</p>
+        <p className="mt-1 text-sm text-muted-foreground">Tune your identity, alerts, and integrations that bravely pretend we have a schedule.</p>
       </div>
 
       <div className="space-y-6">
@@ -285,11 +285,11 @@ export default function Settings() {
             <div className="space-y-3">
               <div className="rounded-lg bg-secondary/50 px-4 py-3">
                 <p className="text-sm font-medium">Auto-approve birthdays</p>
-                <p className="text-xs text-muted-foreground">Coming soon — automatically approve birthday submissions</p>
+                <p className="text-xs text-muted-foreground">Coming soon: birthdays approved without summoning a staff meeting.</p>
               </div>
               <div className="rounded-lg bg-secondary/50 px-4 py-3">
                 <p className="text-sm font-medium">Auto-approve community posts</p>
-                <p className="text-xs text-muted-foreground">Coming soon — skip moderation for trusted members</p>
+                <p className="text-xs text-muted-foreground">Coming soon: trusted members skip the velvet rope, gently.</p>
               </div>
             </div>
           </SettingsSection>

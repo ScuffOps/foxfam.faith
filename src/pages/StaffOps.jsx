@@ -538,7 +538,7 @@ export default function StaffOps({ defaultTab = "handbook" }) {
         <ShieldAlert className="mb-3 h-10 w-10 text-destructive" />
         <h2 className="font-heading text-lg font-semibold">Access Denied</h2>
         <p className="mt-1 max-w-md text-sm text-muted-foreground">
-          Staff handbook, schedules, time tracking, command references, and private ops are available to mods, lead mods, and admins only.
+          Staff tools live behind the curtain: mods, lead mods, and admins only.
         </p>
       </div>
     );

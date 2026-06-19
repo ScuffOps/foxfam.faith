@@ -2,6 +2,7 @@ export const ROLE_VALUES = {
   admin:   "admin",
   leadMod: "lead_mod",
   mod:     "mod",
+  forumModerator: "forum_moderator",
   favored: "favored",
   creator: "creator",
   foxfam:  "foxfam",
@@ -14,6 +15,7 @@ export const ROLE_LABELS = {
   [ROLE_VALUES.admin]:   "Admin",
   [ROLE_VALUES.leadMod]: "Lead Mod",
   [ROLE_VALUES.mod]:     "Mod",
+  [ROLE_VALUES.forumModerator]: "Forum Moderator",
   [ROLE_VALUES.favored]: "Favored",
   [ROLE_VALUES.creator]: "Creator",
   [ROLE_VALUES.foxfam]:  "Foxfam",
@@ -26,6 +28,7 @@ export const ROLE_OPTIONS = [
   ROLE_VALUES.admin,
   ROLE_VALUES.leadMod,
   ROLE_VALUES.mod,
+  ROLE_VALUES.forumModerator,
   ROLE_VALUES.favored,
   ROLE_VALUES.creator,
   ROLE_VALUES.foxfam,
@@ -39,6 +42,9 @@ const LEGACY_ROLE_MAP = {
   regular:   ROLE_VALUES.user,
   viewer:    ROLE_VALUES.guest,
   vip:       ROLE_VALUES.favored,
+  forum_mod: ROLE_VALUES.forumModerator,
+  forum_mods: ROLE_VALUES.forumModerator,
+  forum_moderators: ROLE_VALUES.forumModerator,
   lead_mod:  ROLE_VALUES.leadMod,
   lead_mods: ROLE_VALUES.leadMod,
   leadmods:  ROLE_VALUES.leadMod,
@@ -49,6 +55,7 @@ export const ROLE_WEIGHT = {
   [ROLE_VALUES.user]:    1,
   [ROLE_VALUES.verified]:2,
   [ROLE_VALUES.foxfam]:  3,
+  [ROLE_VALUES.forumModerator]: 3.5,
   [ROLE_VALUES.creator]: 4,
   [ROLE_VALUES.favored]: 5,
   [ROLE_VALUES.mod]:     6,
@@ -85,7 +92,11 @@ export function canUseAdminPanel(user) {
 }
 
 export function canManageRoles(user) {
-  return hasRole(user, ROLE_VALUES.admin);
+  return hasRole(user, [ROLE_VALUES.admin, ROLE_VALUES.leadMod]);
+}
+
+export function canModerateForum(user) {
+  return hasRole(user, ROLE_VALUES.forumModerator) || canModerate(user);
 }
 
 export function canCreateForumThread(user) {

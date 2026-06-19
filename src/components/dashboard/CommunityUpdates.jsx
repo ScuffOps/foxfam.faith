@@ -48,7 +48,7 @@ export default function CommunityUpdates() {
         </div>
       ) : updates.length === 0 ? (
         <p className="dashboard-empty rounded-lg py-5 text-center text-sm text-muted-foreground">
-          No community updates yet
+          No updates yet. The announcement desk is pretending to be organized.
         </p>
       ) : (
         <div className="space-y-2.5">

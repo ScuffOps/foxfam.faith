@@ -7,7 +7,7 @@ import ForumThreadForm from "@/components/community/ForumThreadForm";
 import GlassCard from "@/components/GlassCard";
 import ProgressionLoop from "@/components/ProgressionLoop";
 import { FORUM_SECTIONS, getForumSection, normalizeForumCategory } from "@/lib/forumSections";
-import { canModerate } from "@/lib/roles";
+import { canModerateForum } from "@/lib/roles";
 
 const SORT_OPTIONS = [
   { key: "latest", label: "Latest", icon: Clock },
@@ -47,7 +47,7 @@ export default function Forum() {
     loadData();
   }, []);
 
-  const isAdmin = canModerate(user);
+  const isForumModerator = canModerateForum(user);
   const sectionOptions = [ALL_SECTION, ...FORUM_SECTIONS];
   const selectedDefaultCategory = activeSection === "all" ? "general" : activeSection;
 
@@ -98,7 +98,7 @@ export default function Forum() {
         <div>
           <h1 className="font-heading text-2xl font-bold md:text-3xl">Forum</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            A standalone circle for threads, subforums, replies, praise, and longer community conversations.
+            Threads, replies, praise, and earned recognition. Mildly parasocial, lovingly supervised.
           </p>
         </div>
         <Button onClick={() => setShowThreadForm(true)} className="gap-2">
@@ -178,7 +178,7 @@ export default function Forum() {
       ) : filteredThreads.length === 0 ? (
         <div className="rounded-xl border border-border bg-card p-12 text-center">
           <MessageSquare className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground">No threads in this subforum yet.</p>
+          <p className="text-sm text-muted-foreground">No threads in this subforum yet. Suspiciously peaceful.</p>
           <Button className="mt-4 gap-2" onClick={() => setShowThreadForm(true)}>
             <Plus className="h-4 w-4" /> Start the first thread
           </Button>
@@ -186,7 +186,7 @@ export default function Forum() {
       ) : (
         <div className="space-y-3">
           {filteredThreads.map((thread) => (
-            <ForumThreadCard key={thread.id} thread={thread} user={user} isAdmin={isAdmin} onRefresh={loadData} />
+            <ForumThreadCard key={thread.id} thread={thread} user={user} isAdmin={isForumModerator} onRefresh={loadData} />
           ))}
         </div>
       )}
