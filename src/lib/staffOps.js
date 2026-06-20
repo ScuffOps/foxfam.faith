@@ -46,6 +46,9 @@ const shiftStatusSchema = z.enum(["scheduled", "confirmed", "covered", "missed"]
 const timeEntryStatusSchema = z.enum(["draft", "submitted", "approved", "paid"]);
 const scuffoxUpdateStatusSchema = z.enum(["draft", "active", "archived"]);
 const scuffoxUpdateToneSchema = z.enum(["announcement", "mood", "info", "stream", "quiet"]);
+const availabilityStatusSchema = z.enum(["free", "on_call", "busy", "dnd"]);
+const shiftPlannerDaySchema = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
+const shiftPlannerBlockSchema = z.enum(["morning", "day", "night"]);
 
 const streamLogSchema = z.object({
   title: requiredTrimmedString,
@@ -116,6 +119,24 @@ const scuffoxUpdateSchema = z.object({
   status: scuffoxUpdateStatusSchema.default("active"),
   starts_at: optionalDateTime,
   expires_at: optionalDateTime,
+});
+
+const staffAvailabilitySchema = z.object({
+  profile_id: optionalTrimmedString,
+  staff_name: requiredTrimmedString,
+  role: optionalTrimmedString,
+  avatar_url: optionalTrimmedString,
+  availability: z.record(z.record(availabilityStatusSchema)).default({}),
+});
+
+const shiftPlannerAssignmentSchema = z.object({
+  profile_id: optionalTrimmedString,
+  staff_name: requiredTrimmedString,
+  role: optionalTrimmedString,
+  avatar_url: optionalTrimmedString,
+  day: shiftPlannerDaySchema,
+  block: shiftPlannerBlockSchema,
+  order: optionalNumber.default(0),
 });
 
 const botCommandSchema = z.object({
@@ -264,6 +285,16 @@ export function parseScuffoxUpdateForm(form) {
     starts_at: parseDateTime(parsed.starts_at),
     expires_at: parseDateTime(parsed.expires_at),
   });
+}
+
+export function parseStaffAvailabilityForm(form) {
+  const parsed = staffAvailabilitySchema.parse(form);
+  return compactPayload(parsed);
+}
+
+export function parseShiftPlannerAssignmentForm(form) {
+  const parsed = shiftPlannerAssignmentSchema.parse(form);
+  return compactPayload(parsed);
 }
 
 export function parseBotCommandForm(form) {

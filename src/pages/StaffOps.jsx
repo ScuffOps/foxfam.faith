@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import {
   Activity,
   BookOpen,
@@ -45,12 +47,15 @@ import {
   parseMedicationForm,
   parseModShiftForm,
   parseScuffoxUpdateForm,
+  parseShiftPlannerAssignmentForm,
+  parseStaffAvailabilityForm,
   parseStaffTaskForm,
   parseStaffTimeEntryForm,
   parseStreamLogForm,
 } from "@/lib/staffOps";
 
 const TABS = [
+  { key: "dashboard", label: "Dashboard", icon: Activity },
   { key: "handbook", label: "Handbook", icon: BookOpen },
   { key: "updates", label: "Updates", icon: Bell },
   { key: "commands", label: "Commands", icon: Bot },
@@ -59,7 +64,54 @@ const TABS = [
   { key: "streams", label: "Stream Logs", icon: Radio },
   { key: "meds", label: "Medication", icon: Pill },
   { key: "tasks", label: "Tasklist", icon: ClipboardList },
-  { key: "members", label: "Members", icon: UserCog },
+  { key: "members", label: "Team", icon: UserCog },
+];
+
+const STAFF_HANDY_LINKS = [
+  { label: "Stream Rules", description: "Rule snapshot for live chat decisions.", to: "/ops/handbook", icon: ShieldAlert },
+  { label: "Mod Manual", description: "Onboarding, escalation, and Veri reminders.", to: "/ops/handbook", icon: BookOpen },
+  { label: "Command List", description: "Manual command ref, MixItUp-ready later.", to: "/ops/commands", icon: Bot },
+  { label: "Google Drive", description: "Docs, Sheets, and shared staff references.", href: "https://drive.google.com/drive/my-drive", icon: ExternalLink },
+  { label: "Discord", description: "Mod channels, stream threads, and handoff notes.", href: "https://discord.com/channels/@me", icon: Bell },
+  { label: "Veri Lore", description: "Codex context for the blessed nonsense.", to: "/codex", icon: BookOpen },
+];
+
+const STAFF_MODULE_SHORTCUTS = [
+  { label: "Team", description: "Display names and staff roster sanity checks.", tab: "members", icon: UserCog },
+  { label: "Availability", description: "Who can be summoned when stream time becomes a rumor.", tab: "schedule", icon: CalendarClock },
+  { label: "Schedule", description: "Coverage, shifts, and on-duty handoffs.", tab: "schedule", icon: CalendarClock },
+  { label: "Handbook", description: "Rules, reminders, escalation, and mod onboarding.", tab: "handbook", icon: BookOpen },
+  { label: "Shift Planner", description: "Assign coverage blocks and keep the room watched.", tab: "schedule", icon: ClipboardList },
+  { label: "Time Tracker", description: "Paid staff hours without spreadsheet archaeology.", tab: "time", icon: Clock },
+];
+
+const STAFF_ROLE_VALUES = new Set(["admin", "lead_mod", "mod"]);
+
+const STAFF_DAYS = [
+  { key: "monday", label: "Monday" },
+  { key: "tuesday", label: "Tuesday" },
+  { key: "wednesday", label: "Wednesday" },
+  { key: "thursday", label: "Thursday" },
+  { key: "friday", label: "Friday" },
+  { key: "saturday", label: "Saturday" },
+  { key: "sunday", label: "Sunday" },
+];
+
+const STAFF_HOURS = Array.from({ length: 24 }, (_, hour) => String(hour).padStart(2, "0"));
+
+const AVAILABILITY_STATUSES = [
+  { key: "free", label: "Free", className: "bg-emerald-500 text-white border-emerald-300/70" },
+  { key: "on_call", label: "On Call", className: "bg-sky-500 text-white border-sky-300/70" },
+  { key: "busy", label: "Busy", className: "bg-amber-400 text-black border-amber-200/80" },
+  { key: "dnd", label: "Do Not Disturb", className: "bg-rose-500 text-white border-rose-300/70" },
+];
+
+const AVAILABILITY_STATUS_MAP = Object.fromEntries(AVAILABILITY_STATUSES.map((status) => [status.key, status]));
+
+const SHIFT_PLANNER_BLOCKS = [
+  { key: "morning", label: "Morning", time: "6am - 12pm", hours: ["06", "07", "08", "09", "10", "11"] },
+  { key: "day", label: "Day", time: "12pm - 6pm", hours: ["12", "13", "14", "15", "16", "17"] },
+  { key: "night", label: "Night", time: "6pm - 12am", hours: ["18", "19", "20", "21", "22", "23"] },
 ];
 
 const DEFAULT_STREAM_FORM = {
@@ -173,7 +225,7 @@ function statusTone(status) {
   return "border-border bg-secondary/60 text-muted-foreground";
 }
 
-export default function StaffOps({ defaultTab = "handbook" }) {
+export default function StaffOps({ defaultTab = "dashboard" }) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [commandSearch, setCommandSearch] = useState("");
@@ -185,6 +237,8 @@ export default function StaffOps({ defaultTab = "handbook" }) {
     medications: [],
     medDoses: [],
     tasks: [],
+    staffAvailability: [],
+    shiftAssignments: [],
     shifts: [],
     timeEntries: [],
     commands: [],
@@ -200,6 +254,9 @@ export default function StaffOps({ defaultTab = "handbook" }) {
   const [commandForm, setCommandForm] = useState(DEFAULT_COMMAND_FORM);
   const [updateFormState, setUpdateFormState] = useState(DEFAULT_UPDATE_FORM);
   const [memberForm, setMemberForm] = useState(DEFAULT_MEMBER_FORM);
+  const [selectedAvailabilityProfile, setSelectedAvailabilityProfile] = useState("");
+  const [availabilityDraft, setAvailabilityDraft] = useState({});
+  const [plannerAssignments, setPlannerAssignments] = useState([]);
 
   const isStaff = canModerate(user);
   const staffName = getPublicDisplayName(user, "Staff");
@@ -215,6 +272,8 @@ export default function StaffOps({ defaultTab = "handbook" }) {
           medications: [],
           medDoses: [],
           tasks: [],
+          staffAvailability: [],
+          shiftAssignments: [],
           shifts: [],
           timeEntries: [],
           commands: [],
@@ -224,11 +283,13 @@ export default function StaffOps({ defaultTab = "handbook" }) {
         return;
       }
 
-      const [streamLogs, medications, medDoses, tasks, shifts, timeEntries, commands, updates, users] = await Promise.all([
+      const [streamLogs, medications, medDoses, tasks, staffAvailability, shiftAssignments, shifts, timeEntries, commands, updates, users] = await Promise.all([
         communityClient.entities.StreamLog.list("-created_date", 100),
         communityClient.entities.Medication.list("-created_date", 100),
         communityClient.entities.MedDose.list("-created_date", 100),
         communityClient.entities.StaffTask.list("-created_date", 200),
+        communityClient.entities.StaffAvailability.list("-created_date", 200).catch(() => []),
+        communityClient.entities.ShiftPlannerAssignment.list("-created_date", 300).catch(() => []),
         communityClient.entities.ModShift.list("-created_date", 200).catch(() => []),
         communityClient.entities.StaffTimeEntry.list("-created_date", 200).catch(() => []),
         communityClient.entities.BotCommand.list("-created_date", 500).catch(() => []),
@@ -240,6 +301,8 @@ export default function StaffOps({ defaultTab = "handbook" }) {
         medications: sortNewest(medications),
         medDoses: sortNewest(medDoses),
         tasks: sortNewest(tasks),
+        staffAvailability: sortNewest(staffAvailability),
+        shiftAssignments: sortNewest(shiftAssignments),
         shifts: sortNewest(shifts),
         timeEntries: sortNewest(timeEntries),
         commands: sortNewest(commands),
@@ -270,6 +333,56 @@ export default function StaffOps({ defaultTab = "handbook" }) {
     () => data.timeEntries.filter((entry) => entry.payable).reduce((sum, entry) => sum + getTimeEntryHours(entry), 0),
     [data.timeEntries],
   );
+  const activeUpdates = useMemo(() => data.updates.filter((update) => update.status === "active"), [data.updates]);
+  const upcomingShifts = useMemo(() => {
+    const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
+    return [...data.shifts]
+      .filter((shift) => {
+        if (!shift.starts_at) return true;
+        const startsAt = new Date(shift.starts_at).getTime();
+        return Number.isNaN(startsAt) || startsAt >= sixHoursAgo;
+      })
+      .sort((a, b) => new Date(a.starts_at || 0) - new Date(b.starts_at || 0))
+      .slice(0, 5);
+  }, [data.shifts]);
+  const pendingTimeEntries = useMemo(
+    () => data.timeEntries.filter((entry) => entry.payable && entry.status !== "paid"),
+    [data.timeEntries],
+  );
+  const staffRoster = useMemo(() => {
+    const staffMembers = data.users
+      .filter((member) => STAFF_ROLE_VALUES.has(String(member.role || "").toLowerCase()))
+      .map((member) => ({
+        profile_id: member.id,
+        staff_name: getPublicDisplayName(member, member.display_name || "Staff"),
+        role: member.role || "staff",
+        avatar_url: member.avatar_url || "",
+      }));
+
+    const availabilityOnly = data.staffAvailability
+      .filter((entry) => entry.staff_name && !staffMembers.some((member) => member.profile_id && member.profile_id === entry.profile_id))
+      .map((entry) => ({
+        profile_id: entry.profile_id || `availability:${entry.id}`,
+        staff_name: entry.staff_name,
+        role: entry.role || "staff",
+        avatar_url: entry.avatar_url || "",
+      }));
+
+    return [...staffMembers, ...availabilityOnly].sort((a, b) => a.staff_name.localeCompare(b.staff_name));
+  }, [data.staffAvailability, data.users]);
+
+  const selectedAvailabilityMember = useMemo(
+    () => staffRoster.find((member) => member.profile_id === selectedAvailabilityProfile) || staffRoster[0] || null,
+    [selectedAvailabilityProfile, staffRoster],
+  );
+
+  const selectedAvailabilityRow = useMemo(() => {
+    if (!selectedAvailabilityMember) return null;
+    return data.staffAvailability.find((entry) =>
+      (selectedAvailabilityMember.profile_id && entry.profile_id === selectedAvailabilityMember.profile_id)
+      || entry.staff_name === selectedAvailabilityMember.staff_name,
+    ) || null;
+  }, [data.staffAvailability, selectedAvailabilityMember]);
   const commandRows = useMemo(() => {
     const managedByCommand = new Map(data.commands.map((command) => [String(command.command || "").toLowerCase(), command]));
     const seededRows = DEFAULT_COMMAND_REFERENCE.filter(
@@ -284,6 +397,25 @@ export default function StaffOps({ defaultTab = "handbook" }) {
         .some((value) => String(value).toLowerCase().includes(query)),
     );
   }, [commandSearch, data.commands]);
+
+  useEffect(() => {
+    if (!selectedAvailabilityProfile && staffRoster.length > 0) {
+      setSelectedAvailabilityProfile(staffRoster[0].profile_id);
+    }
+  }, [selectedAvailabilityProfile, staffRoster]);
+
+  useEffect(() => {
+    setAvailabilityDraft(selectedAvailabilityRow?.availability || {});
+  }, [selectedAvailabilityRow]);
+
+  useEffect(() => {
+    setPlannerAssignments(
+      data.shiftAssignments.map((assignment) => ({
+        ...assignment,
+        local_id: assignment.id,
+      })),
+    );
+  }, [data.shiftAssignments]);
 
   function updateForm(setter, key, value) {
     setter((current) => ({ ...current, [key]: value }));
@@ -532,6 +664,142 @@ export default function StaffOps({ defaultTab = "handbook" }) {
     }
   }
 
+  function cycleAvailabilitySlot(day, hour) {
+    const statusKeys = AVAILABILITY_STATUSES.map((status) => status.key);
+    setAvailabilityDraft((current) => {
+      const currentStatus = current?.[day]?.[hour];
+      const nextStatus = statusKeys[(statusKeys.indexOf(currentStatus) + 1) % (statusKeys.length + 1)];
+      const nextDay = { ...(current?.[day] || {}) };
+      if (nextStatus) nextDay[hour] = nextStatus;
+      else delete nextDay[hour];
+      const next = { ...current, [day]: nextDay };
+      if (Object.keys(nextDay).length === 0) delete next[day];
+      return next;
+    });
+  }
+
+  function setAvailabilityDay(day, status) {
+    setAvailabilityDraft((current) => ({
+      ...current,
+      [day]: Object.fromEntries(STAFF_HOURS.map((hour) => [hour, status])),
+    }));
+  }
+
+  function clearAvailabilityDay(day) {
+    setAvailabilityDraft((current) => {
+      const next = { ...current };
+      delete next[day];
+      return next;
+    });
+  }
+
+  async function saveAvailability() {
+    if (!selectedAvailabilityMember) return;
+    setSaving("availability");
+    try {
+      const payload = parseStaffAvailabilityForm({
+        ...selectedAvailabilityMember,
+        availability: availabilityDraft,
+      });
+      if (selectedAvailabilityRow?.id) await communityClient.entities.StaffAvailability.update(selectedAvailabilityRow.id, payload);
+      else await communityClient.entities.StaffAvailability.create(payload);
+      await loadData();
+      toast({ title: "Availability saved" });
+    } catch (error) {
+      toast({ title: "Availability needs attention", description: getValidationMessage(error), variant: "destructive" });
+    } finally {
+      setSaving("");
+    }
+  }
+
+  function reorderPlannerCell(assignments, day, block, sourceIndex, destinationIndex) {
+    const cellItems = assignments.filter((assignment) => assignment.day === day && assignment.block === block);
+    const [moved] = cellItems.splice(sourceIndex, 1);
+    if (!moved) return assignments;
+    cellItems.splice(destinationIndex, 0, moved);
+    const reorderedIds = new Map(cellItems.map((assignment, index) => [assignment.local_id || assignment.id, index]));
+    return assignments
+      .map((assignment) => {
+        const key = assignment.local_id || assignment.id;
+        return reorderedIds.has(key) ? { ...assignment, order: reorderedIds.get(key) } : assignment;
+      })
+      .sort(sortPlannerAssignments);
+  }
+
+  function handlePlannerDragEnd(result) {
+    const { draggableId, destination, source } = result;
+    if (!destination) return;
+
+    const isDestinationCell = destination.droppableId.startsWith("cell:");
+    if (!isDestinationCell) {
+      if (draggableId.startsWith("assignment:")) {
+        const assignmentKey = draggableId.replace("assignment:", "");
+        setPlannerAssignments((current) => current.filter((assignment) => (assignment.local_id || assignment.id) !== assignmentKey));
+      }
+      return;
+    }
+
+    const [, day, block] = destination.droppableId.split(":");
+
+    if (source.droppableId === destination.droppableId && draggableId.startsWith("assignment:")) {
+      setPlannerAssignments((current) => reorderPlannerCell(current, day, block, source.index, destination.index));
+      return;
+    }
+
+    setPlannerAssignments((current) => {
+      if (draggableId.startsWith("pool:")) {
+        const profileId = draggableId.replace("pool:", "");
+        const member = staffRoster.find((item) => item.profile_id === profileId);
+        if (!member) return current;
+        const alreadyAssigned = current.some(
+          (assignment) => assignment.profile_id === member.profile_id && assignment.day === day && assignment.block === block,
+        );
+        if (alreadyAssigned) return current;
+        const localId = `local:${Date.now()}:${Math.random().toString(16).slice(2)}`;
+        return [
+          ...current,
+          {
+            ...member,
+            local_id: localId,
+            day,
+            block,
+            order: destination.index,
+          },
+        ].sort(sortPlannerAssignments);
+      }
+
+      const assignmentKey = draggableId.replace("assignment:", "");
+      return current
+        .map((assignment) => (assignment.local_id || assignment.id) === assignmentKey ? { ...assignment, day, block, order: destination.index } : assignment)
+        .sort(sortPlannerAssignments);
+    });
+  }
+
+  function removePlannerAssignment(assignmentKey) {
+    setPlannerAssignments((current) => current.filter((assignment) => (assignment.local_id || assignment.id) !== assignmentKey));
+  }
+
+  async function saveShiftPlanner() {
+    setSaving("planner");
+    try {
+      const currentPersistedIds = new Set(plannerAssignments.map((assignment) => assignment.id).filter(Boolean));
+      const removed = data.shiftAssignments.filter((assignment) => !currentPersistedIds.has(assignment.id));
+      await Promise.all(removed.map((assignment) => communityClient.entities.ShiftPlannerAssignment.delete(assignment.id)));
+
+      await Promise.all(plannerAssignments.map((assignment, index) => {
+        const payload = parseShiftPlannerAssignmentForm({ ...assignment, order: index });
+        if (assignment.id) return communityClient.entities.ShiftPlannerAssignment.update(assignment.id, payload);
+        return communityClient.entities.ShiftPlannerAssignment.create(payload);
+      }));
+      await loadData();
+      toast({ title: "Shift planner saved" });
+    } catch (error) {
+      toast({ title: "Shift planner needs attention", description: getValidationMessage(error), variant: "destructive" });
+    } finally {
+      setSaving("");
+    }
+  }
+
   if (!loading && !isStaff) {
     return (
       <div className="flex flex-col items-center justify-center py-32 text-center">
@@ -591,6 +859,19 @@ export default function StaffOps({ defaultTab = "handbook" }) {
         </div>
       ) : (
         <>
+          {activeTab === "dashboard" && (
+            <StaffDashboard
+              activeUpdates={activeUpdates}
+              commandCount={commandRows.length}
+              data={data}
+              onTabChange={setActiveTab}
+              openTasks={openTasks}
+              pendingTimeEntries={pendingTimeEntries}
+              totalPayableHours={totalPayableHours}
+              upcomingShifts={upcomingShifts}
+            />
+          )}
+
           {activeTab === "handbook" && (
             <div className="space-y-5">
               <div className="grid gap-4 md:grid-cols-3">
@@ -755,7 +1036,28 @@ export default function StaffOps({ defaultTab = "handbook" }) {
           )}
 
           {activeTab === "schedule" && (
-            <div className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
+            <div className="space-y-5">
+              <AvailabilityManager
+                availabilityDraft={availabilityDraft}
+                onClearDay={clearAvailabilityDay}
+                onSave={saveAvailability}
+                onSelectMember={setSelectedAvailabilityProfile}
+                onSetDay={setAvailabilityDay}
+                onToggleSlot={cycleAvailabilitySlot}
+                saving={saving === "availability"}
+                selectedProfile={selectedAvailabilityMember?.profile_id || ""}
+                staffRoster={staffRoster}
+              />
+              <ShiftPlanner
+                assignments={plannerAssignments}
+                availabilityRows={data.staffAvailability}
+                onDragEnd={handlePlannerDragEnd}
+                onRemove={removePlannerAssignment}
+                onSave={saveShiftPlanner}
+                saving={saving === "planner"}
+                staffRoster={staffRoster}
+              />
+              <div className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
               <GlassCard>
                 <SectionHeader icon={CalendarClock} title="Schedule Mod Coverage" subtitle="Plan who is on duty while you stream." />
                 <form className="mt-5 space-y-3" onSubmit={handleCreateShift}>
@@ -814,6 +1116,7 @@ export default function StaffOps({ defaultTab = "handbook" }) {
                   ))
                 )}
               </div>
+            </div>
             </div>
           )}
 
@@ -1139,6 +1442,406 @@ export default function StaffOps({ defaultTab = "handbook" }) {
         </>
       )}
     </div>
+  );
+}
+
+function sortPlannerAssignments(a, b) {
+  const dayA = STAFF_DAYS.findIndex((day) => day.key === a.day);
+  const dayB = STAFF_DAYS.findIndex((day) => day.key === b.day);
+  if (dayA !== dayB) return dayA - dayB;
+  const blockA = SHIFT_PLANNER_BLOCKS.findIndex((block) => block.key === a.block);
+  const blockB = SHIFT_PLANNER_BLOCKS.findIndex((block) => block.key === b.block);
+  if (blockA !== blockB) return blockA - blockB;
+  return Number(a.order || 0) - Number(b.order || 0);
+}
+
+function getInitials(name = "") {
+  return String(name || "S")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase() || "S";
+}
+
+function getAvailabilitySummary(availabilityDraft, day) {
+  return Object.values(availabilityDraft?.[day] || {}).filter((status) => status === "free" || status === "on_call").length;
+}
+
+function isAvailableForBlock(assignment, availabilityRows, day, block) {
+  const row = availabilityRows.find((entry) =>
+    (assignment.profile_id && entry.profile_id === assignment.profile_id) || entry.staff_name === assignment.staff_name,
+  );
+  if (!row?.availability?.[day]) return false;
+  return block.hours.some((hour) => ["free", "on_call"].includes(row.availability[day][hour]));
+}
+
+function AvailabilityManager({ availabilityDraft, onClearDay, onSave, onSelectMember, onSetDay, onToggleSlot, saving, selectedProfile, staffRoster }) {
+  return (
+    <GlassCard>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <SectionHeader icon={CalendarClock} title="Availability Management" subtitle="Click slots to cycle Free, On Call, Busy, Do Not Disturb, then clear. Because time is real, apparently." />
+        <Button type="button" onClick={onSave} disabled={saving || !selectedProfile} className="gap-2">
+          <CheckCircle2 className="h-4 w-4" />
+          Save Availability
+        </Button>
+      </div>
+
+      <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-center">
+        <label className="text-sm font-semibold text-foreground" htmlFor="availability-member">Select team member:</label>
+        <Select value={selectedProfile} onValueChange={onSelectMember}>
+          <SelectTrigger id="availability-member" className="max-w-sm">
+            <SelectValue placeholder="Choose staff" />
+          </SelectTrigger>
+          <SelectContent>
+            {staffRoster.map((member) => (
+              <SelectItem key={member.profile_id} value={member.profile_id}>{member.staff_name} - {member.role}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground">
+        {AVAILABILITY_STATUSES.map((status) => (
+          <span key={status.key} className="inline-flex items-center gap-1.5">
+            <span className={`h-2.5 w-2.5 rounded-full ${status.className.split(" ")[0]}`} />
+            {status.label}
+          </span>
+        ))}
+      </div>
+
+      <div className="mt-5 space-y-4">
+        {STAFF_DAYS.map((day) => (
+          <div key={day.key} className="rounded-lg border border-border bg-secondary/20 p-4">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <h3 className="font-heading text-base font-semibold">{day.label}</h3>
+                <Badge variant="outline">{getAvailabilitySummary(availabilityDraft, day.key)}h available</Badge>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {AVAILABILITY_STATUSES.map((status) => (
+                  <Button key={status.key} type="button" size="sm" variant="outline" onClick={() => onSetDay(day.key, status.key)}>
+                    All {status.label}
+                  </Button>
+                ))}
+                <Button type="button" size="sm" variant="ghost" onClick={() => onClearDay(day.key)}>Clear</Button>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-12">
+              {STAFF_HOURS.map((hour) => {
+                const status = availabilityDraft?.[day.key]?.[hour];
+                const statusMeta = AVAILABILITY_STATUS_MAP[status];
+                return (
+                  <button
+                    key={hour}
+                    type="button"
+                    onClick={() => onToggleSlot(day.key, hour)}
+                    className={`h-10 rounded-full border text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${statusMeta ? statusMeta.className : "border-border bg-secondary/50 text-muted-foreground hover:bg-secondary"}`}
+                    aria-label={`${day.label} ${hour}:00 ${statusMeta?.label || "unset"}`}
+                  >
+                    {hour}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </GlassCard>
+  );
+}
+
+function ShiftPlanner({ assignments, availabilityRows, onDragEnd, onRemove, onSave, saving, staffRoster }) {
+  return (
+    <GlassCard>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <SectionHeader icon={ClipboardList} title="Shift Planner" subtitle="Drag staff from the pool into coverage cells. Green border means their availability matches that block." />
+        <Button type="button" onClick={onSave} disabled={saving} className="gap-2">
+          <CheckCircle2 className="h-4 w-4" />
+          Save Shifts
+        </Button>
+      </div>
+
+      <DragDropContext onDragEnd={onDragEnd}>
+        <Droppable droppableId="pool" direction="horizontal" isDropDisabled={false}>
+          {(provided) => (
+            <div ref={provided.innerRef} {...provided.droppableProps} className="mt-5 rounded-lg border border-dashed border-border bg-secondary/20 p-3">
+              <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Available members - drag to assign</p>
+              <div className="flex min-h-12 flex-wrap gap-2">
+                {staffRoster.map((member, index) => (
+                  <Draggable key={member.profile_id} draggableId={`pool:${member.profile_id}`} index={index}>
+                    {(dragProvided) => (
+                      <div
+                        ref={dragProvided.innerRef}
+                        {...dragProvided.draggableProps}
+                        {...dragProvided.dragHandleProps}
+                        className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary px-3 py-2 text-sm font-semibold text-foreground shadow-sm"
+                      >
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-xs text-primary">{getInitials(member.staff_name)}</span>
+                        {member.staff_name}
+                      </div>
+                    )}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+              </div>
+            </div>
+          )}
+        </Droppable>
+
+        <div className="mt-6 overflow-x-auto pb-2">
+          <div className="grid min-w-[940px] grid-cols-[9rem_repeat(7,minmax(7rem,1fr))] gap-3">
+            <div />
+            {STAFF_DAYS.map((day) => <div key={day.key} className="text-center text-sm font-semibold text-muted-foreground">{day.label.slice(0, 3)}</div>)}
+            {SHIFT_PLANNER_BLOCKS.map((block) => (
+              <div key={block.key} className="contents">
+                <div className="flex flex-col justify-center rounded-lg border border-border bg-secondary/20 p-3">
+                  <span className="font-heading text-base font-semibold">{block.label}</span>
+                  <span className="text-xs text-muted-foreground">{block.time}</span>
+                </div>
+                {STAFF_DAYS.map((day) => {
+                  const cellAssignments = assignments
+                    .filter((assignment) => assignment.day === day.key && assignment.block === block.key)
+                    .sort(sortPlannerAssignments);
+                  return (
+                    <Droppable key={`${day.key}:${block.key}`} droppableId={`cell:${day.key}:${block.key}`}>
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className={`min-h-28 rounded-lg border bg-secondary/15 p-2 transition-colors ${snapshot.isDraggingOver ? "border-primary bg-primary/10" : "border-border"}`}
+                        >
+                          {cellAssignments.length === 0 && <p className="pt-8 text-center text-xs text-muted-foreground">Drop here</p>}
+                          <div className="space-y-2">
+                            {cellAssignments.map((assignment, index) => {
+                              const key = assignment.local_id || assignment.id;
+                              const available = isAvailableForBlock(assignment, availabilityRows, day.key, block);
+                              return (
+                                <Draggable key={key} draggableId={`assignment:${key}`} index={index}>
+                                  {(dragProvided) => (
+                                    <div
+                                      ref={dragProvided.innerRef}
+                                      {...dragProvided.draggableProps}
+                                      {...dragProvided.dragHandleProps}
+                                      className={`flex items-center gap-2 rounded-full border px-2 py-1.5 text-xs font-semibold shadow-sm ${available ? "border-emerald-400/70 bg-emerald-500/10 text-emerald-100" : "border-rose-400/40 bg-rose-500/10 text-rose-100"}`}
+                                    >
+                                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px]">{getInitials(assignment.staff_name)}</span>
+                                      <span className="min-w-0 flex-1 truncate">{assignment.staff_name}</span>
+                                      <button type="button" onClick={() => onRemove(key)} className="text-muted-foreground hover:text-foreground" aria-label={`Remove ${assignment.staff_name}`}>
+                                        x
+                                      </button>
+                                    </div>
+                                  )}
+                                </Draggable>
+                              );
+                            })}
+                            {provided.placeholder}
+                          </div>
+                        </div>
+                      )}
+                    </Droppable>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-4 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded bg-emerald-500/40 ring-1 ring-emerald-400/70" /> Available for block</span>
+          <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded bg-rose-500/25 ring-1 ring-rose-400/40" /> No matching availability set</span>
+        </div>
+      </DragDropContext>
+    </GlassCard>
+  );
+}
+
+function StaffDashboard({ activeUpdates, commandCount, data, onTabChange, openTasks, pendingTimeEntries, totalPayableHours, upcomingShifts }) {
+  const metrics = [
+    { label: "Open Tasks", value: openTasks.length, detail: "tiny fires currently labeled 'later'", icon: ClipboardList, tab: "tasks" },
+    { label: "On Deck", value: upcomingShifts.length, detail: "scheduled or nearly scheduled coverage", icon: CalendarClock, tab: "schedule" },
+    { label: "Updates", value: activeUpdates.length, detail: "ticker notes still breathing", icon: Bell, tab: "updates" },
+    { label: "Payable Hours", value: totalPayableHours.toFixed(1), detail: `${pendingTimeEntries.length} unpaid or pending entries`, icon: Clock, tab: "time" },
+  ];
+
+  const recentTasks = openTasks.slice(0, 4);
+  const recentUpdates = activeUpdates.slice(0, 3);
+  const recentCommands = data.commands.slice(0, 4);
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {metrics.map((metric) => (
+          <MetricTile key={metric.label} {...metric} onTabChange={onTabChange} />
+        ))}
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
+        <GlassCard>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <SectionHeader icon={Activity} title="Staff Cockpit" subtitle="Open work, live notes, and the next mod handoff in one place." />
+            <Button variant="outline" size="sm" onClick={() => onTabChange("tasks")}>Open Tasks</Button>
+          </div>
+          <div className="mt-5 space-y-3">
+            {recentTasks.length === 0 ? (
+              <EmptyState title="No open staff tasks. Suspiciously peaceful." />
+            ) : (
+              recentTasks.map((task) => (
+                <div key={task.id} className="rounded-lg border border-border bg-secondary/25 p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-heading text-sm font-semibold">{task.title}</p>
+                    <span className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${statusTone(task.status)}`}>
+                      {TASK_STATUS_LABELS[task.status] || "In Queue"}
+                    </span>
+                    <Badge variant="outline">{TASK_PRIORITY_LABELS[task.priority] || "Normal"}</Badge>
+                  </div>
+                  {task.description && <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{task.description}</p>}
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {[task.category, task.due_date ? `due ${formatDateTime(task.due_date)}` : null].filter(Boolean).join(" - ") || "No category yet"}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        </GlassCard>
+
+        <GlassCard>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <SectionHeader icon={CalendarClock} title="Coverage Radar" subtitle="Who is supposed to be around when stream happens, allegedly." />
+            <Button variant="outline" size="sm" onClick={() => onTabChange("schedule")}>Schedule</Button>
+          </div>
+          <div className="mt-5 space-y-3">
+            {upcomingShifts.length === 0 ? (
+              <EmptyState title="No upcoming shifts. The schedule has entered witness protection." />
+            ) : (
+              upcomingShifts.map((shift) => (
+                <div key={shift.id} className="rounded-lg border border-border bg-secondary/25 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-heading text-sm font-semibold">{shift.staff_name}</p>
+                    <Badge variant="outline">{SHIFT_STATUS_LABELS[shift.status] || "Scheduled"}</Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(shift.starts_at)} to {formatDateTime(shift.ends_at)}</p>
+                  <p className="mt-2 text-sm text-foreground">{[shift.role, shift.stream_title].filter(Boolean).join(" - ") || "General coverage"}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </GlassCard>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+        <GlassCard>
+          <SectionHeader icon={Bell} title="Current Updates" subtitle="Dashboard ticker material, mood notes, and staff context." />
+          <div className="mt-5 space-y-3">
+            {recentUpdates.length === 0 ? (
+              <EmptyState title="No active updates. Veri is either fine or merely unsupervised." />
+            ) : (
+              recentUpdates.map((update) => (
+                <div key={update.id} className="rounded-lg border border-border bg-secondary/25 p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-heading text-sm font-semibold">{update.title}</p>
+                    <Badge variant="outline">{SCUFFOX_UPDATE_TONE_LABELS[update.tone] || "Announcement"}</Badge>
+                  </div>
+                  <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">{update.message}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </GlassCard>
+
+        <GlassCard>
+          <SectionHeader icon={ExternalLink} title="Handy Links" subtitle="The stuff mods ask for while chat is actively becoming chat." />
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            {STAFF_HANDY_LINKS.map((link) => (
+              <HandyLinkCard key={link.label} link={link} />
+            ))}
+          </div>
+        </GlassCard>
+      </div>
+
+      <GlassCard>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <SectionHeader icon={ClipboardList} title="Mod Hub Modules" subtitle="Pulled from ScuffOps' Team, Availability, Schedule, Handbook, and Shift Planner shape." />
+          <Badge variant="outline">{commandCount} commands visible</Badge>
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {STAFF_MODULE_SHORTCUTS.map((module) => (
+            <ModuleShortcut key={module.label} module={module} onTabChange={onTabChange} />
+          ))}
+        </div>
+        {recentCommands.length > 0 && (
+          <div className="mt-5 rounded-lg border border-border bg-secondary/25 p-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <p className="font-heading text-sm font-semibold">Recent Managed Commands</p>
+              <Button variant="outline" size="sm" onClick={() => onTabChange("commands")}>Command Ref</Button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {recentCommands.map((command) => (
+                <code key={command.id || command.command} className="rounded-md bg-secondary px-2 py-1 text-xs font-semibold text-foreground">
+                  {command.command}
+                </code>
+              ))}
+            </div>
+          </div>
+        )}
+      </GlassCard>
+    </div>
+  );
+}
+
+function MetricTile({ detail, icon: Icon, label, onTabChange, tab, value }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onTabChange(tab)}
+      className="rounded-lg border border-border bg-card/70 p-4 text-left shadow-sm transition-colors hover:border-primary/45 hover:bg-secondary/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs font-semibold uppercase text-muted-foreground">{label}</span>
+        <Icon className="h-4 w-4 text-primary" />
+      </div>
+      <p className="mt-3 font-heading text-2xl font-semibold text-foreground">{value}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
+    </button>
+  );
+}
+
+function HandyLinkCard({ link }) {
+  const Icon = link.icon;
+  const classes = "group rounded-lg border border-border bg-secondary/25 p-3 transition-colors hover:border-primary/45 hover:bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  const content = (
+    <>
+      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+        <Icon className="h-4 w-4 text-primary" />
+        <span>{link.label}</span>
+        {link.href && <ExternalLink className="ml-auto h-3.5 w-3.5 text-muted-foreground group-hover:text-primary" />}
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">{link.description}</p>
+    </>
+  );
+
+  if (link.href) {
+    return <a className={classes} href={link.href} target="_blank" rel="noreferrer">{content}</a>;
+  }
+
+  return <Link className={classes} to={link.to}>{content}</Link>;
+}
+
+function ModuleShortcut({ module, onTabChange }) {
+  const Icon = module.icon;
+  return (
+    <button
+      type="button"
+      onClick={() => onTabChange(module.tab)}
+      className="rounded-lg border border-border bg-secondary/25 p-3 text-left transition-colors hover:border-primary/45 hover:bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+        <Icon className="h-4 w-4 text-primary" />
+        {module.label}
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">{module.description}</p>
+    </button>
   );
 }
 

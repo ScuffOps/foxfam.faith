@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
+    "test:e2e:portal-auth": "node scripts/e2e-portal-auth.mjs",
     "test:e2e:staff-ops": "node scripts/e2e-staff-ops.mjs",
     "test:rls": "node scripts/rls-smoke.mjs",
     "typecheck": "tsc -p ./jsconfig.json",

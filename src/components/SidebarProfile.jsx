@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import RankBadge from "@/components/RankBadge";
 import { getPrivateUserKey } from "@/lib/communityActor";
+import { isNotificationRead, markNotificationRead } from "@/lib/notificationState";
 import { useAuth } from "@/lib/AuthContext";
 import { getRoleLabel } from "@/lib/roles";
 import { getInitials, getPublicAvatar, getPublicDisplayName } from "@/lib/userIdentity";
@@ -45,10 +46,10 @@ export default function SidebarProfile({ onNavigate }) {
   }, []);
 
   const markNotificationsRead = useCallback(async () => {
-    const unreadNotifications = notifications.filter((note) => !note.read);
+    const unreadNotifications = notifications.filter((note) => !isNotificationRead(note));
     if (unreadNotifications.length === 0) return;
 
-    setNotifications((current) => current.map((note) => ({ ...note, read: true })));
+    setNotifications((current) => current.map(markNotificationRead));
 
     await communityClient.notifications.markRead(unreadNotifications.map((note) => note.id));
   }, [notifications]);
@@ -61,7 +62,7 @@ export default function SidebarProfile({ onNavigate }) {
 
   const displayName = getPublicDisplayName(user, "Guest Fox");
   const avatar = getPublicAvatar(user);
-  const unreadCount = notifications.filter((note) => !note.read).length;
+  const unreadCount = notifications.filter((note) => !isNotificationRead(note)).length;
 
   if (!user) {
     return (
@@ -214,7 +215,7 @@ function NotificationList({ notifications }) {
       {notifications.map((note) => (
         <div key={note.id} className="rounded-lg border border-border bg-secondary/35 p-3">
           <div className="flex items-start gap-2">
-            <span className={`mt-1 h-2 w-2 rounded-full ${note.read ? "bg-muted-foreground/30" : "bg-primary"}`} />
+            <span className={`mt-1 h-2 w-2 rounded-full ${isNotificationRead(note) ? "bg-muted-foreground/30" : "bg-primary"}`} />
             <div className="min-w-0">
               <p className="text-sm font-medium">{note.title}</p>
               {note.message && <p className="mt-0.5 text-xs text-muted-foreground">{note.message}</p>}
