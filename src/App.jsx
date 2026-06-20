@@ -75,7 +75,9 @@ const AuthenticatedApp = () => {
         <Route path="/relic-forge" element={<RelicForge />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/ops" element={<StaffOps />} />
+        <Route path="/ops/dashboard" element={<StaffOps defaultTab="dashboard" />} />
         <Route path="/ops/handbook" element={<StaffOps defaultTab="handbook" />} />
+        <Route path="/ops/updates" element={<StaffOps defaultTab="updates" />} />
         <Route path="/ops/commands" element={<StaffOps defaultTab="commands" />} />
         <Route path="/ops/schedule" element={<StaffOps defaultTab="schedule" />} />
         <Route path="/ops/time" element={<StaffOps defaultTab="time" />} />

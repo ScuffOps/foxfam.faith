@@ -25,6 +25,11 @@ import {
   Bug,
   ChevronDown,
   ClipboardList,
+  Bell,
+  Bot,
+  CalendarClock,
+  Clock,
+  Users,
 } from "lucide-react";
 import SidebarProfile from "./SidebarProfile";
 import { canBookCollab, canUseAdminPanel } from "@/lib/roles";
@@ -77,10 +82,27 @@ const navGroups = [
   },
 ];
 
+const staffOpsGroup = {
+  key: "staff-ops",
+  label: "Staff Ops",
+  icon: ClipboardList,
+  activePaths: ["/ops"],
+  adminOnly: true,
+  items: [
+    { path: "/ops", label: "Dashboard", icon: ClipboardList },
+    { path: "/ops/handbook", label: "Handbook", icon: BookOpen },
+    { path: "/ops/updates", label: "Updates", icon: Bell },
+    { path: "/ops/commands", label: "Commands", icon: Bot },
+    { path: "/ops/schedule", label: "Schedule", icon: CalendarClock },
+    { path: "/ops/time", label: "Time Tracker", icon: Clock },
+    { path: "/ops/tasks", label: "Tasklist", icon: ClipboardList },
+    { path: "/ops/members", label: "Team", icon: Users },
+  ],
+};
+
 const utilityNavItems = [
   { path: "/profile", label: "Profile", icon: UserCircle2 },
   { path: "/admin", label: "Admin Panel", icon: ShieldCheck, adminOnly: true },
-  { path: "/ops", label: "Staff Ops", icon: ClipboardList, adminOnly: true },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -106,6 +128,9 @@ export default function Sidebar({ onClose }) {
     .map((group) => ({ ...group, items: group.items.filter(canShowItem) }))
     .filter((group) => group.items.length > 0);
   const visibleStandaloneItems = standaloneNavItems.filter(canShowItem);
+  const visibleStaffOpsGroup = canShowItem(staffOpsGroup)
+    ? { ...staffOpsGroup, items: staffOpsGroup.items.filter(canShowItem) }
+    : null;
   const visibleUtilityItems = utilityNavItems.filter(canShowItem);
 
   const isPathActive = (path) =>
@@ -120,6 +145,9 @@ export default function Sidebar({ onClose }) {
       visibleGroups.forEach((group) => {
         if (isGroupActive(group)) next[group.key] = true;
       });
+      if (visibleStaffOpsGroup && isGroupActive(visibleStaffOpsGroup)) {
+        next[visibleStaffOpsGroup.key] = true;
+      }
       return next;
     });
   }, [location.pathname, userRole]);
@@ -176,35 +204,28 @@ export default function Sidebar({ onClose }) {
         <div className="space-y-1">
           {visibleRootItems.map((item) => renderLink(item))}
 
-          {visibleGroups.map((group) => {
-            const isOpen = Boolean(openGroups[group.key]);
-            const groupActive = isGroupActive(group);
-            const Icon = group.icon;
-            return (
-              <div key={group.key}>
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(group.key)}
-                  aria-expanded={isOpen}
-                  data-active={groupActive}
-                  className={`sidebar-nav-item sidebar-nav-group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-all duration-200 ${
-                    groupActive ? "text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  }`}
-                >
-                  <Icon className={`h-[18px] w-[18px] shrink-0 ${groupActive ? "text-primary" : ""}`} />
-                  <span className="min-w-0 flex-1 truncate">{group.label}</span>
-                  <ChevronDown className={`h-4 w-4 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
-                </button>
-                {isOpen && (
-                  <div className="mt-1 space-y-1 border-l border-border/60 pb-1 pl-1">
-                    {group.items.map((item) => renderLink(item, true))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {visibleGroups.map((group) => (
+            <NavGroup
+              key={group.key}
+              group={group}
+              isGroupActive={isGroupActive}
+              isOpen={Boolean(openGroups[group.key])}
+              onToggle={toggleGroup}
+              renderLink={renderLink}
+            />
+          ))}
 
           {visibleStandaloneItems.map((item) => renderLink(item))}
+
+          {visibleStaffOpsGroup && (
+            <NavGroup
+              group={visibleStaffOpsGroup}
+              isGroupActive={isGroupActive}
+              isOpen={Boolean(openGroups[visibleStaffOpsGroup.key])}
+              onToggle={toggleGroup}
+              renderLink={renderLink}
+            />
+          )}
 
           <div className="pt-2">
             {visibleUtilityItems.map((item) => renderLink(item))}
@@ -218,6 +239,33 @@ export default function Sidebar({ onClose }) {
           Care vs chaos, badly calendared.
         </p>
       </div>
+    </div>
+  );
+}
+
+function NavGroup({ group, isGroupActive, isOpen, onToggle, renderLink }) {
+  const groupActive = isGroupActive(group);
+  const Icon = group.icon;
+  return (
+    <div key={group.key}>
+      <button
+        type="button"
+        onClick={() => onToggle(group.key)}
+        aria-expanded={isOpen}
+        data-active={groupActive}
+        className={`sidebar-nav-item sidebar-nav-group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-all duration-200 ${
+          groupActive ? "text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+        }`}
+      >
+        <Icon className={`h-[18px] w-[18px] shrink-0 ${groupActive ? "text-primary" : ""}`} />
+        <span className="min-w-0 flex-1 truncate">{group.label}</span>
+        <ChevronDown className={`h-4 w-4 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+      </button>
+      {isOpen && (
+        <div className="mt-1 space-y-1 border-l border-border/60 pb-1 pl-1">
+          {group.items.map((item) => renderLink(item, true))}
+        </div>
+      )}
     </div>
   );
 }
