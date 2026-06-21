@@ -13,6 +13,7 @@ import { getRoleLabel } from "@/lib/roles";
 import { getPublicAvatar, getPublicDisplayName } from "@/lib/userIdentity";
 import { loadUserRelicInventory, rollUserRelicCharm, setEquippedCharm } from "@/lib/relicService";
 import { groupCharmsByRarity, RELIC_RARITY_META } from "@/lib/relicCharms";
+import { getProfileRelicTeaser } from "@/lib/profileRelicTeasers";
 
 const RARITY_ORDER = ["mythic", "epic", "rare", "uncommon", "common"];
 
@@ -65,6 +66,7 @@ export default function Profile() {
 
   const groupedCharms = useMemo(() => groupCharmsByRarity(charms), [charms]);
   const equippedCount = charms.filter((charm) => charm.equipped).length;
+  const relicTeaser = useMemo(() => user ? getProfileRelicTeaser(user) : null, [user]);
 
   const handleRollCharm = async () => {
     setRolling(true);
@@ -162,15 +164,32 @@ export default function Profile() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-border bg-card p-5">
-          <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-muted-foreground">Relic Rule</p>
-          <h2 className="mt-1 font-heading text-xl font-bold">One relic, many charms</h2>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Your profile has a single active relic. Every charm you roll is a collectible item that can be attached, swapped, or saved for later.
-          </p>
-          <Button asChild className="mt-4 w-full gap-2">
-            <Link to="/relic-forge"><WandSparkles className="h-4 w-4" /> Tune Relic</Link>
-          </Button>
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <div className="relative min-h-44 bg-[radial-gradient(circle_at_50%_15%,rgba(69,70,255,0.28),transparent_48%),linear-gradient(145deg,rgba(7,20,36,0.96),rgba(18,16,35,0.98))] p-5">
+            <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/55 to-transparent" />
+            <img
+              src={relicTeaser?.image}
+              alt=""
+              className="mx-auto h-28 w-28 object-contain opacity-80 drop-shadow-[0_0_28px_rgba(56,189,248,0.35)]"
+            />
+          </div>
+          <div className="p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-muted-foreground">Profile Relic</p>
+              <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-primary">
+                {relicTeaser?.stage}
+              </span>
+            </div>
+            <h2 className="mt-2 font-heading text-xl font-bold">{relicTeaser?.title}</h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">{relicTeaser?.omen}</p>
+            <div className="mt-4 rounded-lg border border-border bg-secondary/25 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Seal ID</p>
+              <p className="mt-1 font-heading text-lg font-semibold text-primary">{relicTeaser?.code}</p>
+            </div>
+            <Button disabled className="mt-4 w-full gap-2">
+              <WandSparkles className="h-4 w-4" /> Forge Opens Soon
+            </Button>
+          </div>
         </div>
       </section>
 

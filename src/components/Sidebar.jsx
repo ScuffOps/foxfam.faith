@@ -29,6 +29,8 @@ import {
   Bot,
   CalendarClock,
   Clock,
+  Pill,
+  Radio,
   Users,
 } from "lucide-react";
 import SidebarProfile from "./SidebarProfile";
@@ -86,6 +88,7 @@ const staffOpsGroup = {
   key: "staff-ops",
   label: "Staff Ops",
   icon: ClipboardList,
+  path: "/ops",
   activePaths: ["/ops"],
   adminOnly: true,
   items: [
@@ -95,6 +98,8 @@ const staffOpsGroup = {
     { path: "/ops/commands", label: "Commands", icon: Bot },
     { path: "/ops/schedule", label: "Schedule", icon: CalendarClock },
     { path: "/ops/time", label: "Time Tracker", icon: Clock },
+    { path: "/ops/streams", label: "Stream Logs", icon: Radio },
+    { path: "/ops/meds", label: "Medication", icon: Pill },
     { path: "/ops/tasks", label: "Tasklist", icon: ClipboardList },
     { path: "/ops/members", label: "Team", icon: Users },
   ],
@@ -246,6 +251,37 @@ export default function Sidebar({ onClose }) {
 function NavGroup({ group, isGroupActive, isOpen, onToggle, renderLink }) {
   const groupActive = isGroupActive(group);
   const Icon = group.icon;
+  const itemClass = `sidebar-nav-item sidebar-nav-group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-all duration-200 ${
+    groupActive ? "text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+  }`;
+
+  if (group.path) {
+    return (
+      <div key={group.key}>
+        <div data-active={groupActive} className={itemClass}>
+          <Link to={group.path} className="flex min-w-0 flex-1 items-center gap-3">
+            <Icon className={`h-[18px] w-[18px] shrink-0 ${groupActive ? "text-primary" : ""}`} />
+            <span className="min-w-0 flex-1 truncate">{group.label}</span>
+          </Link>
+          <button
+            type="button"
+            onClick={() => onToggle(group.key)}
+            aria-expanded={isOpen}
+            aria-label={`${isOpen ? "Collapse" : "Expand"} ${group.label}`}
+            className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <ChevronDown className={`h-4 w-4 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+          </button>
+        </div>
+        {isOpen && (
+          <div className="mt-1 space-y-1 border-l border-border/60 pb-1 pl-1">
+            {group.items.map((item) => renderLink(item, true))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div key={group.key}>
       <button
@@ -253,9 +289,7 @@ function NavGroup({ group, isGroupActive, isOpen, onToggle, renderLink }) {
         onClick={() => onToggle(group.key)}
         aria-expanded={isOpen}
         data-active={groupActive}
-        className={`sidebar-nav-item sidebar-nav-group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-all duration-200 ${
-          groupActive ? "text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-        }`}
+        className={itemClass}
       >
         <Icon className={`h-[18px] w-[18px] shrink-0 ${groupActive ? "text-primary" : ""}`} />
         <span className="min-w-0 flex-1 truncate">{group.label}</span>

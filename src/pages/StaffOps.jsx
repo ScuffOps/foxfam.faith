@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import {
   Activity,
@@ -11,11 +11,14 @@ import {
   Clock,
   ClipboardList,
   ExternalLink,
+  Keyboard,
   Pill,
+  Play,
   Plus,
   Radio,
   Search,
   ShieldAlert,
+  Square,
   Trash2,
   UserCog,
 } from "lucide-react";
@@ -25,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import GlassCard from "../components/GlassCard";
 import { canModerate } from "@/lib/roles";
@@ -39,7 +43,9 @@ import {
   TASK_PRIORITY_LABELS,
   TASK_STATUS_LABELS,
   TIME_ENTRY_STATUS_LABELS,
+  formatTimerDuration,
   getTimeEntryHours,
+  getTimeRangeHours,
   getValidationMessage,
   isOpenTask,
   parseBotCommandForm,
@@ -176,6 +182,9 @@ const DEFAULT_TIME_FORM = {
   notes: "",
 };
 
+const TIMER_STORAGE_PREFIX = "foxfam.staffTime.activeTimer.v1";
+const TIMER_SHORTCUT_STORAGE_KEY = "foxfam.staffTime.shortcutEnabled.v1";
+
 const DEFAULT_UPDATE_FORM = {
   title: "",
   message: "",
@@ -214,6 +223,55 @@ function formatDateTime(value) {
   }).format(date);
 }
 
+function toDateTimeInputValue(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+function readStoredTimer(key) {
+  if (typeof window === "undefined" || !key) return null;
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(key) || "null");
+    if (!parsed?.started_at || Number.isNaN(new Date(parsed.started_at).getTime())) return null;
+    return {
+      staff_name: parsed.staff_name || "",
+      started_at: parsed.started_at,
+      break_minutes: Number(parsed.break_minutes || 0),
+      notes: parsed.notes || "",
+      payable: parsed.payable !== false,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredTimer(key, timer) {
+  if (typeof window === "undefined" || !key) return;
+  if (timer) window.localStorage.setItem(key, JSON.stringify(timer));
+  else window.localStorage.removeItem(key);
+}
+
+function readStoredBoolean(key, fallback = false) {
+  if (typeof window === "undefined" || !key) return fallback;
+  return window.localStorage.getItem(key) === "true";
+}
+
+function writeStoredBoolean(key, value) {
+  if (typeof window === "undefined" || !key) return;
+  window.localStorage.setItem(key, value ? "true" : "false");
+}
+
+function getOpsPath(tab) {
+  return tab === "dashboard" ? "/ops" : `/ops/${tab}`;
+}
+
+function isValidStaffTab(tab) {
+  return TABS.some((item) => item.key === tab);
+}
+
 function sortNewest(items) {
   return [...items].sort((a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0));
 }
@@ -226,6 +284,7 @@ function statusTone(status) {
 }
 
 export default function StaffOps({ defaultTab = "dashboard" }) {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [commandSearch, setCommandSearch] = useState("");
@@ -251,6 +310,9 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
   const [taskForm, setTaskForm] = useState(DEFAULT_TASK_FORM);
   const [shiftForm, setShiftForm] = useState(DEFAULT_SHIFT_FORM);
   const [timeForm, setTimeForm] = useState(DEFAULT_TIME_FORM);
+  const [activeTimer, setActiveTimer] = useState(null);
+  const [timerTick, setTimerTick] = useState(() => Date.now());
+  const [timerShortcutEnabled, setTimerShortcutEnabled] = useState(() => readStoredBoolean(TIMER_SHORTCUT_STORAGE_KEY));
   const [commandForm, setCommandForm] = useState(DEFAULT_COMMAND_FORM);
   const [updateFormState, setUpdateFormState] = useState(DEFAULT_UPDATE_FORM);
   const [memberForm, setMemberForm] = useState(DEFAULT_MEMBER_FORM);
@@ -260,6 +322,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
 
   const isStaff = canModerate(user);
   const staffName = getPublicDisplayName(user, "Staff");
+  const timerStorageKey = useMemo(() => `${TIMER_STORAGE_PREFIX}:${user?.id || "guest"}`, [user?.id]);
 
   async function loadData() {
     setLoading(true);
@@ -327,6 +390,10 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (isValidStaffTab(defaultTab)) setActiveTab(defaultTab);
+  }, [defaultTab]);
+
   const openTasks = useMemo(() => data.tasks.filter(isOpenTask), [data.tasks]);
   const completedTasks = useMemo(() => data.tasks.filter((task) => task.status === "done"), [data.tasks]);
   const totalPayableHours = useMemo(
@@ -348,6 +415,28 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
   const pendingTimeEntries = useMemo(
     () => data.timeEntries.filter((entry) => entry.payable && entry.status !== "paid"),
     [data.timeEntries],
+  );
+  const timeTotalsByStaff = useMemo(() => {
+    const totals = new Map();
+    for (const entry of data.timeEntries) {
+      if (!entry.payable) continue;
+      const name = entry.staff_name || "Unassigned";
+      const existing = totals.get(name) || { staff_name: name, hours: 0, pendingHours: 0, entries: 0 };
+      const hours = getTimeEntryHours(entry);
+      existing.hours += hours;
+      existing.entries += 1;
+      if (entry.status !== "paid") existing.pendingHours += hours;
+      totals.set(name, existing);
+    }
+    return [...totals.values()].sort((a, b) => b.hours - a.hours || a.staff_name.localeCompare(b.staff_name));
+  }, [data.timeEntries]);
+  const activeTimerDuration = useMemo(
+    () => activeTimer ? formatTimerDuration(activeTimer.started_at, timerTick, activeTimer.break_minutes) : "00:00:00",
+    [activeTimer, timerTick],
+  );
+  const activeTimerHours = useMemo(
+    () => activeTimer ? getTimeRangeHours(activeTimer.started_at, new Date(timerTick).toISOString(), activeTimer.break_minutes) : 0,
+    [activeTimer, timerTick],
   );
   const staffRoster = useMemo(() => {
     const staffMembers = data.users
@@ -417,8 +506,126 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
     );
   }, [data.shiftAssignments]);
 
+  useEffect(() => {
+    if (!isStaff) {
+      setActiveTimer(null);
+      return;
+    }
+    setActiveTimer(readStoredTimer(timerStorageKey));
+  }, [isStaff, timerStorageKey]);
+
+  useEffect(() => {
+    if (!activeTimer) return undefined;
+    setTimerTick(Date.now());
+    const interval = window.setInterval(() => setTimerTick(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, [activeTimer]);
+
+  useEffect(() => {
+    if (!isStaff || !timerShortcutEnabled) return undefined;
+    function handleShortcut(event) {
+      if (!event.altKey || !event.shiftKey || event.key.toLowerCase() !== "t") return;
+      event.preventDefault();
+      handleTabChange("time");
+      if (saving === "timer") return;
+      if (activeTimer) void stopTimer();
+      else startTimer();
+    }
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, [activeTimer, isStaff, saving, staffName, timeForm, timerShortcutEnabled, timerStorageKey]);
+
   function updateForm(setter, key, value) {
     setter((current) => ({ ...current, [key]: value }));
+  }
+
+  function handleTabChange(tab) {
+    if (!isValidStaffTab(tab)) return;
+    setActiveTab(tab);
+    navigate(getOpsPath(tab));
+  }
+
+  function updateTimerShortcutEnabled(enabled) {
+    setTimerShortcutEnabled(enabled);
+    writeStoredBoolean(TIMER_SHORTCUT_STORAGE_KEY, enabled);
+    toast({
+      title: enabled ? "Timer shortcut enabled" : "Timer shortcut disabled",
+      description: "Alt+Shift+T toggles the staff timer when enabled.",
+    });
+  }
+
+  function updateActiveTimer(key, value) {
+    setActiveTimer((current) => {
+      if (!current) return current;
+      const next = { ...current, [key]: value };
+      writeStoredTimer(timerStorageKey, next);
+      return next;
+    });
+  }
+
+  function startTimer() {
+    const now = new Date();
+    const timer = {
+      staff_name: timeForm.staff_name?.trim() || staffName,
+      started_at: now.toISOString(),
+      break_minutes: Number(timeForm.break_minutes || 0),
+      notes: timeForm.notes || "",
+      payable: timeForm.payable !== false,
+    };
+    setActiveTimer(timer);
+    writeStoredTimer(timerStorageKey, timer);
+    setTimeForm((current) => ({
+      ...current,
+      staff_name: timer.staff_name,
+      started_at: toDateTimeInputValue(timer.started_at),
+      ended_at: "",
+      break_minutes: timer.break_minutes,
+      payable: timer.payable,
+      notes: timer.notes,
+    }));
+    handleTabChange("time");
+    toast({ title: "Timer started", description: `${timer.staff_name} is on the clock.` });
+  }
+
+  async function stopTimer() {
+    if (!activeTimer) return;
+    const endedAt = new Date().toISOString();
+    setSaving("timer");
+    try {
+      const payload = parseStaffTimeEntryForm({
+        staff_name: activeTimer.staff_name || staffName,
+        work_date: activeTimer.started_at,
+        started_at: activeTimer.started_at,
+        ended_at: endedAt,
+        break_minutes: activeTimer.break_minutes || 0,
+        payable: activeTimer.payable !== false,
+        status: "submitted",
+        notes: activeTimer.notes || "Timer entry. The clock behaved for once.",
+      });
+      await communityClient.entities.StaffTimeEntry.create({
+        ...payload,
+        timer_source: "start_stop",
+        logged_by_name: staffName,
+      });
+      setActiveTimer(null);
+      writeStoredTimer(timerStorageKey, null);
+      setTimeForm(DEFAULT_TIME_FORM);
+      await loadData();
+      toast({
+        title: "Timer stopped",
+        description: `${getTimeRangeHours(payload.started_at, payload.ended_at, payload.break_minutes).toFixed(2)} hours saved.`,
+      });
+    } catch (error) {
+      toast({ title: "Timer save failed", description: getValidationMessage(error), variant: "destructive" });
+    } finally {
+      setSaving("");
+    }
+  }
+
+  function discardTimer() {
+    setActiveTimer(null);
+    writeStoredTimer(timerStorageKey, null);
+    toast({ title: "Timer discarded", description: "No time entry was saved." });
   }
 
   async function handleCreateStreamLog(event) {
@@ -813,45 +1020,24 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
   }
 
   return (
-    <div className="mx-auto max-w-6xl animate-fade-in">
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="font-heading text-2xl font-bold md:text-3xl">Staff Ops</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Mod onboarding, command references, scheduling, time tracking, and private stream support.
-          </p>
+    <div className="mx-auto max-w-7xl animate-fade-in">
+      <section className="mb-6 rounded-lg border border-white/60 bg-slate-50 p-5 text-slate-950 shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <p className="text-[10px] font-bold uppercase tracking-[0.34em] text-[#4546ff]">Private Staff Cockpit</p>
+            <h1 className="mt-2 font-heading text-3xl font-bold md:text-4xl">Staff Ops</h1>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Mod onboarding, command references, scheduling, time tracking, and private stream support.
+            </p>
+          </div>
+          <div className="grid gap-2 text-xs text-slate-600 sm:grid-cols-3 lg:min-w-[28rem]">
+            <OpsMetric label="Open tasks" value={openTasks.length} />
+            <OpsMetric label="Shifts" value={data.shifts.length} />
+            <OpsMetric label="Payable hrs" value={totalPayableHours.toFixed(1)} />
+          </div>
         </div>
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary/35 px-3 py-2 text-xs text-muted-foreground">
-          <Activity className="h-4 w-4 text-primary" />
-          <span>{openTasks.length} open tasks</span>
-          <span>·</span>
-          <span>{data.shifts.length} shifts</span>
-          <span>·</span>
-          <span>{data.updates.filter((update) => update.status === "active").length} updates</span>
-          <span>·</span>
-          <span>{totalPayableHours.toFixed(1)} payable hrs</span>
-          <span>·</span>
-          <span>{data.streamLogs.length} stream logs</span>
-        </div>
-      </div>
-
-      <div className="mb-5 flex flex-wrap items-center gap-2 border-b border-border">
-        {TABS.map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setActiveTab(key)}
-            className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-              activeTab === key
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Icon className="h-4 w-4" />
-            {label}
-          </button>
-        ))}
-      </div>
+        <StaffOpsNav activeTab={activeTab} onTabChange={handleTabChange} tabs={TABS} />
+      </section>
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
@@ -864,7 +1050,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
               activeUpdates={activeUpdates}
               commandCount={commandRows.length}
               data={data}
-              onTabChange={setActiveTab}
+              onTabChange={handleTabChange}
               openTasks={openTasks}
               pendingTimeEntries={pendingTimeEntries}
               totalPayableHours={totalPayableHours}
@@ -1122,37 +1308,97 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
 
           {activeTab === "time" && (
             <div className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
-              <GlassCard>
-                <SectionHeader icon={Clock} title="Track Paid Hours" subtitle="For staff like Grimmie, Keira, and anyone else being paid for support." />
-                <form className="mt-5 space-y-3" onSubmit={handleCreateTimeEntry}>
-                  <Input value={timeForm.staff_name} onChange={(event) => updateForm(setTimeForm, "staff_name", event.target.value)} placeholder="Staff name" />
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <Input type="datetime-local" value={timeForm.started_at} onChange={(event) => updateForm(setTimeForm, "started_at", event.target.value)} />
-                    <Input type="datetime-local" value={timeForm.ended_at} onChange={(event) => updateForm(setTimeForm, "ended_at", event.target.value)} />
+              <div className="space-y-5">
+                <GlassCard>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <SectionHeader icon={Clock} title="Live Timer" subtitle="Start, stop, and let math do the thing for once." />
+                    <Badge variant={activeTimer ? "default" : "outline"}>{activeTimer ? "Running" : "Idle"}</Badge>
                   </div>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <Input type="number" min="0" value={timeForm.break_minutes} onChange={(event) => updateForm(setTimeForm, "break_minutes", event.target.value)} placeholder="Break minutes" />
-                    <Select value={timeForm.status} onValueChange={(value) => updateForm(setTimeForm, "status", value)}>
+                  <div className="mt-5 rounded-lg border border-[#4546ff]/25 bg-white p-4 text-slate-950 shadow-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Elapsed</p>
+                        <p className="font-heading text-5xl font-bold tabular-nums text-[#4546ff]">{activeTimerDuration}</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {activeTimer ? `${activeTimer.staff_name || staffName} · ${activeTimerHours.toFixed(2)} payable hrs so far` : `${staffName} is not on the clock.`}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-stretch gap-3 sm:items-end">
+                        <Button
+                          type="button"
+                          className={`h-16 min-w-44 gap-2 px-8 text-base font-bold ${
+                            activeTimer
+                              ? "bg-rose-500 text-white hover:bg-rose-400"
+                              : "bg-[#4546ff] text-white hover:bg-[#3637df]"
+                          }`}
+                          disabled={saving === "timer"}
+                          title={timerShortcutEnabled ? "Shortcut: Alt+Shift+T" : "Enable hotkey shortcuts below"}
+                          onClick={() => activeTimer ? stopTimer() : startTimer()}
+                        >
+                          {activeTimer ? <Square className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+                          {activeTimer ? "Stop Timer" : "Start Timer"}
+                        </Button>
+                        <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                          <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                            <Keyboard className="h-4 w-4 text-[#4546ff]" />
+                            <span>Alt+Shift+T</span>
+                          </div>
+                          <Switch
+                            checked={timerShortcutEnabled}
+                            onCheckedChange={updateTimerShortcutEnabled}
+                            aria-label="Enable timer keyboard shortcut"
+                          />
+                        </div>
+                        {activeTimer && (
+                          <Button type="button" variant="outline" className="border-slate-200 bg-white text-slate-700 hover:bg-slate-100" disabled={saving === "timer"} onClick={discardTimer}>
+                            Discard Unsaved Timer
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {activeTimer && (
+                      <div className="mt-4 grid gap-3 md:grid-cols-[0.8fr_0.45fr]">
+                        <Input value={activeTimer.staff_name} onChange={(event) => updateActiveTimer("staff_name", event.target.value)} placeholder="Staff name" />
+                        <Input type="number" min="0" value={activeTimer.break_minutes} onChange={(event) => updateActiveTimer("break_minutes", event.target.value)} placeholder="Break minutes" />
+                        <Textarea className="md:col-span-2" value={activeTimer.notes} onChange={(event) => updateActiveTimer("notes", event.target.value)} placeholder="Work notes for this timer" rows={3} />
+                      </div>
+                    )}
+                  </div>
+                </GlassCard>
+
+                <GlassCard>
+                  <SectionHeader icon={Plus} title="Manual Entry" subtitle="For the times someone remembered after the stream because time is decorative." />
+                  <form className="mt-5 space-y-3" onSubmit={handleCreateTimeEntry}>
+                    <Input value={timeForm.staff_name} onChange={(event) => updateForm(setTimeForm, "staff_name", event.target.value)} placeholder="Staff name" />
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <Input type="datetime-local" value={timeForm.started_at} onChange={(event) => updateForm(setTimeForm, "started_at", event.target.value)} />
+                      <Input type="datetime-local" value={timeForm.ended_at} onChange={(event) => updateForm(setTimeForm, "ended_at", event.target.value)} />
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <Input type="number" min="0" value={timeForm.break_minutes} onChange={(event) => updateForm(setTimeForm, "break_minutes", event.target.value)} placeholder="Break minutes" />
+                      <Select value={timeForm.status} onValueChange={(value) => updateForm(setTimeForm, "status", value)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(TIME_ENTRY_STATUS_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Select value={timeForm.payable ? "payable" : "not_payable"} onValueChange={(value) => updateForm(setTimeForm, "payable", value === "payable")}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {Object.entries(TIME_ENTRY_STATUS_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+                        <SelectItem value="payable">Payable</SelectItem>
+                        <SelectItem value="not_payable">Not payable</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
-                  <Select value={timeForm.payable ? "payable" : "not_payable"} onValueChange={(value) => updateForm(setTimeForm, "payable", value === "payable")}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="payable">Payable</SelectItem>
-                      <SelectItem value="not_payable">Not payable</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Textarea value={timeForm.notes} onChange={(event) => updateForm(setTimeForm, "notes", event.target.value)} placeholder="Work notes" rows={4} />
-                  <Button type="submit" disabled={saving === "time"} className="w-full gap-2">
-                    <Plus className="h-4 w-4" />
-                    Save Time Entry
-                  </Button>
-                </form>
-              </GlassCard>
+                    <Textarea value={timeForm.notes} onChange={(event) => updateForm(setTimeForm, "notes", event.target.value)} placeholder="Work notes" rows={4} />
+                    <Button type="submit" disabled={saving === "time"} className="w-full gap-2">
+                      <Plus className="h-4 w-4" />
+                      Save Time Entry
+                    </Button>
+                  </form>
+                </GlassCard>
+              </div>
 
               <div className="space-y-3">
                 <GlassCard>
@@ -1161,6 +1407,24 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                     <p className="font-heading text-xl font-semibold text-primary">{totalPayableHours.toFixed(1)} hours</p>
                   </div>
                 </GlassCard>
+                {timeTotalsByStaff.length > 0 && (
+                  <GlassCard>
+                    <SectionHeader icon={UserCog} title="Staff Totals" subtitle="Auto-calculated per person so payroll math stops lurking in the walls." />
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      {timeTotalsByStaff.map((total) => (
+                        <div key={total.staff_name} className="rounded-lg border border-border bg-secondary/25 p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="font-heading text-sm font-semibold">{total.staff_name}</p>
+                              <p className="mt-1 text-xs text-muted-foreground">{total.entries} entries · {total.pendingHours.toFixed(2)} hrs pending</p>
+                            </div>
+                            <p className="font-heading text-lg font-semibold text-primary">{total.hours.toFixed(2)}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </GlassCard>
+                )}
                 {data.timeEntries.length === 0 ? (
                   <EmptyState title="No time entries yet" />
                 ) : (
@@ -1654,6 +1918,45 @@ function ShiftPlanner({ assignments, availabilityRows, onDragEnd, onRemove, onSa
         </div>
       </DragDropContext>
     </GlassCard>
+  );
+}
+
+function OpsMetric({ label, value }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">{label}</p>
+      <p className="mt-1 font-heading text-2xl font-bold text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+function StaffOpsNav({ activeTab, onTabChange, tabs }) {
+  return (
+    <nav className="mt-6 rounded-lg bg-white p-2 shadow-inner" aria-label="Staff Ops sections">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        {tabs.map(({ key, label, icon: Icon }) => {
+          const active = activeTab === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              aria-current={active ? "page" : undefined}
+              onClick={() => onTabChange(key)}
+              className={`flex min-h-14 items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4546ff] ${
+                active
+                  ? "bg-[#4546ff] text-white shadow-[0_10px_28px_rgba(69,70,255,0.28)]"
+                  : "bg-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-950"
+              }`}
+            >
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${active ? "bg-white/20" : "bg-slate-100"}`}>
+                <Icon className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 truncate">{label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
   );
 }
 
