@@ -200,7 +200,7 @@ async function main() {
     const dashboardPrefs = await page.evaluate(() => JSON.parse(localStorage.getItem("foxfam.dashboard.cards.v1") || "{}"));
     if (!dashboardPrefs.hidden?.includes("quick-stats")) failures.push("Dashboard card visibility did not persist.");
 
-    await page.getByRole("button", { name: /Veri/i }).first().click();
+    await page.locator("button.mx-3.mb-3.flex").first().click();
     await page.waitForTimeout(400);
     if (calls.markRead < 1) failures.push("Opening alerts did not mark notifications read.");
 
@@ -238,7 +238,7 @@ async function main() {
 
     await page.goto(`${baseUrl}/ops/time`, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(700);
-    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await page.getByRole("button", { name: /Start Timer/i }).click();
     await page.waitForTimeout(1200);
     const activeTimer = await page.evaluate(() => {
       const entry = Object.entries(localStorage).find(([key]) => key.startsWith("foxfam.staffTime.activeTimer.v1"));
@@ -246,7 +246,7 @@ async function main() {
     });
     if (!activeTimer?.started_at) failures.push("Staff time tracker did not persist the active timer.");
     await page.getByPlaceholder("Work notes for this timer").fill("Timer e2e entry");
-    await page.getByRole("button", { name: "Stop", exact: true }).click();
+    await page.getByRole("button", { name: /Stop Timer/i }).click();
     await page.waitForTimeout(900);
     const timerEntry = rows.staff_time_entries.find((entry) => entry.data?.timer_source === "start_stop");
     if (!timerEntry?.data?.started_at || !timerEntry?.data?.ended_at) failures.push("Staff timer did not save a completed time entry.");

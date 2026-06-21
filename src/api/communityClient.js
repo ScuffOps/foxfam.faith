@@ -306,6 +306,18 @@ const notificationApi = {
   },
 };
 
+const communityInteractionApi = {
+  async toggleCommentUpvote(commentId, actorKey) {
+    const client = getClient();
+    const { data, error } = await client.rpc("toggle_community_comment_upvote", {
+      comment_id: commentId,
+      actor_key: actorKey,
+    });
+    if (error) throw error;
+    return normalizeRow(Array.isArray(data) ? data[0] : data);
+  },
+};
+
 const entities = Object.fromEntries(
   Object.keys(ENTITY_TABLES).map((entityName) => [entityName, createEntityApi(entityName)]),
 );
@@ -316,6 +328,13 @@ export const communityClient = {
     async me() {
       const user = await getCurrentSessionUser();
       return ensureProfile(user);
+    },
+
+    async getSession() {
+      const client = getClient();
+      const { data, error } = await client.auth.getSession();
+      if (error) throw error;
+      return data?.session || null;
     },
 
     async updateMe(updates = {}) {
@@ -329,6 +348,19 @@ export const communityClient = {
         .single();
       if (error) throw error;
       return { ...normalizeProfile(data), email: user.email || "" };
+    },
+
+    async updateEmail(email) {
+      const client = getClient();
+      await getCurrentSessionUser();
+      const cleanedEmail = String(email || "").trim();
+      if (!cleanedEmail) throw new Error("Enter an email address.");
+      const { data, error } = await client.auth.updateUser(
+        { email: cleanedEmail },
+        { emailRedirectTo: getAuthRedirectUrl("/settings") },
+      );
+      if (error) throw error;
+      return data;
     },
 
     async signInWithEmailPassword(email, password) {
@@ -433,6 +465,8 @@ export const communityClient = {
 
   notifications: notificationApi,
 
+  community: communityInteractionApi,
+
   integrations: {
     Core: {
       async UploadFile({ file, folder = "uploads" }) {
@@ -447,6 +481,47 @@ export const communityClient = {
         if (error) throw error;
         const { data } = client.storage.from(UPLOAD_BUCKET).getPublicUrl(path);
         return { file_url: data.publicUrl, path };
+      },
+    },
+
+    GoogleCalendar: {
+      async getStatus() {
+        const client = getClient();
+        const { data, error } = await client.functions.invoke("sync-google-calendar", {
+          body: { action: "status" },
+        });
+        if (error) throw error;
+        return data?.connection || null;
+      },
+
+      async captureSessionToken() {
+        const session = await communityClient.auth.getSession();
+        if (!session?.provider_token) {
+          return { ok: false, reason: "no_provider_token" };
+        }
+
+        const client = getClient();
+        const { data, error } = await client.functions.invoke("sync-google-calendar", {
+          body: {
+            action: "store_token",
+            access_token: session.provider_token,
+            refresh_token: session.provider_refresh_token || null,
+            expires_at: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
+            scopes: session.scopes || "",
+          },
+        });
+        if (error) throw error;
+        return data;
+      },
+
+      async syncEvent(event) {
+        const client = getClient();
+        const { data, error } = await client.functions.invoke("sync-google-calendar", {
+          body: { action: "sync_event", event },
+        });
+        if (error) throw error;
+        if (data?.ok === false) throw new Error(data.error || "Google Calendar sync failed.");
+        return data;
       },
     },
   },

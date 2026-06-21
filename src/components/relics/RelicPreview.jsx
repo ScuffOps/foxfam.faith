@@ -1,5 +1,6 @@
 import { BookOpen, Gem, Lamp, Music, Shield, Sparkles, VenetianMask } from "lucide-react";
 import { getEquippedCharms, getRelicBase, getRelicTheme, normalizeRelic, RELIC_RARITY_META } from "@/lib/relicCharms";
+import RelicCharmIcon from "@/components/relics/RelicCharmIcon";
 
 const BASE_ICONS = {
   lantern: Lamp,
@@ -69,8 +70,8 @@ export default function RelicPreview({ relic, charms = [], compact = false }) {
             key={charm.id || charm.charm_key}
             className={`absolute z-20 ${SLOT_POSITIONS[charm.slot] || "right-5 top-5"}`}
           >
-            <span className={`inline-flex max-w-[9rem] items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold shadow-lg backdrop-blur ${rarity.className}`}>
-              <Shield className="h-3 w-3 shrink-0" />
+            <span className={`inline-flex max-w-[10rem] items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold shadow-lg backdrop-blur ${rarity.className}`}>
+              <RelicCharmIcon charm={charm} className="h-5 w-5 shrink-0" />
               <span className="truncate">{charm.name}</span>
             </span>
           </div>

@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { communityClient } from "@/api/communityClient";
-import { Settings2, Link2, Shield, LogOut, CheckCircle, Palette, Bell, ChevronDown, ChevronUp, UserCircle2, CalendarDays, MessagesSquare, Radio, Apple } from "lucide-react";
+import { Settings2, Link2, Shield, LogOut, CheckCircle, Palette, Bell, ChevronDown, ChevronUp, UserCircle2, CalendarDays, MessagesSquare, Radio, Apple, Save } from "lucide-react";
 import AlertPreferences from "../components/settings/AlertPreferences";
 import AvatarUpload from "../components/AvatarUpload";
 import AccentColorPicker from "../components/AccentColorPicker";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import GlassCard from "../components/GlassCard";
 import RankBadge from "../components/RankBadge";
@@ -21,7 +22,8 @@ const OAUTH_PROVIDERS = [
     icon: CalendarDays,
     copy: "Link Google so the theoretical schedule can become a real calendar object.",
     scopes: "openid email profile https://www.googleapis.com/auth/calendar.events",
-    pendingCopy: "Identity linked. Calendar write/sync still needs Google credentials and a Supabase server token handler.",
+    queryParams: { access_type: "offline", prompt: "consent" },
+    pendingCopy: "Identity linked. Calendar sync is finalized by the Supabase server token handler.",
   },
   {
     key: "twitch",
@@ -68,6 +70,10 @@ export default function Settings() {
   const [linkedIdentities, setLinkedIdentities] = useState([]);
   const [identityLoading, setIdentityLoading] = useState(false);
   const [linkingProvider, setLinkingProvider] = useState("");
+  const [profileForm, setProfileForm] = useState({ displayName: "", email: "" });
+  const [savingProfile, setSavingProfile] = useState("");
+  const [calendarSyncStatus, setCalendarSyncStatus] = useState(null);
+  const [calendarSyncLoading, setCalendarSyncLoading] = useState(false);
 
   const handleAvatarUploaded = (url) => {
     setAvatar(url);
@@ -79,10 +85,55 @@ export default function Settings() {
     try {
       const identities = await communityClient.auth.getLinkedIdentities();
       setLinkedIdentities(identities);
+      return identities;
     } catch {
       setLinkedIdentities([]);
+      return [];
     } finally {
       setIdentityLoading(false);
+    }
+  }
+
+  async function loadCalendarSyncStatus() {
+    setCalendarSyncLoading(true);
+    try {
+      const connection = await communityClient.integrations.GoogleCalendar.getStatus();
+      setCalendarSyncStatus(connection);
+      return connection;
+    } catch {
+      setCalendarSyncStatus(null);
+      return null;
+    } finally {
+      setCalendarSyncLoading(false);
+    }
+  }
+
+  async function finalizeGoogleCalendarSync({ quiet = false } = {}) {
+    setCalendarSyncLoading(true);
+    try {
+      const result = await communityClient.integrations.GoogleCalendar.captureSessionToken();
+      await loadCalendarSyncStatus();
+      if (!quiet) {
+        toast({
+          title: result?.ok === false ? "Reconnect Google Calendar" : "Google Calendar sync ready",
+          description: result?.ok === false
+            ? "Google did not return a fresh calendar token. Connect again and approve calendar access."
+            : "New staff events can now sync to Google Calendar.",
+        });
+      }
+      return result;
+    } catch (error) {
+      await loadCalendarSyncStatus();
+      if (!quiet) {
+        toast({
+          title: "Calendar sync could not be finalized",
+          description: error?.message || "Reconnect Google and approve calendar access.",
+          variant: "destructive",
+        });
+      }
+      return null;
+    } finally {
+      setCalendarSyncLoading(false);
     }
   }
 
@@ -91,12 +142,16 @@ export default function Settings() {
       try {
         const me = await communityClient.auth.me();
         setUser(me);
+        setProfileForm({ displayName: getPublicDisplayName(me, ""), email: me.email || "" });
         const levels = await communityClient.entities.UserLevel.filter({ user_key: getPrivateUserKey(me) });
         if (levels.length > 0) {
           setUserLevel(levels[0]);
           setUserPoints(levels[0].points || 0);
         }
-        await loadLinkedIdentities();
+        const identities = await loadLinkedIdentities();
+        if (identities.some((identity) => identity.provider === "google")) {
+          await finalizeGoogleCalendarSync({ quiet: true });
+        }
       } catch {}
       setLoading(false);
     };
@@ -112,7 +167,10 @@ export default function Settings() {
 
     setLinkingProvider(item.key);
     try {
-      const options = item.scopes ? { scopes: item.scopes } : {};
+      const options = {
+        ...(item.scopes ? { scopes: item.scopes } : {}),
+        ...(item.queryParams ? { queryParams: item.queryParams } : {}),
+      };
       if (user) {
         await communityClient.auth.linkIdentity(item.authProvider, options);
       } else {
@@ -151,6 +209,47 @@ export default function Settings() {
       });
     } finally {
       setLinkingProvider("");
+    }
+  };
+
+  const handleSaveDisplayName = async () => {
+    const displayName = profileForm.displayName.trim();
+    if (!displayName) {
+      toast({ title: "Display name required", description: "Use a registered username, nickname, or Guest.", variant: "destructive" });
+      return;
+    }
+
+    setSavingProfile("displayName");
+    try {
+      const updated = await communityClient.auth.updateMe({ display_name: displayName });
+      setUser(updated);
+      setProfileForm((current) => ({ ...current, displayName: getPublicDisplayName(updated, displayName) }));
+      toast({ title: "Display name saved" });
+    } catch (error) {
+      toast({ title: "Display name could not be saved", description: error?.message || "Refresh and try again.", variant: "destructive" });
+    } finally {
+      setSavingProfile("");
+    }
+  };
+
+  const handleSaveEmail = async () => {
+    const email = profileForm.email.trim();
+    if (!email) {
+      toast({ title: "Email required", description: "Enter the new private sign-in email.", variant: "destructive" });
+      return;
+    }
+
+    setSavingProfile("email");
+    try {
+      await communityClient.auth.updateEmail(email);
+      toast({
+        title: "Check your email",
+        description: "Supabase will confirm the new sign-in email before it changes.",
+      });
+    } catch (error) {
+      toast({ title: "Email could not be changed", description: error?.message || "Refresh and try again.", variant: "destructive" });
+    } finally {
+      setSavingProfile("");
     }
   };
 
@@ -197,16 +296,38 @@ export default function Settings() {
             />
           </div>
           <div className="space-y-3">
-            <div className="flex items-center justify-between rounded-lg bg-secondary/50 px-4 py-3">
-              <div>
-                <p className="text-sm font-medium">Name</p>
-                <p className="text-xs text-muted-foreground">{getPublicDisplayName(user, "Not set")}</p>
+            <div className="rounded-lg bg-secondary/50 px-4 py-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                <label className="min-w-0 flex-1">
+                  <span className="text-sm font-medium">Display name</span>
+                  <Input
+                    value={profileForm.displayName}
+                    onChange={(event) => setProfileForm((current) => ({ ...current, displayName: event.target.value }))}
+                    className="mt-1.5 bg-background/70"
+                    placeholder="Username, nickname, or Guest"
+                  />
+                </label>
+                <Button onClick={handleSaveDisplayName} disabled={savingProfile === "displayName"} className="gap-2">
+                  <Save className="h-4 w-4" /> Save
+                </Button>
               </div>
             </div>
-            <div className="flex items-center justify-between rounded-lg bg-secondary/50 px-4 py-3">
-              <div>
-                <p className="text-sm font-medium">Sign-in email</p>
-                <p className="text-xs text-muted-foreground">Private</p>
+            <div className="rounded-lg bg-secondary/50 px-4 py-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                <label className="min-w-0 flex-1">
+                  <span className="text-sm font-medium">Sign-in email</span>
+                  <Input
+                    type="email"
+                    value={profileForm.email}
+                    onChange={(event) => setProfileForm((current) => ({ ...current, email: event.target.value }))}
+                    className="mt-1.5 bg-background/70"
+                    placeholder="Private sign-in email"
+                  />
+                  <span className="mt-1 block text-xs text-muted-foreground">Private. Never shown publicly.</span>
+                </label>
+                <Button onClick={handleSaveEmail} disabled={savingProfile === "email"} className="gap-2">
+                  <Save className="h-4 w-4" /> Change
+                </Button>
               </div>
             </div>
             <div className="flex items-center justify-between rounded-lg bg-secondary/50 px-4 py-3">
@@ -225,7 +346,8 @@ export default function Settings() {
             {OAUTH_PROVIDERS.map((item) => {
               const identity = linkedIdentities.find((linked) => linked.provider === item.authProvider);
               const connected = Boolean(identity);
-              const busy = linkingProvider === item.key || identityLoading;
+              const busy = linkingProvider === item.key || identityLoading || (item.key === "googleCalendar" && calendarSyncLoading);
+              const calendarStatus = calendarSyncStatus?.status || (connected ? "pending" : "");
               return (
                 <div key={item.provider} className="rounded-lg border border-border bg-secondary/40 p-4">
                   <div className="flex items-start justify-between gap-3">
@@ -259,9 +381,28 @@ export default function Settings() {
                     )}
                   </div>
                   {item.key === "googleCalendar" && connected && (
-                    <p className="mt-3 text-xs text-success/80">
-                      {item.pendingCopy}
-                    </p>
+                    <div className="mt-3 space-y-2 rounded-md border border-border bg-background/40 p-2 text-xs">
+                      <p className={calendarStatus === "connected" ? "text-success" : "text-muted-foreground"}>
+                        Sync status: {calendarSyncLoading ? "checking..." : calendarStatus}
+                      </p>
+                      {calendarSyncStatus?.last_synced_at && (
+                        <p className="text-muted-foreground">
+                          Last event sync: {new Date(calendarSyncStatus.last_synced_at).toLocaleString()}
+                        </p>
+                      )}
+                      {calendarSyncStatus?.last_error && (
+                        <p className="text-destructive">Last error: {calendarSyncStatus.last_error}</p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => finalizeGoogleCalendarSync()}
+                        disabled={busy}
+                        className="text-xs font-medium text-primary underline hover:text-primary/80 disabled:opacity-50"
+                      >
+                        Finalize calendar sync
+                      </button>
+                      <p className="text-muted-foreground">{item.pendingCopy}</p>
+                    </div>
                   )}
                 </div>
               );

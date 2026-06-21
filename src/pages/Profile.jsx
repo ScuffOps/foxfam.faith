@@ -5,17 +5,16 @@ import { communityClient } from "@/api/communityClient";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import RelicPreview from "@/components/relics/RelicPreview";
+import ProfileCharmShelf from "@/components/relics/ProfileCharmShelf";
 import RankBadge from "@/components/RankBadge";
 import ProgressionLoop from "@/components/ProgressionLoop";
 import { getPrivateUserKey } from "@/lib/communityActor";
 import { useAuth } from "@/lib/AuthContext";
 import { getRoleLabel } from "@/lib/roles";
 import { getPublicAvatar, getPublicDisplayName } from "@/lib/userIdentity";
-import { loadUserRelicInventory, rollUserRelicCharm, setEquippedCharm } from "@/lib/relicService";
+import { loadCharmRollEligibility, loadUserRelicInventory, rollUserRelicCharm, setEquippedCharm } from "@/lib/relicService";
 import { groupCharmsByRarity, RELIC_RARITY_META } from "@/lib/relicCharms";
 import { getProfileRelicTeaser } from "@/lib/profileRelicTeasers";
-
-const RARITY_ORDER = ["mythic", "epic", "rare", "uncommon", "common"];
 
 function getRelicLoadMessage(error) {
   if (error?.status === 401 || error?.message === "Authentication required") {
@@ -37,6 +36,7 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [rolling, setRolling] = useState(false);
   const [equippingId, setEquippingId] = useState("");
+  const [rollEligibility, setRollEligibility] = useState({ canRoll: false, reason: "Checking stream status..." });
   const [error, setError] = useState("");
 
   const loadProfile = async () => {
@@ -48,10 +48,12 @@ export default function Profile() {
         communityClient.entities.UserLevel.filter({ user_key: getPrivateUserKey(me) }).catch(() => []),
         loadUserRelicInventory(),
       ]);
+      const eligibility = await loadCharmRollEligibility();
       setUser(me);
       setLevel(levels[0] || null);
       setRelic(inventory.relic);
       setCharms(inventory.charms);
+      setRollEligibility(eligibility);
     } catch (loadError) {
       setUser(null);
       setError(getRelicLoadMessage(loadError));
@@ -206,45 +208,21 @@ export default function Profile() {
               </div>
               <Dice5 className="h-5 w-5 text-primary" />
             </div>
-            <Button onClick={handleRollCharm} disabled={rolling} className="mt-4 w-full gap-2">
+            <Button onClick={handleRollCharm} disabled={rolling || !rollEligibility.canRoll} className="mt-4 w-full gap-2">
               {rolling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Dice5 className="h-4 w-4" />}
-              {rolling ? "Drawing..." : "Roll Charm"}
+              {rolling ? "Drawing..." : rollEligibility.canRoll ? "Roll Charm" : "Locked"}
             </Button>
-          </div>
-
-          <div className="rounded-xl border border-border bg-card p-4">
-            <h2 className="font-heading text-lg font-bold">Collection</h2>
-            <p className="mt-1 text-xs text-muted-foreground">Attach one charm per slot. Rolling more adds to the collection.</p>
-            <div className="mt-4 space-y-4">
-              {charms.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-border bg-secondary/25 p-4 text-center text-xs text-muted-foreground">
-                  No charms yet. Roll your first one.
-                </div>
-              ) : (
-                RARITY_ORDER.map((rarity) => {
-                  const items = groupedCharms[rarity] || [];
-                  if (items.length === 0) return null;
-                  return (
-                    <div key={rarity}>
-                      <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">{RELIC_RARITY_META[rarity].label}</p>
-                      <div className="space-y-2">
-                        {items.map((charm) => (
-                          <CharmRow
-                            key={charm.id}
-                            charm={charm}
-                            busy={equippingId === charm.id}
-                            onToggle={() => handleToggleCharm(charm)}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">{rollEligibility.reason}</p>
           </div>
         </div>
       </section>
+
+      <ProfileCharmShelf
+        charms={charms}
+        groupedCharms={groupedCharms}
+        equippingId={equippingId}
+        onToggleCharm={handleToggleCharm}
+      />
     </div>
   );
 }
@@ -255,24 +233,6 @@ function ProfileStat({ icon: Icon, label, value }) {
       <Icon className="h-4 w-4 text-primary" />
       <p className="mt-3 text-2xl font-bold">{value}</p>
       <p className="text-xs text-muted-foreground">{label}</p>
-    </div>
-  );
-}
-
-function CharmRow({ charm, busy, onToggle }) {
-  const rarity = RELIC_RARITY_META[charm.rarity] || RELIC_RARITY_META.common;
-  return (
-    <div className={`rounded-lg border p-3 ${rarity.className}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{charm.name}</p>
-          <p className="mt-0.5 text-[10px] uppercase tracking-[0.16em] opacity-75">{charm.slot} slot</p>
-          <p className="mt-2 line-clamp-2 text-xs leading-5 opacity-75">{charm.description}</p>
-        </div>
-        <Button type="button" size="sm" variant={charm.equipped ? "default" : "outline"} onClick={onToggle} disabled={busy}>
-          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : charm.equipped ? "Attached" : "Attach"}
-        </Button>
-      </div>
     </div>
   );
 }
