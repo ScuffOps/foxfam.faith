@@ -13,6 +13,7 @@ import SuggestionForm from "../components/community/SuggestionForm";
 import SuggestionCard from "../components/community/SuggestionCard";
 import ProgressionLoop from "../components/ProgressionLoop";
 import { canModerate } from "@/lib/roles";
+import { sortCommunityPosts } from "@/lib/communitySorting";
 import { isPubliclyHiddenFeaturePost } from "@/lib/hiddenFeatures";
 
 const TABS = [
@@ -74,21 +75,7 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
   const publicPosts = posts.filter((post) => !isPubliclyHiddenFeaturePost(post));
   const pendingCount = publicPosts.filter((p) => p.status === "pending").length;
 
-  const getSorted = (arr) => {
-    if (sort === "top") return [...arr].sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0));
-    if (sort === "new") return [...arr].sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
-    if (sort === "trending") {
-      // trending = recent + votes combined
-      return [...arr].sort((a, b) => {
-        const scoreA = (a.upvotes || 0) + (new Date(a.created_date) > new Date(Date.now() - 7 * 86400000) ? 10 : 0);
-        const scoreB = (b.upvotes || 0) + (new Date(b.created_date) > new Date(Date.now() - 7 * 86400000) ? 10 : 0);
-        return scoreB - scoreA;
-      });
-    }
-    return arr;
-  };
-
-  const filtered = getSorted(
+  const filtered = sortCommunityPosts(
     publicPosts.filter((p) => {
       if (activeTab === "feedback" && (p.type === "poll" || p.type === "update")) return false;
       if (activeTab === "polls" && p.type !== "poll") return false;
@@ -97,7 +84,8 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
       if (search && !p.title.toLowerCase().includes(search.toLowerCase()) &&
           !(p.description || "").toLowerCase().includes(search.toLowerCase())) return false;
       return true;
-    })
+    }),
+    sort,
   );
 
   return (

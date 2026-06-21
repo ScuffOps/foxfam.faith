@@ -236,6 +236,22 @@ async function main() {
       failures.push("Staff Ops schedule did not render availability and shift planner modules.");
     }
 
+    await page.goto(`${baseUrl}/ops/time`, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(700);
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await page.waitForTimeout(1200);
+    const activeTimer = await page.evaluate(() => {
+      const entry = Object.entries(localStorage).find(([key]) => key.startsWith("foxfam.staffTime.activeTimer.v1"));
+      return entry ? JSON.parse(entry[1]) : null;
+    });
+    if (!activeTimer?.started_at) failures.push("Staff time tracker did not persist the active timer.");
+    await page.getByPlaceholder("Work notes for this timer").fill("Timer e2e entry");
+    await page.getByRole("button", { name: "Stop", exact: true }).click();
+    await page.waitForTimeout(900);
+    const timerEntry = rows.staff_time_entries.find((entry) => entry.data?.timer_source === "start_stop");
+    if (!timerEntry?.data?.started_at || !timerEntry?.data?.ended_at) failures.push("Staff timer did not save a completed time entry.");
+    if (timerEntry?.data?.status !== "submitted") failures.push("Staff timer did not mark the saved entry as submitted.");
+
     await page.screenshot({ path: path.join(outputDir, "portal-auth-e2e.png"), fullPage: true });
     await page.close();
   } finally {

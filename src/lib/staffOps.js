@@ -312,11 +312,29 @@ export function isOpenTask(task) {
   return task?.status !== "done";
 }
 
-export function getTimeEntryHours(entry) {
-  if (!entry?.started_at || !entry?.ended_at) return 0;
-  const start = new Date(entry.started_at);
-  const end = new Date(entry.ended_at);
+export function getTimeRangeHours(startedAt, endedAt, breakMinutes = 0) {
+  if (!startedAt || !endedAt) return 0;
+  const start = new Date(startedAt);
+  const end = new Date(endedAt);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return 0;
-  const breakMinutes = Number(entry.break_minutes || 0);
-  return Math.max(0, (end.getTime() - start.getTime()) / 36e5 - breakMinutes / 60);
+  const cleanedBreakMinutes = Number(breakMinutes || 0);
+  return Math.max(0, (end.getTime() - start.getTime()) / 36e5 - cleanedBreakMinutes / 60);
+}
+
+export function getTimeEntryHours(entry) {
+  return getTimeRangeHours(entry?.started_at, entry?.ended_at, entry?.break_minutes);
+}
+
+export function formatTimerDuration(startedAt, now = Date.now(), breakMinutes = 0) {
+  const start = new Date(startedAt).getTime();
+  const end = now instanceof Date ? now.getTime() : new Date(now).getTime();
+  if (!startedAt || Number.isNaN(start) || Number.isNaN(end) || end <= start) return "00:00:00";
+
+  const breakSeconds = Math.max(0, Number(breakMinutes || 0) * 60);
+  const totalSeconds = Math.max(0, Math.floor((end - start) / 1000) - breakSeconds);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
 }
