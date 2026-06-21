@@ -70,7 +70,24 @@ Account linking from Settings uses Supabase Auth identities:
 
 Enable each provider in Supabase Auth and add the provider client ID/secret from the corresponding developer console. Manual identity linking must be enabled in Supabase Auth settings for linked accounts to attach to an existing signed-in user.
 
-Google Calendar linking currently grants OAuth identity/calendar permission. Automatic event writing should be handled by a server-side Supabase Edge Function before production calendar sync is turned on.
+Google Calendar linking grants OAuth identity/calendar permission and then stores the short-lived provider token through `supabase/functions/sync-google-calendar`. Deploy that function and configure these Supabase Edge Function secrets so calendar sync can refresh Google tokens after the first login:
+
+```bash
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+```
+
+The function writes staff-created portal events to the user's primary Google Calendar. Only `mod`, `lead_mod`, and `admin` profiles can sync events.
+
+## Twitch Live Sync Row
+
+Relic/charm rolling is gated by `public.sync_states` using the `twitch_live_state` sync row. The seeded shape is:
+
+```json
+{ "key": "twitch_live_state", "provider": "twitch", "status": "offline", "is_live": false }
+```
+
+When the stream monitor sets `is_live` to `true` or `status` to `live`, charm rolling unlocks.
 
 ## Admin Bootstrap
 

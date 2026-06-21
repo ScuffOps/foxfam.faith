@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { EVENT_CATEGORY_OPTIONS } from "@/lib/categoryColors";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { usePersistentDraft } from "@/hooks/usePersistentDraft";
+import { useToast } from "@/components/ui/use-toast";
 
 function toEventForm(event) {
   return {
@@ -27,6 +28,7 @@ function toEventForm(event) {
 }
 
 export default function EventFormDialog({ open, onOpenChange, event, onSaved }) {
+  const { toast } = useToast();
   const isEdit = !!event;
   const initialForm = useMemo(() => toEventForm(event), [event]);
   const draftScope = event?.id ? `event.edit.${event.id}` : "event.new";
@@ -58,26 +60,43 @@ export default function EventFormDialog({ open, onOpenChange, event, onSaved }) 
   const handleSave = async () => {
     if (!form.title || !form.start_date) return;
     setSaving(true);
-    let imageUrl = form.image_url;
-    if (imageFile) {
-      const { file_url } = await communityClient.integrations.Core.UploadFile({ file: imageFile });
-      imageUrl = file_url;
+    try {
+      let imageUrl = form.image_url;
+      if (imageFile) {
+        const { file_url } = await communityClient.integrations.Core.UploadFile({ file: imageFile });
+        imageUrl = file_url;
+      }
+      const data = {
+        ...form,
+        image_url: imageUrl,
+        start_date: new Date(form.start_date).toISOString(),
+        end_date: form.end_date ? new Date(form.end_date).toISOString() : new Date(form.start_date).toISOString(),
+      };
+      const savedEvent = isEdit
+        ? await communityClient.entities.Event.update(event.id, data)
+        : await communityClient.entities.Event.create(data);
+
+      try {
+        await communityClient.integrations.GoogleCalendar.syncEvent(savedEvent);
+      } catch (syncError) {
+        toast({
+          title: "Event saved locally",
+          description: syncError?.message || "Google Calendar sync needs attention in Settings.",
+        });
+      }
+
+      clearDraft(initialForm);
+      onSaved();
+      onOpenChange(false);
+    } catch (error) {
+      toast({
+        title: "Event could not be saved",
+        description: error?.message || "Check your staff role and Supabase permissions.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
     }
-    const data = {
-      ...form,
-      image_url: imageUrl,
-      start_date: new Date(form.start_date).toISOString(),
-      end_date: form.end_date ? new Date(form.end_date).toISOString() : new Date(form.start_date).toISOString(),
-    };
-    if (isEdit) {
-      await communityClient.entities.Event.update(event.id, data);
-    } else {
-      await communityClient.entities.Event.create(data);
-    }
-    setSaving(false);
-    clearDraft(initialForm);
-    onSaved();
-    onOpenChange(false);
   };
 
   const update = (key, val) => setForm((p) => ({ ...p, [key]: val }));

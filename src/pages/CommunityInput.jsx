@@ -36,6 +36,16 @@ const SORT_OPTIONS = [
   { key: "trending", label: "Trending", icon: TrendingUp },
 ];
 
+const CLOSED_POST_STATUSES = new Set(["closed", "archived", "converted", "rejected"]);
+const CLOSED_BUG_STATUSES = new Set(["closed", "fixed", "cannot_reproduce"]);
+const CLOSED_SUGGESTION_STATUSES = new Set(["archived", "implemented", "rejected"]);
+
+function matchesBoardView(status, boardView, closedStatuses) {
+  if (boardView === "all") return true;
+  const closed = closedStatuses.has(status);
+  return boardView === "closed" ? closed : !closed;
+}
+
 export default function CommunityInput({ defaultTab = "feedback" }) {
   const [searchParams] = useSearchParams();
   const [posts, setPosts] = useState([]);
@@ -50,6 +60,7 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
   const [sort, setSort] = useState("top");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("approved");
+  const [boardView, setBoardView] = useState("active");
 
   const loadData = async () => {
     setLoading(true);
@@ -80,7 +91,12 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
       if (activeTab === "feedback" && (p.type === "poll" || p.type === "update")) return false;
       if (activeTab === "polls" && p.type !== "poll") return false;
       if (activeTab === "updates" && p.type !== "update") return false;
-      if (statusFilter !== "all" && p.status !== statusFilter) return false;
+      if (statusFilter === "closed") {
+        if (!CLOSED_POST_STATUSES.has(p.status)) return false;
+      } else {
+        if (!matchesBoardView(p.status, boardView, CLOSED_POST_STATUSES)) return false;
+        if (statusFilter !== "all" && p.status !== statusFilter) return false;
+      }
       if (search && !p.title.toLowerCase().includes(search.toLowerCase()) &&
           !(p.description || "").toLowerCase().includes(search.toLowerCase())) return false;
       return true;
@@ -137,6 +153,7 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
       {/* Suggestion Box tab content */}
       {activeTab === "suggestions" && (
         <div>
+          <ArchiveViewToggle value={boardView} onChange={setBoardView} />
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
@@ -149,6 +166,7 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
           ) : (
             <div className="space-y-2">
               {suggestions
+                .filter((s) => matchesBoardView(s.status, boardView, CLOSED_SUGGESTION_STATUSES))
                 .filter((s) => !search || s.title.toLowerCase().includes(search.toLowerCase()) || (s.description || "").toLowerCase().includes(search.toLowerCase()))
                 .map((s) => (
                   <SuggestionCard key={s.id} suggestion={s} isAdmin={isAdmin} onRefresh={loadData} />
@@ -176,6 +194,7 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
               />
             </div>
           </div>
+          <ArchiveViewToggle value={boardView} onChange={setBoardView} />
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
@@ -191,9 +210,10 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
           ) : (
             <div className="space-y-3">
               {bugReports
+                .filter((report) => matchesBoardView(report.status || "open", boardView, CLOSED_BUG_STATUSES))
                 .filter((report) => !search || report.title.toLowerCase().includes(search.toLowerCase()) || (report.description || "").toLowerCase().includes(search.toLowerCase()))
                 .map((report) => (
-                  <BugReportCard key={report.id} report={report} />
+                  <BugReportCard key={report.id} report={report} isAdmin={isAdmin} onRefresh={loadData} />
                 ))}
             </div>
           )}
@@ -235,6 +255,7 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
             {[
               { key: "approved", label: "Approved" },
               ...(isAdmin ? [{ key: "pending", label: `Pending ${pendingCount > 0 ? `(${pendingCount})` : ""}` }] : []),
+              { key: "closed", label: "Closed" },
               { key: "all", label: "All" },
             ].map((b) => (
               <button
@@ -276,6 +297,31 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
       <PostForm open={showForm} onOpenChange={setShowForm} onCreated={loadData} isMod={isAdmin} />
       <BugReportForm open={showBugForm} onOpenChange={setShowBugForm} onCreated={loadData} />
       <SuggestionForm open={showSuggestionForm} onOpenChange={setShowSuggestionForm} onCreated={loadData} />
+    </div>
+  );
+}
+
+function ArchiveViewToggle({ value, onChange }) {
+  const options = [
+    { key: "active", label: "Active" },
+    { key: "closed", label: "Closed / Archived" },
+    { key: "all", label: "All" },
+  ];
+
+  return (
+    <div className="mb-4 flex w-fit rounded-lg border border-border bg-secondary/50 p-0.5">
+      {options.map((option) => (
+        <button
+          key={option.key}
+          type="button"
+          onClick={() => onChange(option.key)}
+          className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+            value === option.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {option.label}
+        </button>
+      ))}
     </div>
   );
 }
