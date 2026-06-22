@@ -1,4 +1,4 @@
-const HIDDEN_FEATURE_POST_TITLES = new Set(["relic forge", "relic-forge"]);
+const HIDDEN_FEATURE_POST_TITLES = new Set();
 
 function normalizeFeatureTitle(title = "") {
   return title.trim().toLowerCase().replace(/\s+/g, " ");
