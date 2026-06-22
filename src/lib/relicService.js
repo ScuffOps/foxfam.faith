@@ -1,6 +1,12 @@
 import { communityClient } from "@/api/communityClient";
 import { DEFAULT_RELIC, normalizeCharm, normalizeRelic, rollRelicCharm } from "@/lib/relicCharms";
 
+function isLiveSyncState(row) {
+  if (!row) return false;
+  const status = String(row.status || row.stream_status || "").toLowerCase();
+  return row.is_live === true || row.live === true || status === "live";
+}
+
 export async function getOrCreateUserRelic() {
   await communityClient.auth.me();
   const existing = await communityClient.entities.UserRelic.list("-created_date", 1);
@@ -43,7 +49,34 @@ export async function loadUserRelicInventory() {
   };
 }
 
+export async function loadCharmRollEligibility() {
+  try {
+    const states = await communityClient.entities.SyncState.list("-created_date", 20);
+    const streamStateKeys = ["stream_live", "stream_status", "twitch_stream_status", "twitch_live_state"];
+    const streamState = states.find((row) =>
+      streamStateKeys.includes(row.key || row.name || row.type),
+    );
+    const isLive = isLiveSyncState(streamState);
+    return {
+      canRoll: isLive,
+      reason: isLive ? "Charm rolls are open while Veri is live." : "Charm rolls open while Veri is live on stream.",
+      streamState,
+    };
+  } catch {
+    return {
+      canRoll: false,
+      reason: "Charm rolls are locked until the stream-live signal is connected.",
+      streamState: null,
+    };
+  }
+}
+
 export async function rollUserRelicCharm() {
+  const eligibility = await loadCharmRollEligibility();
+  if (!eligibility.canRoll) {
+    throw new Error(eligibility.reason);
+  }
+
   const rolled = rollRelicCharm();
   const created = await communityClient.entities.UserRelicCharm.create({
     ...rolled,

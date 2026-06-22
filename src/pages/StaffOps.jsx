@@ -1021,16 +1021,16 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
 
   return (
     <div className="mx-auto max-w-7xl animate-fade-in">
-      <section className="mb-6 rounded-lg border border-white/60 bg-slate-50 p-5 text-slate-950 shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
+      <section className="mb-6 rounded-lg border border-[#4546ff]/25 bg-[linear-gradient(135deg,rgba(8,12,28,0.96),rgba(18,19,46,0.92))] p-5 text-foreground shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
             <p className="text-[10px] font-bold uppercase tracking-[0.34em] text-[#4546ff]">Private Staff Cockpit</p>
             <h1 className="mt-2 font-heading text-3xl font-bold md:text-4xl">Staff Ops</h1>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
               Mod onboarding, command references, scheduling, time tracking, and private stream support.
             </p>
           </div>
-          <div className="grid gap-2 text-xs text-slate-600 sm:grid-cols-3 lg:min-w-[28rem]">
+          <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-3 lg:min-w-[28rem]">
             <OpsMetric label="Open tasks" value={openTasks.length} />
             <OpsMetric label="Shifts" value={data.shifts.length} />
             <OpsMetric label="Payable hrs" value={totalPayableHours.toFixed(1)} />
@@ -1314,12 +1314,12 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                     <SectionHeader icon={Clock} title="Live Timer" subtitle="Start, stop, and let math do the thing for once." />
                     <Badge variant={activeTimer ? "default" : "outline"}>{activeTimer ? "Running" : "Idle"}</Badge>
                   </div>
-                  <div className="mt-5 rounded-lg border border-[#4546ff]/25 bg-white p-4 text-slate-950 shadow-sm">
+                  <div className="mt-5 rounded-lg border border-[#4546ff]/30 bg-[linear-gradient(135deg,rgba(69,70,255,0.16),rgba(7,11,26,0.88))] p-4 text-foreground shadow-sm">
                     <div className="flex flex-wrap items-center justify-between gap-4">
                       <div>
-                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Elapsed</p>
+                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">Elapsed</p>
                         <p className="font-heading text-5xl font-bold tabular-nums text-[#4546ff]">{activeTimerDuration}</p>
-                        <p className="mt-1 text-xs text-slate-500">
+                        <p className="mt-1 text-xs text-muted-foreground">
                           {activeTimer ? `${activeTimer.staff_name || staffName} · ${activeTimerHours.toFixed(2)} payable hrs so far` : `${staffName} is not on the clock.`}
                         </p>
                       </div>
@@ -1338,8 +1338,8 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                           {activeTimer ? <Square className="h-5 w-5" /> : <Play className="h-5 w-5" />}
                           {activeTimer ? "Stop Timer" : "Start Timer"}
                         </Button>
-                        <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                          <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                        <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background/45 px-3 py-2">
+                          <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
                             <Keyboard className="h-4 w-4 text-[#4546ff]" />
                             <span>Alt+Shift+T</span>
                           </div>
@@ -1350,7 +1350,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                           />
                         </div>
                         {activeTimer && (
-                          <Button type="button" variant="outline" className="border-slate-200 bg-white text-slate-700 hover:bg-slate-100" disabled={saving === "timer"} onClick={discardTimer}>
+                          <Button type="button" variant="outline" disabled={saving === "timer"} onClick={discardTimer}>
                             Discard Unsaved Timer
                           </Button>
                         )}
@@ -1923,16 +1923,16 @@ function ShiftPlanner({ assignments, availabilityRows, onDragEnd, onRemove, onSa
 
 function OpsMetric({ label, value }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
-      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">{label}</p>
-      <p className="mt-1 font-heading text-2xl font-bold text-slate-950">{value}</p>
+    <div className="rounded-lg border border-white/10 bg-white/[0.055] px-3 py-2 shadow-sm">
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+      <p className="mt-1 font-heading text-2xl font-bold text-foreground">{value}</p>
     </div>
   );
 }
 
 function StaffOpsNav({ activeTab, onTabChange, tabs }) {
   return (
-    <nav className="mt-6 rounded-lg bg-white p-2 shadow-inner" aria-label="Staff Ops sections">
+    <nav className="mt-6 rounded-lg border border-white/10 bg-black/20 p-2 shadow-inner" aria-label="Staff Ops sections">
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
         {tabs.map(({ key, label, icon: Icon }) => {
           const active = activeTab === key;
@@ -1945,10 +1945,10 @@ function StaffOpsNav({ activeTab, onTabChange, tabs }) {
               className={`flex min-h-14 items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4546ff] ${
                 active
                   ? "bg-[#4546ff] text-white shadow-[0_10px_28px_rgba(69,70,255,0.28)]"
-                  : "bg-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-950"
+                  : "bg-transparent text-muted-foreground hover:bg-white/10 hover:text-foreground"
               }`}
             >
-              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${active ? "bg-white/20" : "bg-slate-100"}`}>
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${active ? "bg-white/20" : "bg-white/10"}`}>
                 <Icon className="h-4 w-4" />
               </span>
               <span className="min-w-0 truncate">{label}</span>

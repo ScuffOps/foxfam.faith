@@ -1,17 +1,26 @@
 import { AlertTriangle, ExternalLink, Monitor, RadioTower } from "lucide-react";
 import GlassCard from "../GlassCard";
 import { BUG_SEVERITY_LABELS, BUG_STATUS_LABELS } from "@/lib/bugReport";
+import { communityClient } from "@/api/communityClient";
+import { Button } from "@/components/ui/button";
 
 const statusClasses = {
   open: "bg-chart-4/15 text-chart-4",
   investigating: "bg-accent/15 text-accent",
   fixed: "bg-success/15 text-success",
+  closed: "bg-muted/60 text-muted-foreground",
   cannot_reproduce: "bg-muted/60 text-muted-foreground",
   veri_broke_it_live: "bg-chart-5/15 text-chart-5",
 };
 
-export default function BugReportCard({ report }) {
+export default function BugReportCard({ report, isAdmin = false, onRefresh }) {
   const screenshots = report.screenshots || [];
+  const isClosed = ["closed", "fixed", "cannot_reproduce"].includes(report.status);
+
+  const updateStatus = async (status) => {
+    await communityClient.entities.BugReport.update(report.id, { status });
+    onRefresh?.();
+  };
 
   return (
     <GlassCard className="space-y-4">
@@ -78,6 +87,19 @@ export default function BugReportCard({ report }) {
         <span>by {report.submitted_by_name || "Guest"}</span>
         <span className="flex items-center gap-1"><Monitor className="h-3 w-3" /> {report.screen_resolution || "unknown screen"}</span>
         <span className="flex min-w-0 items-center gap-1"><RadioTower className="h-3 w-3" /> <span className="truncate">{report.os || "unknown OS"}</span></span>
+        {isAdmin && (
+          <span className="ml-auto flex flex-wrap gap-2">
+            {!isClosed ? (
+              <>
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => updateStatus("investigating")}>Investigating</Button>
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => updateStatus("fixed")}>Mark fixed</Button>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => updateStatus("closed")}>Close</Button>
+              </>
+            ) : (
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => updateStatus("open")}>Reopen</Button>
+            )}
+          </span>
+        )}
       </div>
     </GlassCard>
   );

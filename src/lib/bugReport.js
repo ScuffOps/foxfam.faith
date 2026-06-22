@@ -4,6 +4,7 @@ export const BUG_STATUS_LABELS = {
   open: "Open",
   investigating: "Investigating",
   fixed: "Fixed",
+  closed: "Closed",
   cannot_reproduce: "Cannot Reproduce",
   veri_broke_it_live: "Veri broke it live on stream",
 };

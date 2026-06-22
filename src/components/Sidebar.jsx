@@ -29,6 +29,7 @@ import {
   Bot,
   CalendarClock,
   Clock,
+  Hammer,
   Pill,
   Radio,
   Users,
@@ -42,6 +43,7 @@ const rootNavItems = [
 
 const standaloneNavItems = [
   { path: "/forum", label: "Forum", icon: MessageSquare },
+  { path: "/relic-forge", label: "Relic Forge", icon: Hammer },
 ];
 
 const navGroups = [

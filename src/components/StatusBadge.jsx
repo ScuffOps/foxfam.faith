@@ -3,6 +3,7 @@ const statusConfig = {
   approved: "bg-success/15 text-success border-success/20",
   rejected: "bg-destructive/15 text-destructive border-destructive/20",
   converted: "bg-primary/15 text-primary border-primary/20",
+  closed: "bg-muted text-muted-foreground border-border",
   active: "bg-success/15 text-success border-success/20",
   cancelled: "bg-muted text-muted-foreground border-border",
   completed: "bg-accent/15 text-accent border-accent/20",
