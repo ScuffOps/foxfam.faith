@@ -18,6 +18,7 @@ export const supabase = isSupabaseConfigured
 
 const UPLOAD_BUCKET = import.meta.env.VITE_SUPABASE_UPLOAD_BUCKET || "community-uploads";
 const DEFAULT_AUTH_REDIRECT_PATH = "/settings";
+const DEFAULT_AUTH_CALLBACK_PATH = "/auth/callback?next=/settings";
 export const LOGIN_EVENT_NAME = "foxfam:open-login";
 const PUBLIC_ROW_SELECT = "id,data,created_at,updated_at";
 const PUBLIC_PROFILE_SELECT =
@@ -90,6 +91,14 @@ function getAuthRedirectUrl(path = DEFAULT_AUTH_REDIRECT_PATH) {
   if (!path) return window.location.origin;
   if (/^https?:\/\//i.test(path)) return path;
   return `${window.location.origin}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+function getOAuthRedirect(options = {}) {
+  const { redirectPath, redirectTo, ...authOptions } = options;
+  return {
+    authOptions,
+    redirectTo: redirectTo || getAuthRedirectUrl(redirectPath || DEFAULT_AUTH_CALLBACK_PATH),
+  };
 }
 
 function dataOnly(payload = {}) {
@@ -463,7 +472,7 @@ export const communityClient = {
         email: cleanedEmail,
         password,
         options: {
-          emailRedirectTo: getAuthRedirectUrl(),
+          emailRedirectTo: getAuthRedirectUrl(DEFAULT_AUTH_CALLBACK_PATH),
           data: cleanedDisplayName ? { display_name: cleanedDisplayName, name: cleanedDisplayName } : undefined,
         },
       });
@@ -488,11 +497,11 @@ export const communityClient = {
 
     async signInWithProvider(provider, options = {}) {
       const client = getClient();
-      const redirectTo = options.redirectTo || getAuthRedirectUrl(options.redirectPath);
+      const { authOptions, redirectTo } = getOAuthRedirect(options);
       const { data, error } = await client.auth.signInWithOAuth({
         provider,
         options: {
-          ...options,
+          ...authOptions,
           redirectTo,
         },
       });
@@ -503,11 +512,11 @@ export const communityClient = {
     async linkIdentity(provider, options = {}) {
       const client = getClient();
       await getCurrentSessionUser();
-      const redirectTo = options.redirectTo || getAuthRedirectUrl(options.redirectPath);
+      const { authOptions, redirectTo } = getOAuthRedirect(options);
       const { data, error } = await client.auth.linkIdentity({
         provider,
         options: {
-          ...options,
+          ...authOptions,
           redirectTo,
         },
       });

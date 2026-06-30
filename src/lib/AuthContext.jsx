@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { communityClient, LOGIN_EVENT_NAME, supabase } from "@/api/communityClient";
 import LoginDialog from "@/components/auth/LoginDialog";
 
@@ -11,29 +11,7 @@ export const AuthProvider = ({ children }) => {
   const [authError, setAuthError] = useState(null);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
 
-  useEffect(() => {
-    checkUserAuth();
-
-    if (!supabase) return undefined;
-    const { data } = supabase.auth.onAuthStateChange(() => {
-      window.setTimeout(() => {
-        checkUserAuth();
-      }, 0);
-    });
-    return () => data.subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const openLogin = (event) => {
-      event?.preventDefault();
-      setIsLoginOpen(true);
-    };
-
-    window.addEventListener(LOGIN_EVENT_NAME, openLogin);
-    return () => window.removeEventListener(LOGIN_EVENT_NAME, openLogin);
-  }, []);
-
-  const checkUserAuth = async () => {
+  const checkUserAuth = useCallback(async () => {
     setIsLoadingAuth(true);
     setAuthError(null);
     try {
@@ -52,7 +30,29 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setIsLoadingAuth(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    checkUserAuth();
+
+    if (!supabase) return undefined;
+    const { data } = supabase.auth.onAuthStateChange(() => {
+      window.setTimeout(() => {
+        checkUserAuth();
+      }, 0);
+    });
+    return () => data.subscription.unsubscribe();
+  }, [checkUserAuth]);
+
+  useEffect(() => {
+    const openLogin = (event) => {
+      event?.preventDefault();
+      setIsLoginOpen(true);
+    };
+
+    window.addEventListener(LOGIN_EVENT_NAME, openLogin);
+    return () => window.removeEventListener(LOGIN_EVENT_NAME, openLogin);
+  }, []);
 
   const logout = async (shouldRedirect = true) => {
     setUser(null);

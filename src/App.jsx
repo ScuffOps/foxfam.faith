@@ -23,6 +23,7 @@ import Reliquary from './pages/Reliquary';
 import Offerings from './pages/Offerings';
 import StaffOps from './pages/StaffOps';
 import RelicForge from './pages/RelicForge';
+import AuthCallback from './pages/AuthCallback';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -50,6 +51,7 @@ const AuthenticatedApp = () => {
   // Render the main app
   return (
     <Routes>
+      <Route path="/auth/callback" element={<AuthCallback />} />
       <Route element={<Layout />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/shrine" element={<Dashboard />} />
