@@ -27,6 +27,16 @@ function toEventForm(event) {
   };
 }
 
+function parseEventDateTime(value) {
+  const cleanedValue = String(value || "").trim();
+  if (!cleanedValue) return "";
+  const normalizedValue = /^\d{4}-\d{2}-\d{2}$/.test(cleanedValue)
+    ? `${cleanedValue}T12:00`
+    : cleanedValue;
+  const parsed = new Date(normalizedValue);
+  return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString();
+}
+
 export default function EventFormDialog({ open, onOpenChange, event, onSaved }) {
   const { toast } = useToast();
   const isEdit = !!event;
@@ -69,9 +79,10 @@ export default function EventFormDialog({ open, onOpenChange, event, onSaved }) 
       const data = {
         ...form,
         image_url: imageUrl,
-        start_date: new Date(form.start_date).toISOString(),
-        end_date: form.end_date ? new Date(form.end_date).toISOString() : new Date(form.start_date).toISOString(),
+        start_date: parseEventDateTime(form.start_date),
+        end_date: form.end_date ? parseEventDateTime(form.end_date) : parseEventDateTime(form.start_date),
       };
+      if (!data.start_date) throw new Error("Use a valid start date.");
       const savedEvent = isEdit
         ? await communityClient.entities.Event.update(event.id, data)
         : await communityClient.entities.Event.create(data);
@@ -130,11 +141,25 @@ export default function EventFormDialog({ open, onOpenChange, event, onSaved }) 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label>Start {form.all_day ? "Date" : "Date & Time"} *</Label>
-              <Input type={form.all_day ? "date" : "datetime-local"} value={form.all_day ? form.start_date.slice(0, 10) : form.start_date} onChange={(e) => update("start_date", e.target.value)} className="mt-1.5 bg-secondary" />
+              <Input
+                type={form.all_day ? "date" : "text"}
+                inputMode="text"
+                value={form.all_day ? form.start_date.slice(0, 10) : form.start_date}
+                onChange={(e) => update("start_date", e.target.value)}
+                placeholder={form.all_day ? "YYYY-MM-DD" : "YYYY-MM-DD or YYYY-MM-DD 12:00"}
+                className="mt-1.5 bg-secondary"
+              />
             </div>
             <div>
               <Label>End {form.all_day ? "Date" : "Date & Time"}</Label>
-              <Input type={form.all_day ? "date" : "datetime-local"} value={form.all_day ? (form.end_date || "").slice(0, 10) : form.end_date} onChange={(e) => update("end_date", e.target.value)} className="mt-1.5 bg-secondary" />
+              <Input
+                type={form.all_day ? "date" : "text"}
+                inputMode="text"
+                value={form.all_day ? (form.end_date || "").slice(0, 10) : form.end_date}
+                onChange={(e) => update("end_date", e.target.value)}
+                placeholder={form.all_day ? "YYYY-MM-DD" : "YYYY-MM-DD or YYYY-MM-DD 12:00"}
+                className="mt-1.5 bg-secondary"
+              />
             </div>
           </div>
           <div>
