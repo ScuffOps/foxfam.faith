@@ -40,15 +40,15 @@ const optionalNumber = z.preprocess(
 );
 
 const streamRatingSchema = z.enum(["quiet", "good", "great", "legendary"]);
-const taskStatusSchema = z.enum(["in_queue", "working_on", "blocked", "done"]);
-const taskPrioritySchema = z.enum(["low", "normal", "high", "urgent"]);
+const taskStatusSchema = z.enum(["in_queue", "pending", "working_on", "blocked", "done"]);
+const taskPrioritySchema = z.enum(["low", "normal", "high", "urgent", "critical"]);
 const shiftStatusSchema = z.enum(["scheduled", "confirmed", "covered", "missed"]);
 const timeEntryStatusSchema = z.enum(["draft", "submitted", "approved", "paid"]);
 const scuffoxUpdateStatusSchema = z.enum(["draft", "active", "archived"]);
 const scuffoxUpdateToneSchema = z.enum(["announcement", "mood", "info", "stream", "quiet"]);
 const availabilityStatusSchema = z.enum(["free", "on_call", "busy", "dnd"]);
 const shiftPlannerDaySchema = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
-const shiftPlannerBlockSchema = z.enum(["morning", "day", "night"]);
+const shiftPlannerBlockSchema = z.enum(["overnight", "morning", "day", "night"]);
 
 const streamLogSchema = z.object({
   title: requiredTrimmedString,
@@ -85,6 +85,8 @@ const staffTaskSchema = z.object({
   title: requiredTrimmedString,
   description: optionalTrimmedString,
   category: optionalTrimmedString,
+  assigned_to: optionalTrimmedString,
+  start_date: optionalDateTime,
   due_date: optionalDateTime,
   priority: taskPrioritySchema.default("normal"),
   status: taskStatusSchema.default("in_queue"),
@@ -154,17 +156,19 @@ const botCommandSchema = z.object({
 });
 
 export const TASK_STATUS_LABELS = {
-  in_queue: "In Queue",
-  working_on: "Working On",
-  blocked: "Blocked",
-  done: "Done",
+  in_queue: "iղ գᴜᥱᴜᥱ",
+  pending: "pɛŋɖiŋg",
+  working_on: "ωσякιη' ιt, bᥲbყ",
+  blocked: "ɓʟօƈҡɛɖ",
+  done: "Ɗ O Ɲ Ɛ",
 };
 
 export const TASK_PRIORITY_LABELS = {
   low: "Low",
-  normal: "Normal",
+  normal: "Medium",
   high: "High",
-  urgent: "Urgent",
+  urgent: "CRITICAL",
+  critical: "CRITICAL",
 };
 
 export const STREAM_RATING_LABELS = {
@@ -217,7 +221,9 @@ function compactPayload(payload) {
 
 function parseDateTime(value) {
   if (!value) return undefined;
-  const parsed = new Date(value);
+  const trimmed = String(value).trim();
+  if (!trimmed) return undefined;
+  const parsed = new Date(/^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? `${trimmed}T12:00` : trimmed);
   return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
 }
 
@@ -255,6 +261,7 @@ export function parseStaffTaskForm(form) {
   const parsed = staffTaskSchema.parse(form);
   return compactPayload({
     ...parsed,
+    start_date: parseDateTime(parsed.start_date),
     due_date: parseDateTime(parsed.due_date),
   });
 }

@@ -2,13 +2,14 @@ export const DASHBOARD_PREFS_STORAGE_KEY = "foxfam.dashboard.cards.v1";
 
 export const DASHBOARD_CARD_IDS = [
   "quick-stats",
+  "launch-quests",
+  "founders-cache",
   "progression",
   "upcoming-events",
   "codex",
   "birthdays",
   "community-updates",
   "top-ideas",
-  "eren-agent",
   "bug-report",
   "scuffox-thought",
   "boop-fox",
@@ -16,13 +17,14 @@ export const DASHBOARD_CARD_IDS = [
 
 export const DASHBOARD_CARD_LABELS = {
   "quick-stats": "Quick Stats",
+  "launch-quests": "Daily Shrine Signal",
+  "founders-cache": "Founder's Cache",
   progression: "Progression",
   "upcoming-events": "Upcoming Events",
   codex: "Recent Codex",
   birthdays: "Birthdays",
   "community-updates": "Community Updates",
   "top-ideas": "Top Ideas",
-  "eren-agent": "Eren Agent",
   "bug-report": "Bug Report",
   "scuffox-thought": "Scuffox Thoughts",
   "boop-fox": "Resident Fox",

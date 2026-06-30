@@ -7,11 +7,13 @@ import {
   Bell,
   Bot,
   CalendarClock,
+  ChevronDown,
   CheckCircle2,
   Clock,
   ClipboardList,
   ExternalLink,
   Keyboard,
+  ListFilter,
   Pill,
   Play,
   Plus,
@@ -21,6 +23,7 @@ import {
   Square,
   Trash2,
   UserCog,
+  WandSparkles,
 } from "lucide-react";
 import { communityClient } from "@/api/communityClient";
 import { Badge } from "@/components/ui/badge";
@@ -115,10 +118,40 @@ const AVAILABILITY_STATUSES = [
 const AVAILABILITY_STATUS_MAP = Object.fromEntries(AVAILABILITY_STATUSES.map((status) => [status.key, status]));
 
 const SHIFT_PLANNER_BLOCKS = [
+  { key: "overnight", label: "Overnight", time: "12am - 6am", hours: ["00", "01", "02", "03", "04", "05"] },
   { key: "morning", label: "Morning", time: "6am - 12pm", hours: ["06", "07", "08", "09", "10", "11"] },
   { key: "day", label: "Day", time: "12pm - 6pm", hours: ["12", "13", "14", "15", "16", "17"] },
   { key: "night", label: "Night", time: "6pm - 12am", hours: ["18", "19", "20", "21", "22", "23"] },
 ];
+
+const TASK_VIEW_OPTIONS = [
+  { key: "list", label: "List" },
+  { key: "priority", label: "Priority" },
+  { key: "matrix", label: "Matrix" },
+  { key: "timeline", label: "Timeline" },
+];
+
+const TASK_FILTER_DEFAULTS = {
+  query: "",
+  status: "all",
+  priority: "all",
+  category: "all",
+  assignee: "all",
+};
+
+const TASK_CATEGORY_OPTIONS = [
+  { value: "", label: "Choose category" },
+  { value: "stream", label: "ՏƬRҼⱭⱮ" },
+  { value: "discord", label: "ƊISƇORƊ" },
+  { value: "brand", label: "ƁRⱭƝƊ" },
+  { value: "content", label: "ƇƠƝƬҼƝƬ" },
+  { value: "art", label: "ⱭRƬ" },
+  { value: "social", label: "ՏƠƇӀⱭԼ" },
+  { value: "rl", label: "RԼ" },
+];
+
+const TASK_STATUS_ORDER = ["in_queue", "pending", "working_on", "blocked", "done"];
+const TASK_PRIORITY_ORDER = ["critical", "high", "normal", "low"];
 
 const DEFAULT_STREAM_FORM = {
   title: "",
@@ -155,6 +188,8 @@ const DEFAULT_TASK_FORM = {
   title: "",
   description: "",
   category: "",
+  assigned_to: "",
+  start_date: "",
   due_date: "",
   priority: "normal",
   status: "in_queue",
@@ -279,8 +314,107 @@ function sortNewest(items) {
 function statusTone(status) {
   if (status === "done") return "border-emerald-400/40 bg-emerald-400/10 text-emerald-100";
   if (status === "blocked") return "border-destructive/40 bg-destructive/10 text-destructive";
+  if (status === "pending") return "border-amber-300/40 bg-amber-300/10 text-amber-100";
   if (status === "working_on") return "border-primary/40 bg-primary/10 text-primary";
   return "border-border bg-secondary/60 text-muted-foreground";
+}
+
+function priorityTone(priority) {
+  if (priority === "critical" || priority === "urgent") return "border-rose-400/50 bg-rose-500/15 text-rose-100";
+  if (priority === "high") return "border-amber-300/50 bg-amber-400/15 text-amber-100";
+  if (priority === "normal") return "border-sky-300/45 bg-sky-400/12 text-sky-100";
+  return "border-emerald-300/40 bg-emerald-400/10 text-emerald-100";
+}
+
+function getTaskCategoryLabel(value) {
+  return TASK_CATEGORY_OPTIONS.find((option) => option.value === value)?.label || value || "No tag";
+}
+
+function getTaskPriorityRank(priority) {
+  const index = TASK_PRIORITY_ORDER.indexOf(priority);
+  return index === -1 ? TASK_PRIORITY_ORDER.indexOf("normal") : index;
+}
+
+function getTaskStatusRank(status) {
+  const index = TASK_STATUS_ORDER.indexOf(status);
+  return index === -1 ? 0 : index;
+}
+
+function sortTasksForOps(tasks) {
+  return [...tasks].sort((a, b) => {
+    const priorityDelta = getTaskPriorityRank(a.priority) - getTaskPriorityRank(b.priority);
+    if (priorityDelta !== 0) return priorityDelta;
+    const dueA = new Date(a.due_date || 8640000000000000).getTime();
+    const dueB = new Date(b.due_date || 8640000000000000).getTime();
+    if (dueA !== dueB) return dueA - dueB;
+    return new Date(b.created_date || 0) - new Date(a.created_date || 0);
+  });
+}
+
+function filterStaffTasks(tasks, filters) {
+  const query = filters.query.trim().toLowerCase();
+  return sortTasksForOps(tasks).filter((task) => {
+    if (filters.status !== "all" && task.status !== filters.status) return false;
+    if (filters.priority !== "all" && !(task.priority === filters.priority || (filters.priority === "critical" && task.priority === "urgent"))) return false;
+    if (filters.category !== "all" && (task.category || "") !== filters.category) return false;
+    if (filters.assignee !== "all" && (task.assigned_to || task.created_by_name || "") !== filters.assignee) return false;
+    if (!query) return true;
+    return [
+      task.title,
+      task.description,
+      task.category,
+      getTaskCategoryLabel(task.category),
+      task.assigned_to,
+      task.created_by_name,
+      TASK_STATUS_LABELS[task.status],
+      TASK_PRIORITY_LABELS[task.priority],
+    ].filter(Boolean).join(" ").toLowerCase().includes(query);
+  });
+}
+
+function getTaskFilterOptions(tasks) {
+  const categories = new Set();
+  const assignees = new Set();
+  for (const task of tasks) {
+    if (task.category) categories.add(task.category);
+    if (task.assigned_to) assignees.add(task.assigned_to);
+    else if (task.created_by_name) assignees.add(task.created_by_name);
+  }
+  return {
+    categories: [...categories].sort((a, b) => getTaskCategoryLabel(a).localeCompare(getTaskCategoryLabel(b))),
+    assignees: [...assignees].sort((a, b) => a.localeCompare(b)),
+  };
+}
+
+function playTaskCompleteChime() {
+  if (typeof window === "undefined") return;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return;
+  try {
+    const context = new AudioContext();
+    const master = context.createGain();
+    master.gain.setValueAtTime(0.0001, context.currentTime);
+    master.gain.exponentialRampToValueAtTime(0.16, context.currentTime + 0.02);
+    master.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.72);
+    master.connect(context.destination);
+
+    [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.0001, context.currentTime + index * 0.055);
+      gain.gain.exponentialRampToValueAtTime(0.09, context.currentTime + index * 0.055 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.52 + index * 0.04);
+      oscillator.connect(gain).connect(master);
+      oscillator.start(context.currentTime + index * 0.055);
+      oscillator.stop(context.currentTime + 0.82);
+    });
+
+    window.setTimeout(() => context.close().catch(() => null), 1000);
+  } catch {
+    // Audio feedback is optional; task completion should never fail because sound did.
+  }
 }
 
 export default function StaffOps({ defaultTab = "dashboard" }) {
@@ -288,6 +422,11 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [commandSearch, setCommandSearch] = useState("");
+  const [handbookSearch, setHandbookSearch] = useState("");
+  const [memberSearch, setMemberSearch] = useState("");
+  const [taskView, setTaskView] = useState("list");
+  const [taskFilters, setTaskFilters] = useState(TASK_FILTER_DEFAULTS);
+  const [taskCelebration, setTaskCelebration] = useState(null);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState("");
@@ -396,6 +535,24 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
 
   const openTasks = useMemo(() => data.tasks.filter(isOpenTask), [data.tasks]);
   const completedTasks = useMemo(() => data.tasks.filter((task) => task.status === "done"), [data.tasks]);
+  const filteredTasks = useMemo(() => filterStaffTasks(data.tasks, taskFilters), [data.tasks, taskFilters]);
+  const filteredOpenTasks = useMemo(() => filteredTasks.filter(isOpenTask), [filteredTasks]);
+  const filteredCompletedTasks = useMemo(() => filteredTasks.filter((task) => task.status === "done"), [filteredTasks]);
+  const taskFilterOptions = useMemo(() => getTaskFilterOptions(data.tasks), [data.tasks]);
+  const filteredHandbookSections = useMemo(() => {
+    const query = handbookSearch.trim().toLowerCase();
+    if (!query) return STAFF_HANDBOOK_SECTIONS;
+    return STAFF_HANDBOOK_SECTIONS.filter((section) =>
+      [section.title, section.summary, ...(section.items || [])].join(" ").toLowerCase().includes(query),
+    );
+  }, [handbookSearch]);
+  const filteredMembers = useMemo(() => {
+    const query = memberSearch.trim().toLowerCase();
+    if (!query) return data.users;
+    return data.users.filter((member) =>
+      [member.display_name, member.role, member.id].filter(Boolean).some((value) => String(value).toLowerCase().includes(query)),
+    );
+  }, [data.users, memberSearch]);
   const totalPayableHours = useMemo(
     () => data.timeEntries.filter((entry) => entry.payable).reduce((sum, entry) => sum + getTimeEntryHours(entry), 0),
     [data.timeEntries],
@@ -520,6 +677,12 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
     const interval = window.setInterval(() => setTimerTick(Date.now()), 1000);
     return () => window.clearInterval(interval);
   }, [activeTimer]);
+
+  useEffect(() => {
+    if (!taskCelebration) return undefined;
+    const timeout = window.setTimeout(() => setTaskCelebration(null), 1800);
+    return () => window.clearTimeout(timeout);
+  }, [taskCelebration]);
 
   useEffect(() => {
     if (!isStaff || !timerShortcutEnabled) return undefined;
@@ -822,6 +985,10 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
         status,
         completed_at: status === "done" ? new Date().toISOString() : undefined,
       });
+      if (status === "done" && task.status !== "done") {
+        playTaskCompleteChime();
+        setTaskCelebration({ id: `${task.id}:${Date.now()}`, title: task.title });
+      }
       await loadData();
     } catch (error) {
       toast({ title: "Task update failed", description: getValidationMessage(error), variant: "destructive" });
@@ -1021,6 +1188,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
 
   return (
     <div className="mx-auto max-w-7xl animate-fade-in">
+      <TaskCompletionCelebration celebration={taskCelebration} />
       <section className="mb-6 rounded-lg border border-[#4546ff]/25 bg-[linear-gradient(135deg,rgba(8,12,28,0.96),rgba(18,19,46,0.92))] p-5 text-foreground shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
@@ -1072,12 +1240,15 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                 </GlassCard>
               </div>
 
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input className="pl-9" value={handbookSearch} onChange={(event) => setHandbookSearch(event.target.value)} placeholder="Filter handbook sections..." />
+              </div>
+
               <div className="grid gap-4 lg:grid-cols-2">
-                {STAFF_HANDBOOK_SECTIONS.map((section) => (
-                  <GlassCard key={section.id}>
-                    <h2 className="font-heading text-base font-semibold">{section.title}</h2>
-                    <p className="mt-1 text-xs text-muted-foreground">{section.summary}</p>
-                    <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+                {filteredHandbookSections.map((section) => (
+                  <CollapsibleGlass key={section.id} title={section.title} subtitle={section.summary} defaultOpen>
+                    <ul className="space-y-2 text-sm text-muted-foreground">
                       {section.items.map((item) => (
                         <li key={item} className="flex gap-2">
                           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
@@ -1085,8 +1256,9 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                         </li>
                       ))}
                     </ul>
-                  </GlassCard>
+                  </CollapsibleGlass>
                 ))}
+                {filteredHandbookSections.length === 0 && <EmptyState title="No handbook sections match that filter" />}
               </div>
             </div>
           )}
@@ -1113,8 +1285,8 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                     </Select>
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
-                    <Input type="datetime-local" value={updateFormState.starts_at} onChange={(event) => updateForm(setUpdateFormState, "starts_at", event.target.value)} />
-                    <Input type="datetime-local" value={updateFormState.expires_at} onChange={(event) => updateForm(setUpdateFormState, "expires_at", event.target.value)} />
+                    <DateTimeInput value={updateFormState.starts_at} onChange={(event) => updateForm(setUpdateFormState, "starts_at", event.target.value)} placeholder="Starts, e.g. 2026-07-01 or 2026-07-01 12:00" />
+                    <DateTimeInput value={updateFormState.expires_at} onChange={(event) => updateForm(setUpdateFormState, "expires_at", event.target.value)} placeholder="Expires, optional" />
                   </div>
                   <Button type="submit" disabled={saving === "update"} className="w-full gap-2">
                     <Plus className="h-4 w-4" />
@@ -1190,7 +1362,11 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                   <EmptyState title="No commands found" />
                 ) : (
                   commandRows.map((command) => (
-                    <GlassCard key={`${command.id || "seed"}-${command.command}`}>
+                    <CollapsibleGlass
+                      key={`${command.id || "seed"}-${command.command}`}
+                      title={command.command}
+                      subtitle={[command.type || "Command", COMMAND_SOURCE_LABELS[command.source] || command.source || "Manual"].filter(Boolean).join(" - ")}
+                    >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
@@ -1214,7 +1390,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                           </Button>
                         )}
                       </div>
-                    </GlassCard>
+                    </CollapsibleGlass>
                   ))
                 )}
               </div>
@@ -1253,8 +1429,8 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                     <Input value={shiftForm.stream_title} onChange={(event) => updateForm(setShiftForm, "stream_title", event.target.value)} placeholder="Stream / event" />
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
-                    <Input type="datetime-local" value={shiftForm.starts_at} onChange={(event) => updateForm(setShiftForm, "starts_at", event.target.value)} />
-                    <Input type="datetime-local" value={shiftForm.ends_at} onChange={(event) => updateForm(setShiftForm, "ends_at", event.target.value)} />
+                    <DateTimeInput value={shiftForm.starts_at} onChange={(event) => updateForm(setShiftForm, "starts_at", event.target.value)} placeholder="Shift starts, e.g. 2026-07-01" />
+                    <DateTimeInput value={shiftForm.ends_at} onChange={(event) => updateForm(setShiftForm, "ends_at", event.target.value)} placeholder="Shift ends, e.g. 2026-07-01 16:00" />
                   </div>
                   <Select value={shiftForm.status} onValueChange={(value) => updateForm(setShiftForm, "status", value)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1372,8 +1548,8 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                   <form className="mt-5 space-y-3" onSubmit={handleCreateTimeEntry}>
                     <Input value={timeForm.staff_name} onChange={(event) => updateForm(setTimeForm, "staff_name", event.target.value)} placeholder="Staff name" />
                     <div className="grid gap-3 md:grid-cols-2">
-                      <Input type="datetime-local" value={timeForm.started_at} onChange={(event) => updateForm(setTimeForm, "started_at", event.target.value)} />
-                      <Input type="datetime-local" value={timeForm.ended_at} onChange={(event) => updateForm(setTimeForm, "ended_at", event.target.value)} />
+                      <DateTimeInput value={timeForm.started_at} onChange={(event) => updateForm(setTimeForm, "started_at", event.target.value)} placeholder="Started, e.g. 2026-07-01" />
+                      <DateTimeInput value={timeForm.ended_at} onChange={(event) => updateForm(setTimeForm, "ended_at", event.target.value)} placeholder="Ended, e.g. 2026-07-01 15:30" />
                     </div>
                     <div className="grid gap-3 md:grid-cols-2">
                       <Input type="number" min="0" value={timeForm.break_minutes} onChange={(event) => updateForm(setTimeForm, "break_minutes", event.target.value)} placeholder="Break minutes" />
@@ -1466,7 +1642,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                 <form className="mt-5 space-y-3" onSubmit={handleCreateStreamLog}>
                   <Input value={streamForm.title} onChange={(event) => updateForm(setStreamForm, "title", event.target.value)} placeholder="Stream title" />
                   <div className="grid gap-3 md:grid-cols-2">
-                    <Input type="datetime-local" value={streamForm.stream_date} onChange={(event) => updateForm(setStreamForm, "stream_date", event.target.value)} />
+                    <DateTimeInput value={streamForm.stream_date} onChange={(event) => updateForm(setStreamForm, "stream_date", event.target.value)} placeholder="Stream date, e.g. 2026-07-01" />
                     <Select value={streamForm.rating} onValueChange={(value) => updateForm(setStreamForm, "rating", value)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -1552,8 +1728,8 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                       </SelectContent>
                     </Select>
                     <div className="grid gap-3 md:grid-cols-2">
-                      <Input type="datetime-local" value={doseForm.scheduled_time} onChange={(event) => updateForm(setDoseForm, "scheduled_time", event.target.value)} />
-                      <Input type="datetime-local" value={doseForm.taken_time} onChange={(event) => updateForm(setDoseForm, "taken_time", event.target.value)} />
+                      <DateTimeInput value={doseForm.scheduled_time} onChange={(event) => updateForm(setDoseForm, "scheduled_time", event.target.value)} placeholder="Scheduled, e.g. 2026-07-01" />
+                      <DateTimeInput value={doseForm.taken_time} onChange={(event) => updateForm(setDoseForm, "taken_time", event.target.value)} placeholder="Taken, optional" />
                     </div>
                     <Select value={doseForm.skipped ? "skipped" : "taken"} onValueChange={(value) => updateForm(setDoseForm, "skipped", value === "skipped")}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1614,14 +1790,25 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                   <Input value={taskForm.title} onChange={(event) => updateForm(setTaskForm, "title", event.target.value)} placeholder="Task title" />
                   <Textarea value={taskForm.description} onChange={(event) => updateForm(setTaskForm, "description", event.target.value)} placeholder="Task details" rows={4} />
                   <div className="grid gap-3 md:grid-cols-2">
-                    <Input value={taskForm.category} onChange={(event) => updateForm(setTaskForm, "category", event.target.value)} placeholder="Category" />
-                    <Input type="datetime-local" value={taskForm.due_date} onChange={(event) => updateForm(setTaskForm, "due_date", event.target.value)} />
+                    <Select value={taskForm.category || "__none"} onValueChange={(value) => updateForm(setTaskForm, "category", value === "__none" ? "" : value)}>
+                      <SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger>
+                      <SelectContent>
+                        {TASK_CATEGORY_OPTIONS.map((option) => (
+                          <SelectItem key={option.value || "__none"} value={option.value || "__none"}>{option.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input value={taskForm.assigned_to} onChange={(event) => updateForm(setTaskForm, "assigned_to", event.target.value)} placeholder="Assigned user / staff" />
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <DateTimeInput value={taskForm.start_date} onChange={(event) => updateForm(setTaskForm, "start_date", event.target.value)} placeholder="Start date, optional" />
+                    <DateTimeInput value={taskForm.due_date} onChange={(event) => updateForm(setTaskForm, "due_date", event.target.value)} placeholder="Due date, e.g. 2026-07-01" />
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
                     <Select value={taskForm.priority} onValueChange={(value) => updateForm(setTaskForm, "priority", value)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {Object.entries(TASK_PRIORITY_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+                        {TASK_PRIORITY_ORDER.map((value) => <SelectItem key={value} value={value}>{TASK_PRIORITY_LABELS[value]}</SelectItem>)}
                       </SelectContent>
                     </Select>
                     <Select value={taskForm.status} onValueChange={(value) => updateForm(setTaskForm, "status", value)}>
@@ -1639,10 +1826,18 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                 </form>
               </GlassCard>
 
-              <div className="space-y-5">
-                <TaskList title="Open Tasks" tasks={openTasks} saving={saving} onStatusChange={updateTaskStatus} />
-                <TaskList title="Completed" tasks={completedTasks} saving={saving} onStatusChange={updateTaskStatus} compact />
-              </div>
+              <TaskWorkspace
+                completedTasks={filteredCompletedTasks}
+                filterOptions={taskFilterOptions}
+                filters={taskFilters}
+                onFiltersChange={setTaskFilters}
+                onStatusChange={updateTaskStatus}
+                onViewChange={setTaskView}
+                openTasks={filteredOpenTasks}
+                saving={saving}
+                tasks={filteredTasks}
+                view={taskView}
+              />
             </div>
           )}
 
@@ -1679,16 +1874,21 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
               </GlassCard>
 
               <div className="space-y-3">
-                {data.users.length === 0 ? (
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input className="pl-9" value={memberSearch} onChange={(event) => setMemberSearch(event.target.value)} placeholder="Filter team by name or role..." />
+                </div>
+                {filteredMembers.length === 0 ? (
                   <EmptyState title="No members found" />
                 ) : (
-                  data.users.map((member) => (
-                    <GlassCard key={member.id}>
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <h3 className="font-heading text-base font-semibold">{member.display_name || "Unnamed Member"}</h3>
-                          <p className="mt-1 text-xs text-muted-foreground">{member.role || "user"}</p>
-                        </div>
+                  filteredMembers.map((member) => (
+                    <CollapsibleGlass
+                      key={member.id}
+                      title={member.display_name || "Unnamed Member"}
+                      subtitle={member.role || "user"}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+                        <span>Profile id: {member.id}</span>
                         <Button
                           size="sm"
                           variant="outline"
@@ -1697,7 +1897,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                           Edit Name
                         </Button>
                       </div>
-                    </GlassCard>
+                    </CollapsibleGlass>
                   ))
                 )}
               </div>
@@ -1980,6 +2180,15 @@ function StaffDashboard({ activeUpdates, commandCount, data, onTabChange, openTa
         ))}
       </div>
 
+      <LaunchPulse
+        activeUpdates={activeUpdates}
+        commandCount={commandCount}
+        onTabChange={onTabChange}
+        openTasks={openTasks}
+        pendingTimeEntries={pendingTimeEntries}
+        upcomingShifts={upcomingShifts}
+      />
+
       <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
         <GlassCard>
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -2093,6 +2302,98 @@ function StaffDashboard({ activeUpdates, commandCount, data, onTabChange, openTa
   );
 }
 
+function LaunchPulse({ activeUpdates, commandCount, onTabChange, openTasks, pendingTimeEntries, upcomingShifts }) {
+  const readinessItems = [
+    {
+      label: "Triage open tasks",
+      value: openTasks.length,
+      tab: "tasks",
+      ready: openTasks.length <= 3,
+      action: "Tasklist",
+    },
+    {
+      label: "Confirm next coverage",
+      value: upcomingShifts.length,
+      tab: "schedule",
+      ready: upcomingShifts.length > 0,
+      action: "Schedule",
+    },
+    {
+      label: "Clear time approvals",
+      value: pendingTimeEntries.length,
+      tab: "time",
+      ready: pendingTimeEntries.length === 0,
+      action: "Time",
+    },
+    {
+      label: "Keep commands handy",
+      value: commandCount,
+      tab: "commands",
+      ready: commandCount > 0,
+      action: "Commands",
+    },
+    {
+      label: "Fresh public notes",
+      value: activeUpdates.length,
+      tab: "updates",
+      ready: activeUpdates.length > 0,
+      action: "Updates",
+    },
+  ];
+  const readyCount = readinessItems.filter((item) => item.ready).length;
+  const readiness = Math.round((readyCount / readinessItems.length) * 100);
+
+  return (
+    <GlassCard className="overflow-hidden border-[#4546ff]/35 bg-[#080b18]/90">
+      <div className="grid gap-5 xl:grid-cols-[0.8fr_1.2fr]">
+        <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
+          <div className="flex items-center gap-3">
+            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#4546ff] text-white shadow-[0_14px_35px_rgba(69,70,255,0.35)]">
+              <WandSparkles className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-[#8ea3ff]">launch pulse</p>
+              <h2 className="font-heading text-lg font-bold text-white">Staff Readiness</h2>
+            </div>
+          </div>
+          <div className="mt-5">
+            <div className="mb-2 flex items-center justify-between text-xs text-slate-300">
+              <span>{readyCount} of {readinessItems.length} lanes steady</span>
+              <span>{readiness}%</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-950">
+              <div className="h-full rounded-full bg-gradient-to-r from-[#4546ff] via-[#69d7ff] to-[#f5cf6a]" style={{ width: `${readiness}%` }} />
+            </div>
+          </div>
+          <p className="mt-4 text-sm text-slate-300">
+            A quick scan for the pieces that usually matter right before people start poking the portal.
+          </p>
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {readinessItems.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              onClick={() => onTabChange(item.tab)}
+              className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-left transition hover:border-[#69d7ff]/50 hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#69d7ff]"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">{item.action}</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${item.ready ? "bg-emerald-300/15 text-emerald-100" : "bg-amber-300/15 text-amber-100"}`}>
+                  {item.ready ? "steady" : "needs eyes"}
+                </span>
+              </div>
+              <p className="mt-3 font-heading text-sm font-semibold text-white">{item.label}</p>
+              <p className="mt-1 text-2xl font-bold text-[#69d7ff]">{item.value}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+    </GlassCard>
+  );
+}
+
 function MetricTile({ detail, icon: Icon, label, onTabChange, tab, value }) {
   return (
     <button
@@ -2162,10 +2463,136 @@ function SectionHeader({ icon: Icon, title, subtitle }) {
   );
 }
 
+function DateTimeInput({ className = "", placeholder = "YYYY-MM-DD or YYYY-MM-DD 12:00", ...props }) {
+  return (
+    <Input
+      {...props}
+      type="text"
+      inputMode="text"
+      placeholder={placeholder}
+      className={className}
+    />
+  );
+}
+
+function CollapsibleGlass({ children, defaultOpen = false, subtitle, title }) {
+  return (
+    <details className="group rounded-xl border border-border bg-card p-4 shadow-sm" open={defaultOpen}>
+      <summary className="flex cursor-pointer list-none items-start justify-between gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <div className="min-w-0">
+          <h2 className="font-heading text-base font-semibold">{title}</h2>
+          {subtitle && <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>}
+        </div>
+        <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="mt-4 border-t border-border pt-4">{children}</div>
+    </details>
+  );
+}
+
 function EmptyState({ title }) {
   return (
     <div className="rounded-lg border border-dashed border-border bg-secondary/20 px-4 py-8 text-center text-sm text-muted-foreground">
       {title}
+    </div>
+  );
+}
+
+function TaskWorkspace({ completedTasks, filterOptions, filters, onFiltersChange, onStatusChange, onViewChange, openTasks, saving, tasks, view }) {
+  const hasFilters = Object.entries(filters).some(([key, value]) => TASK_FILTER_DEFAULTS[key] !== value);
+
+  return (
+    <div className="space-y-4">
+      <GlassCard>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <SectionHeader icon={ListFilter} title="Task Views" subtitle="List, priority lanes, matrix, and timeline all use the same filters." />
+          <div className="flex flex-wrap gap-2">
+            {TASK_VIEW_OPTIONS.map((option) => (
+              <Button
+                key={option.key}
+                type="button"
+                size="sm"
+                variant={view === option.key ? "default" : "outline"}
+                onClick={() => onViewChange(option.key)}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <div className="relative md:col-span-2 xl:col-span-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              value={filters.query}
+              onChange={(event) => onFiltersChange((current) => ({ ...current, query: event.target.value }))}
+              placeholder="Search tasks..."
+            />
+          </div>
+          <Select value={filters.status} onValueChange={(value) => onFiltersChange((current) => ({ ...current, status: value }))}>
+            <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              {TASK_STATUS_ORDER.map((status) => (
+                <SelectItem key={status} value={status}>{TASK_STATUS_LABELS[status]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filters.priority} onValueChange={(value) => onFiltersChange((current) => ({ ...current, priority: value }))}>
+            <SelectTrigger><SelectValue placeholder="Priority" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All priorities</SelectItem>
+              {TASK_PRIORITY_ORDER.map((priority) => (
+                <SelectItem key={priority} value={priority}>{TASK_PRIORITY_LABELS[priority]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filters.category} onValueChange={(value) => onFiltersChange((current) => ({ ...current, category: value }))}>
+            <SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All tags</SelectItem>
+              {filterOptions.categories.map((category) => (
+                <SelectItem key={category} value={category}>{getTaskCategoryLabel(category)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filters.assignee} onValueChange={(value) => onFiltersChange((current) => ({ ...current, assignee: value }))}>
+            <SelectTrigger><SelectValue placeholder="User" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All users</SelectItem>
+              {filterOptions.assignees.map((assignee) => (
+                <SelectItem key={assignee} value={assignee}>{assignee}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span>{tasks.length} shown · {openTasks.length} open · {completedTasks.length} complete</span>
+          {hasFilters && (
+            <Button type="button" size="sm" variant="ghost" onClick={() => onFiltersChange(TASK_FILTER_DEFAULTS)}>
+              Reset filters
+            </Button>
+          )}
+        </div>
+      </GlassCard>
+
+      {tasks.length === 0 ? (
+        <EmptyState title="No tasks match those filters" />
+      ) : view === "priority" ? (
+        <TaskPriorityView tasks={tasks} saving={saving} onStatusChange={onStatusChange} />
+      ) : view === "matrix" ? (
+        <TaskMatrixView tasks={tasks} saving={saving} onStatusChange={onStatusChange} />
+      ) : view === "timeline" ? (
+        <TaskTimelineView tasks={tasks} saving={saving} onStatusChange={onStatusChange} />
+      ) : (
+        <div className="space-y-5">
+          <TaskList title="Open Tasks" tasks={openTasks} saving={saving} onStatusChange={onStatusChange} />
+          <TaskList title="Completed" tasks={completedTasks} saving={saving} onStatusChange={onStatusChange} compact />
+        </div>
+      )}
     </div>
   );
 }
@@ -2182,52 +2609,178 @@ function TaskList({ title, tasks, saving, onStatusChange, compact = false }) {
       ) : (
         <div className="space-y-3">
           {tasks.map((task) => (
-            <GlassCard key={task.id}>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-heading text-base font-semibold">{task.title}</h3>
-                    <span className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${statusTone(task.status)}`}>
-                      {TASK_STATUS_LABELS[task.status] || "In Queue"}
-                    </span>
-                    <Badge variant="outline">{TASK_PRIORITY_LABELS[task.priority] || "Normal"}</Badge>
-                  </div>
-                  {!compact && task.description && (
-                    <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{task.description}</p>
-                  )}
-                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    {task.category && <span>{task.category}</span>}
-                    {task.due_date && (
-                      <span className="inline-flex items-center gap-1">
-                        <CalendarClock className="h-3.5 w-3.5" />
-                        {formatDateTime(task.due_date)}
-                      </span>
-                    )}
-                    <span>by {task.created_by_name || "Staff"}</span>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {task.link_url && (
-                    <a className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline" href={task.link_url} target="_blank" rel="noreferrer">
-                      Link <ExternalLink className="h-3 w-3" />
-                    </a>
-                  )}
-                  {task.status !== "working_on" && (
-                    <Button size="sm" variant="outline" disabled={saving === task.id} onClick={() => onStatusChange(task, "working_on")}>
-                      Start
-                    </Button>
-                  )}
-                  {task.status !== "done" && (
-                    <Button size="sm" disabled={saving === task.id} onClick={() => onStatusChange(task, "done")}>
-                      Done
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </GlassCard>
+            <TaskCard key={task.id} compact={compact} saving={saving} task={task} onStatusChange={onStatusChange} />
           ))}
         </div>
       )}
     </section>
+  );
+}
+
+function TaskPriorityView({ tasks, saving, onStatusChange }) {
+  return (
+    <div className="grid gap-3 xl:grid-cols-5">
+      {TASK_PRIORITY_ORDER.map((priority) => {
+        const laneTasks = tasks.filter((task) => task.priority === priority || (priority === "critical" && task.priority === "urgent"));
+        if (priority === "urgent") return null;
+        return (
+          <section key={priority} className="rounded-xl border border-border bg-card/70 p-3">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <span className={`rounded-md border px-2 py-1 text-xs font-bold ${priorityTone(priority)}`}>{TASK_PRIORITY_LABELS[priority]}</span>
+              <Badge variant="outline">{laneTasks.length}</Badge>
+            </div>
+            <div className="space-y-3">
+              {laneTasks.length === 0 ? <EmptyState title="No tasks" /> : laneTasks.map((task) => (
+                <TaskCard key={task.id} compact saving={saving} task={task} onStatusChange={onStatusChange} />
+              ))}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+function TaskMatrixView({ tasks, saving, onStatusChange }) {
+  const priorities = TASK_PRIORITY_ORDER.filter((priority) => priority !== "urgent");
+  return (
+    <div className="overflow-x-auto pb-2">
+      <div className="grid min-w-[980px] grid-cols-[8rem_repeat(4,minmax(12rem,1fr))] gap-3">
+        <div />
+        {priorities.map((priority) => (
+          <div key={priority} className={`rounded-lg border px-3 py-2 text-center text-xs font-bold ${priorityTone(priority)}`}>
+            {TASK_PRIORITY_LABELS[priority]}
+          </div>
+        ))}
+        {TASK_STATUS_ORDER.map((status) => (
+          <div key={status} className="contents">
+            <div className={`flex items-center justify-center rounded-lg border px-3 py-2 text-xs font-bold ${statusTone(status)}`}>
+              {TASK_STATUS_LABELS[status]}
+            </div>
+            {priorities.map((priority) => {
+              const cellTasks = tasks.filter((task) =>
+                task.status === status && (task.priority === priority || (priority === "critical" && task.priority === "urgent")),
+              );
+              return (
+                <div key={`${status}:${priority}`} className="min-h-32 rounded-lg border border-border bg-secondary/15 p-2">
+                  <div className="space-y-2">
+                    {cellTasks.length === 0 ? (
+                      <p className="pt-8 text-center text-xs text-muted-foreground">Quiet</p>
+                    ) : (
+                      cellTasks.map((task) => <TaskCard key={task.id} compact saving={saving} task={task} onStatusChange={onStatusChange} />)
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TaskTimelineView({ tasks, saving, onStatusChange }) {
+  const datedTasks = sortTasksForOps(tasks).sort((a, b) => {
+    const dateA = new Date(a.due_date || a.start_date || 8640000000000000).getTime();
+    const dateB = new Date(b.due_date || b.start_date || 8640000000000000).getTime();
+    return dateA - dateB;
+  });
+
+  return (
+    <div className="space-y-3">
+      {datedTasks.map((task, index) => (
+        <div key={task.id} className="grid gap-3 sm:grid-cols-[7rem_minmax(0,1fr)]">
+          <div className="flex items-start gap-3 text-xs text-muted-foreground">
+            <span className="mt-2 flex h-8 w-8 items-center justify-center rounded-full border border-primary/45 bg-primary/10 font-bold text-primary">
+              {index + 1}
+            </span>
+            <span className="mt-2">{task.due_date ? formatDateTime(task.due_date) : "No due date"}</span>
+          </div>
+          <TaskCard task={task} saving={saving} onStatusChange={onStatusChange} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TaskCard({ compact = false, saving, task, onStatusChange }) {
+  return (
+    <GlassCard>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-heading text-base font-semibold">{task.title}</h3>
+            <span className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${statusTone(task.status)}`}>
+              {TASK_STATUS_LABELS[task.status] || TASK_STATUS_LABELS.in_queue}
+            </span>
+            <span className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${priorityTone(task.priority)}`}>
+              {TASK_PRIORITY_LABELS[task.priority] || TASK_PRIORITY_LABELS.normal}
+            </span>
+          </div>
+          {!compact && task.description && (
+            <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{task.description}</p>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <Badge variant="outline">{getTaskCategoryLabel(task.category)}</Badge>
+            {task.assigned_to && <span>for {task.assigned_to}</span>}
+            {task.start_date && (
+              <span className="inline-flex items-center gap-1">
+                <CalendarClock className="h-3.5 w-3.5" />
+                starts {formatDateTime(task.start_date)}
+              </span>
+            )}
+            {task.due_date && (
+              <span className="inline-flex items-center gap-1">
+                <CalendarClock className="h-3.5 w-3.5" />
+                due {formatDateTime(task.due_date)}
+              </span>
+            )}
+            <span>by {task.created_by_name || "Staff"}</span>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {task.link_url && (
+            <a className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline" href={task.link_url} target="_blank" rel="noreferrer">
+              Link <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
+          {task.status !== "pending" && task.status !== "done" && (
+            <Button size="sm" variant="outline" disabled={saving === task.id} onClick={() => onStatusChange(task, "pending")}>
+              Pending
+            </Button>
+          )}
+          {task.status !== "working_on" && task.status !== "done" && (
+            <Button size="sm" variant="outline" disabled={saving === task.id} onClick={() => onStatusChange(task, "working_on")}>
+              Start
+            </Button>
+          )}
+          {task.status !== "done" && (
+            <Button size="sm" disabled={saving === task.id} onClick={() => onStatusChange(task, "done")}>
+              Done
+            </Button>
+          )}
+        </div>
+      </div>
+    </GlassCard>
+  );
+}
+
+function TaskCompletionCelebration({ celebration }) {
+  if (!celebration) return null;
+  return (
+    <div className="pointer-events-none fixed inset-0 z-[100] flex items-center justify-center px-4" aria-hidden="true">
+      <div className="relative rounded-2xl border border-primary/40 bg-background/90 px-6 py-5 text-center shadow-[0_0_70px_rgba(92,197,255,0.25)] backdrop-blur">
+        <div className="absolute -inset-8 -z-10 rounded-full bg-primary/15 blur-3xl" />
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-primary/45 bg-primary/15 text-primary">
+          <WandSparkles className="h-6 w-6 animate-pulse" />
+        </div>
+        <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.28em] text-primary">Task sealed</p>
+        <p className="mt-1 max-w-xs font-heading text-lg font-bold text-foreground">{celebration.title}</p>
+        <div className="absolute left-2 top-3 h-2 w-2 animate-ping rounded-full bg-primary" />
+        <div className="absolute right-4 top-6 h-1.5 w-1.5 animate-ping rounded-full bg-amber-200 [animation-delay:120ms]" />
+        <div className="absolute bottom-4 left-8 h-1.5 w-1.5 animate-ping rounded-full bg-sky-200 [animation-delay:240ms]" />
+      </div>
+    </div>
   );
 }

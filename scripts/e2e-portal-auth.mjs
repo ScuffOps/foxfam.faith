@@ -200,7 +200,7 @@ async function main() {
     const dashboardPrefs = await page.evaluate(() => JSON.parse(localStorage.getItem("foxfam.dashboard.cards.v1") || "{}"));
     if (!dashboardPrefs.hidden?.includes("quick-stats")) failures.push("Dashboard card visibility did not persist.");
 
-    await page.locator("button.mx-3.mb-3.flex").first().click();
+    await page.getByRole("button", { name: /Veri\s+Admin/i }).first().click();
     await page.waitForTimeout(400);
     if (calls.markRead < 1) failures.push("Opening alerts did not mark notifications read.");
 

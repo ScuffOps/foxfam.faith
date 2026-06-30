@@ -8,12 +8,13 @@ import UpcomingEvents from "../components/dashboard/UpcomingEvents";
 import TopIdeas from "../components/dashboard/TopIdeas";
 import BoopTheFox from "../components/dashboard/BoopTheFox";
 import VeriThought from "../components/dashboard/VeriThought";
-import ErenAgent from "../components/dashboard/ErenAgent";
 import BugReportPanel from "../components/dashboard/BugReportPanel";
 import HiddenEasterEgg from "../components/dashboard/HiddenEasterEgg";
 import RecentCodexEntries from "../components/dashboard/RecentCodexEntries";
 import CommunityUpdates from "../components/dashboard/CommunityUpdates";
 import ScuffoxUpdatesTicker from "../components/dashboard/ScuffoxUpdatesTicker";
+import FoundersCache from "../components/dashboard/FoundersCache";
+import LaunchQuests from "../components/dashboard/LaunchQuests";
 import ProgressionLoop from "../components/ProgressionLoop";
 import {
   DASHBOARD_CARD_IDS,
@@ -28,13 +29,14 @@ import {
 
 const CARD_META = {
   "quick-stats": { className: "sm:col-span-2 lg:col-span-4", render: () => <QuickStats /> },
+  "launch-quests": { className: "sm:col-span-2 lg:col-span-4", render: () => <LaunchQuests /> },
+  "founders-cache": { className: "sm:col-span-2 lg:col-span-2", render: () => <FoundersCache /> },
   progression: { className: "sm:col-span-2 lg:col-span-4", render: () => <ProgressionLoop collapsible positionable /> },
   "upcoming-events": { className: "sm:col-span-2 lg:col-span-2", render: () => <UpcomingEvents /> },
   codex: { className: "sm:col-span-1", render: () => <RecentCodexEntries /> },
   birthdays: { className: "sm:col-span-1", render: () => <TodaysBirthdays /> },
   "community-updates": { className: "sm:col-span-2 lg:col-span-2", render: () => <CommunityUpdates /> },
   "top-ideas": { className: "sm:col-span-2 lg:col-span-2", render: () => <TopIdeas /> },
-  "eren-agent": { className: "sm:col-span-1", render: () => <ErenAgent /> },
   "bug-report": { className: "sm:col-span-1", render: () => <BugReportPanel /> },
   "scuffox-thought": { className: "sm:col-span-2 lg:col-span-2", render: () => <VeriThought /> },
   "boop-fox": {

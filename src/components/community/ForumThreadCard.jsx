@@ -15,6 +15,7 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
   const { toast } = useToast();
   const { profile } = useGuestProfile();
   const [showReplies, setShowReplies] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const [comments, setComments] = useState([]);
   const [loadingComments, setLoadingComments] = useState(false);
   const [commentText, setCommentText] = useState("");
@@ -172,18 +173,26 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
         )}
       </div>
 
-      <RichTextContent className="text-sm leading-relaxed text-muted-foreground">
-        {thread.body}
-      </RichTextContent>
+      {showDetails ? (
+        <>
+          <RichTextContent className="text-sm leading-relaxed text-muted-foreground">
+            {thread.body}
+          </RichTextContent>
 
-      {thread.tags?.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {thread.tags.map((tag) => (
-            <span key={tag} className="rounded-full border border-border bg-secondary/50 px-2 py-0.5 text-[10px] text-muted-foreground">
-              {tag}
-            </span>
-          ))}
-        </div>
+          {thread.tags?.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {thread.tags.map((tag) => (
+                <span key={tag} className="rounded-full border border-border bg-secondary/50 px-2 py-0.5 text-[10px] text-muted-foreground">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <RichTextContent className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+          {thread.body}
+        </RichTextContent>
       )}
 
       <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
@@ -209,6 +218,15 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
           Comment
           <span className="font-semibold">{thread.comment_count || 0}</span>
           {showReplies ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowDetails((current) => !current)}
+          className="flex items-center gap-1.5 rounded-lg bg-secondary px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          aria-expanded={showDetails}
+        >
+          {showDetails ? "Collapse" : "Expand"}
+          {showDetails ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </button>
       </div>
 

@@ -1,5 +1,7 @@
-import { Loader2, Sparkles } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ChevronDown, Loader2, Search, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import RelicCharmIcon from "@/components/relics/RelicCharmIcon";
 import { RELIC_RARITY_META } from "@/lib/relicCharms";
 
@@ -13,6 +15,30 @@ function formatAcquiredDate(value) {
 }
 
 export default function ProfileCharmShelf({ charms = [], groupedCharms = {}, equippingId = "", onToggleCharm }) {
+  const [query, setQuery] = useState("");
+  const [rarityFilter, setRarityFilter] = useState("all");
+  const [collapsedGroups, setCollapsedGroups] = useState({});
+  const filteredGroupedCharms = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return RARITY_ORDER.reduce((groups, rarity) => {
+      if (rarityFilter !== "all" && rarityFilter !== rarity) {
+        groups[rarity] = [];
+        return groups;
+      }
+      const items = (groupedCharms[rarity] || []).filter((charm) => {
+        if (!needle) return true;
+        return [charm.name, charm.slot, charm.rarity, charm.description, charm.flavor_text]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(needle);
+      });
+      groups[rarity] = items;
+      return groups;
+    }, {});
+  }, [groupedCharms, query, rarityFilter]);
+  const filteredCount = Object.values(filteredGroupedCharms).reduce((sum, items) => sum + items.length, 0);
+
   return (
     <section className="rounded-xl border border-border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -34,29 +60,59 @@ export default function ProfileCharmShelf({ charms = [], groupedCharms = {}, equ
           No charms yet. Charm rolls open while Veri is live.
         </div>
       ) : (
-        <div className="mt-4 max-h-[38rem] space-y-5 overflow-y-auto pr-1">
+        <>
+          <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input className="pl-9" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter charms..." />
+            </div>
+            <select
+              value={rarityFilter}
+              onChange={(event) => setRarityFilter(event.target.value)}
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              aria-label="Filter charms by rarity"
+            >
+              <option value="all">All rarities</option>
+              {RARITY_ORDER.map((rarity) => <option key={rarity} value={rarity}>{RELIC_RARITY_META[rarity].label}</option>)}
+            </select>
+          </div>
+
+          <div className="mt-3 text-xs text-muted-foreground">{filteredCount} charm{filteredCount === 1 ? "" : "s"} shown</div>
+
+          <div className="mt-4 max-h-[38rem] space-y-5 overflow-y-auto pr-1">
           {RARITY_ORDER.map((rarity) => {
-            const items = groupedCharms[rarity] || [];
+            const items = filteredGroupedCharms[rarity] || [];
             if (items.length === 0) return null;
+            const collapsed = collapsedGroups[rarity];
             return (
               <div key={rarity}>
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                  {RELIC_RARITY_META[rarity].label}
-                </p>
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {items.map((charm) => (
-                    <CharmShelfCard
-                      key={charm.id || charm.instance_id || charm.charm_key}
-                      charm={charm}
-                      busy={equippingId === charm.id}
-                      onToggle={() => onToggleCharm(charm)}
-                    />
-                  ))}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setCollapsedGroups((current) => ({ ...current, [rarity]: !current[rarity] }))}
+                  className="mb-2 flex w-full items-center justify-between rounded-lg border border-border bg-secondary/25 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                    {RELIC_RARITY_META[rarity].label} · {items.length}
+                  </span>
+                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${collapsed ? "" : "rotate-180"}`} />
+                </button>
+                {!collapsed && (
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {items.map((charm) => (
+                      <CharmShelfCard
+                        key={charm.id || charm.instance_id || charm.charm_key}
+                        charm={charm}
+                        busy={equippingId === charm.id}
+                        onToggle={() => onToggleCharm(charm)}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
-        </div>
+          </div>
+        </>
       )}
     </section>
   );
