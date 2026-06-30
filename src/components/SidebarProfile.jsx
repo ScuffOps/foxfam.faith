@@ -12,38 +12,43 @@ import { getRoleLabel } from "@/lib/roles";
 import { getInitials, getPublicAvatar, getPublicDisplayName } from "@/lib/userIdentity";
 
 export default function SidebarProfile({ onNavigate }) {
-  const { openLogin } = useAuth();
-  const [user, setUser] = useState(null);
+  const { openLogin, user, isLoadingAuth } = useAuth();
   const [level, setLevel] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [activeTab, setActiveTab] = useState("alerts");
   const [profileOpen, setProfileOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingProfileData, setIsLoadingProfileData] = useState(false);
 
   useEffect(() => {
     let mounted = true;
     const load = async () => {
+      if (!user?.id) {
+        setLevel(null);
+        setNotifications([]);
+        setIsLoadingProfileData(false);
+        return;
+      }
+
+      setIsLoadingProfileData(true);
       try {
-        const me = await communityClient.auth.me();
-        if (!mounted) return;
-        setUser(me);
         const [levels, notes] = await Promise.all([
-          communityClient.entities.UserLevel.filter({ user_key: getPrivateUserKey(me) }).catch(() => []),
-          communityClient.entities.UserNotification.filter({ recipient_user_id: me.id }).catch(() => []),
+          communityClient.entities.UserLevel.filter({ user_key: getPrivateUserKey(user) }).catch(() => []),
+          communityClient.entities.UserNotification.filter({ recipient_user_id: user.id }).catch(() => []),
         ]);
         if (!mounted) return;
         setLevel(levels[0] || null);
         setNotifications(notes.sort((a, b) => new Date(b.created_date) - new Date(a.created_date)).slice(0, 8));
       } catch {
         if (!mounted) return;
-        setUser(null);
+        setLevel(null);
+        setNotifications([]);
       } finally {
-        if (mounted) setIsLoading(false);
+        if (mounted) setIsLoadingProfileData(false);
       }
     };
     load();
     return () => { mounted = false; };
-  }, []);
+  }, [user]);
 
   const markNotificationsRead = useCallback(async () => {
     const unreadNotifications = notifications.filter((note) => !isNotificationRead(note));
@@ -63,6 +68,7 @@ export default function SidebarProfile({ onNavigate }) {
   const displayName = getPublicDisplayName(user, "Guest Fox");
   const avatar = getPublicAvatar(user);
   const unreadCount = notifications.filter((note) => !isNotificationRead(note)).length;
+  const isCheckingSession = isLoadingAuth || isLoadingProfileData;
 
   if (!user) {
     return (
@@ -72,7 +78,7 @@ export default function SidebarProfile({ onNavigate }) {
           <span className="min-w-0 flex-1">
             <span className="block truncate font-heading text-sm font-semibold text-foreground">{displayName}</span>
             <span className="block truncate text-[10px] uppercase tracking-widest text-muted-foreground">
-              {isLoading ? "Checking session" : "Guest session"}
+              {isCheckingSession ? "Checking session" : "Guest session"}
             </span>
           </span>
         </div>
@@ -80,7 +86,7 @@ export default function SidebarProfile({ onNavigate }) {
           type="button"
           size="sm"
           className="mt-3 w-full gap-2"
-          disabled={isLoading}
+          disabled={isCheckingSession}
           onClick={openLogin}
         >
           <LogIn className="h-4 w-4" />

@@ -16,7 +16,9 @@ export const AuthProvider = ({ children }) => {
 
     if (!supabase) return undefined;
     const { data } = supabase.auth.onAuthStateChange(() => {
-      checkUserAuth();
+      window.setTimeout(() => {
+        checkUserAuth();
+      }, 0);
     });
     return () => data.subscription.unsubscribe();
   }, []);
