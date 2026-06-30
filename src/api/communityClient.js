@@ -22,6 +22,7 @@ export const LOGIN_EVENT_NAME = "foxfam:open-login";
 const PUBLIC_ROW_SELECT = "id,data,created_at,updated_at";
 const PUBLIC_PROFILE_SELECT =
   "id,role,display_name,avatar_url,accent_color,profile_status,bio,favorite_shrine,notification_preferences,onboarded,created_at,updated_at";
+const AUTO_PROFILE_NAMES = new Set(["guest", "guest fox", "foxfam member"]);
 
 const ENTITY_TABLES = {
   Birthday: "birthdays",
@@ -126,6 +127,57 @@ function normalizeProfile(row) {
   };
 }
 
+function cleanPublicText(value) {
+  return String(value || "").trim();
+}
+
+function isEmailLike(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanPublicText(value));
+}
+
+function readIdentityValue(identity, key) {
+  const identityData = identity?.identity_data || {};
+  return identityData[key] || identityData.custom_claims?.[key] || "";
+}
+
+function getAuthMetadataValues(user, keys) {
+  const metadata = user?.user_metadata || {};
+  const identityValues = (user?.identities || [])
+    .flatMap((identity) => keys.map((key) => readIdentityValue(identity, key)));
+
+  return [...keys.map((key) => metadata[key]), ...identityValues];
+}
+
+function getAuthDisplayName(user) {
+  const displayName = getAuthMetadataValues(user, [
+    "display_name",
+    "full_name",
+    "global_name",
+    "name",
+    "preferred_username",
+    "user_name",
+    "username",
+  ]).find((value) => {
+    const cleaned = cleanPublicText(value);
+    return cleaned && !isEmailLike(cleaned);
+  });
+
+  return cleanPublicText(displayName);
+}
+
+function getAuthAvatarUrl(user) {
+  return cleanPublicText(
+    getAuthMetadataValues(user, ["avatar_url", "picture"]).find(cleanPublicText),
+  );
+}
+
+function shouldRepairProfileName(profile) {
+  const currentName = cleanPublicText(profile?.display_name).toLowerCase();
+  if (!currentName) return true;
+  if (currentName === "foxfam member" || currentName === "guest fox") return true;
+  return !profile?.onboarded && AUTO_PROFILE_NAMES.has(currentName);
+}
+
 function compareValues(a, b) {
   if (a == null && b == null) return 0;
   if (a == null) return -1;
@@ -170,14 +222,36 @@ async function getCurrentSessionUser() {
 
 async function ensureProfile(user) {
   const client = getClient();
-  const fallbackName =
-    user.user_metadata?.display_name ||
-    user.user_metadata?.name ||
-    "Foxfam Member";
+  const fallbackName = getAuthDisplayName(user) || "Foxfam Member";
+  const fallbackAvatar = getAuthAvatarUrl(user);
 
   const existing = await client.from("profiles").select(PUBLIC_PROFILE_SELECT).eq("id", user.id).maybeSingle();
   if (existing.error) throw existing.error;
-  if (existing.data) return { ...normalizeProfile(existing.data), email: user.email || "" };
+  if (existing.data) {
+    const profile = normalizeProfile(existing.data);
+    const repairUpdates = {};
+    if (fallbackName && shouldRepairProfileName(profile)) {
+      repairUpdates.display_name = fallbackName;
+    }
+    if (fallbackAvatar && !profile.avatar_url) {
+      repairUpdates.avatar_url = fallbackAvatar;
+    }
+
+    if (Object.keys(repairUpdates).length > 0) {
+      const { data: updatedProfile, error: updateError } = await client
+        .from("profiles")
+        .update(repairUpdates)
+        .eq("id", user.id)
+        .select(PUBLIC_PROFILE_SELECT)
+        .single();
+      if (!updateError && updatedProfile) {
+        return { ...normalizeProfile(updatedProfile), email: user.email || "" };
+      }
+      return { ...profile, ...repairUpdates, email: user.email || "" };
+    }
+
+    return { ...profile, email: user.email || "" };
+  }
 
   const { data, error } = await client
     .from("profiles")
