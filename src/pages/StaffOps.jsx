@@ -40,8 +40,12 @@ import {
   SCUFFOX_UPDATE_TONE_LABELS,
   SHIFT_STATUS_LABELS,
   STREAM_RATING_LABELS,
+  TASK_CATEGORY_LABELS,
+  TASK_CATEGORY_OPTIONS,
   TASK_PRIORITY_LABELS,
+  TASK_PRIORITY_OPTIONS,
   TASK_STATUS_LABELS,
+  TASK_STATUS_OPTIONS,
   TIME_ENTRY_STATUS_LABELS,
   formatTimerDuration,
   getTimeEntryHours,
@@ -115,6 +119,7 @@ const AVAILABILITY_STATUSES = [
 const AVAILABILITY_STATUS_MAP = Object.fromEntries(AVAILABILITY_STATUSES.map((status) => [status.key, status]));
 
 const SHIFT_PLANNER_BLOCKS = [
+  { key: "overnight", label: "Overnight", time: "12am - 6am", hours: ["00", "01", "02", "03", "04", "05"] },
   { key: "morning", label: "Morning", time: "6am - 12pm", hours: ["06", "07", "08", "09", "10", "11"] },
   { key: "day", label: "Day", time: "12pm - 6pm", hours: ["12", "13", "14", "15", "16", "17"] },
   { key: "night", label: "Night", time: "6pm - 12am", hours: ["18", "19", "20", "21", "22", "23"] },
@@ -154,12 +159,28 @@ const DEFAULT_DOSE_FORM = {
 const DEFAULT_TASK_FORM = {
   title: "",
   description: "",
-  category: "",
+  category: "stream",
+  assigned_to: "",
+  start_date: "",
   due_date: "",
-  priority: "normal",
+  priority: "medium",
   status: "in_queue",
   link_url: "",
 };
+
+const TASK_VIEW_OPTIONS = [
+  { key: "priority", label: "Priority" },
+  { key: "timeline", label: "Timeline" },
+  { key: "matrix", label: "Matrix" },
+  { key: "list", label: "List" },
+];
+
+const TASK_COMPLETION_LINES = [
+  "Dopamine delivered.",
+  "Task banished from the queue.",
+  "The checklist accepts your offering.",
+  "Tiny victory, properly witnessed.",
+];
 
 const DEFAULT_SHIFT_FORM = {
   staff_name: "",
@@ -278,9 +299,60 @@ function sortNewest(items) {
 
 function statusTone(status) {
   if (status === "done") return "border-emerald-400/40 bg-emerald-400/10 text-emerald-100";
+  if (status === "cancelled") return "border-rose-300/40 bg-rose-300/10 text-rose-100";
+  if (status === "on_hold") return "border-pink-300/40 bg-pink-300/10 text-pink-100";
+  if (status === "pending") return "border-amber-300/40 bg-amber-300/10 text-amber-100";
   if (status === "blocked") return "border-destructive/40 bg-destructive/10 text-destructive";
   if (status === "working_on") return "border-primary/40 bg-primary/10 text-primary";
   return "border-border bg-secondary/60 text-muted-foreground";
+}
+
+function priorityRank(priority) {
+  const ranks = { critical: 4, urgent: 4, high: 3, medium: 2, normal: 2, low: 1 };
+  return ranks[priority] || 2;
+}
+
+function priorityTone(priority) {
+  if (priority === "critical" || priority === "urgent") return "border-rose-300/60 bg-rose-400/15 text-rose-100";
+  if (priority === "high") return "border-sky-300/50 bg-sky-400/15 text-sky-100";
+  if (priority === "low") return "border-pink-100/40 bg-pink-100/10 text-pink-100";
+  return "border-violet-200/40 bg-violet-400/15 text-violet-100";
+}
+
+function taskDueTime(task) {
+  const value = task?.due_date || task?.start_date || task?.created_date || "";
+  const time = value ? new Date(value).getTime() : Number.POSITIVE_INFINITY;
+  return Number.isNaN(time) ? Number.POSITIVE_INFINITY : time;
+}
+
+function playTaskCompleteSound() {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const context = new AudioContext();
+    const master = context.createGain();
+    master.gain.setValueAtTime(0.0001, context.currentTime);
+    master.gain.exponentialRampToValueAtTime(0.18, context.currentTime + 0.02);
+    master.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.72);
+    master.connect(context.destination);
+
+    [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      const start = context.currentTime + index * 0.065;
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(frequency, start);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.22, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.34);
+      oscillator.connect(gain);
+      gain.connect(master);
+      oscillator.start(start);
+      oscillator.stop(start + 0.38);
+    });
+
+    window.setTimeout(() => context.close().catch(() => {}), 900);
+  } catch {}
 }
 
 export default function StaffOps({ defaultTab = "dashboard" }) {
@@ -288,6 +360,8 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [commandSearch, setCommandSearch] = useState("");
+  const [taskView, setTaskView] = useState("priority");
+  const [taskCelebration, setTaskCelebration] = useState(null);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState("");
@@ -396,6 +470,24 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
 
   const openTasks = useMemo(() => data.tasks.filter(isOpenTask), [data.tasks]);
   const completedTasks = useMemo(() => data.tasks.filter((task) => task.status === "done"), [data.tasks]);
+  const taskAssigneeOptions = useMemo(() => {
+    const names = new Set([
+      staffName,
+      "ꕷ Ͼ Ụ Ƒ Ƒ Ꮻ 𐌗࿐ˑ₊˚˖",
+      "Gяιммιє",
+      "Ɲ ყ ɱ ΐ ҽ",
+      "Foxxy",
+    ]);
+    data.users.forEach((member) => {
+      const name = getPublicDisplayName(member, member.display_name || "");
+      if (name && name !== "Guest") names.add(name);
+    });
+    data.tasks.forEach((task) => {
+      if (task.assigned_to) names.add(task.assigned_to);
+      if (task.created_by_name) names.add(task.created_by_name);
+    });
+    return [...names].filter(Boolean);
+  }, [data.tasks, data.users, staffName]);
   const totalPayableHours = useMemo(
     () => data.timeEntries.filter((entry) => entry.payable).reduce((sum, entry) => sum + getTimeEntryHours(entry), 0),
     [data.timeEntries],
@@ -691,6 +783,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
     try {
       await communityClient.entities.StaffTask.create({
         ...parseStaffTaskForm(taskForm),
+        assigned_to: taskForm.assigned_to || staffName,
         created_by_name: staffName,
       });
       setTaskForm(DEFAULT_TASK_FORM);
@@ -822,6 +915,15 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
         status,
         completed_at: status === "done" ? new Date().toISOString() : undefined,
       });
+      if (status === "done" && task.status !== "done") {
+        playTaskCompleteSound();
+        setTaskCelebration({
+          id: `${task.id}-${Date.now()}`,
+          title: task.title,
+          line: TASK_COMPLETION_LINES[Math.floor(Math.random() * TASK_COMPLETION_LINES.length)],
+        });
+        window.setTimeout(() => setTaskCelebration(null), 2200);
+      }
       await loadData();
     } catch (error) {
       toast({ title: "Task update failed", description: getValidationMessage(error), variant: "destructive" });
@@ -1021,6 +1123,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
 
   return (
     <div className="mx-auto max-w-7xl animate-fade-in">
+      <TaskCompletionCelebration celebration={taskCelebration} />
       <section className="mb-6 rounded-lg border border-[#4546ff]/25 bg-[linear-gradient(135deg,rgba(8,12,28,0.96),rgba(18,19,46,0.92))] p-5 text-foreground shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
@@ -1113,8 +1216,8 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                     </Select>
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
-                    <Input type="datetime-local" value={updateFormState.starts_at} onChange={(event) => updateForm(setUpdateFormState, "starts_at", event.target.value)} />
-                    <Input type="datetime-local" value={updateFormState.expires_at} onChange={(event) => updateForm(setUpdateFormState, "expires_at", event.target.value)} />
+                    <DateTimeInput value={updateFormState.starts_at} onChange={(event) => updateForm(setUpdateFormState, "starts_at", event.target.value)} placeholder="Starts: YYYY-MM-DD or YYYY-MM-DD 12:00" />
+                    <DateTimeInput value={updateFormState.expires_at} onChange={(event) => updateForm(setUpdateFormState, "expires_at", event.target.value)} placeholder="Expires: YYYY-MM-DD or YYYY-MM-DD 12:00" />
                   </div>
                   <Button type="submit" disabled={saving === "update"} className="w-full gap-2">
                     <Plus className="h-4 w-4" />
@@ -1253,8 +1356,8 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                     <Input value={shiftForm.stream_title} onChange={(event) => updateForm(setShiftForm, "stream_title", event.target.value)} placeholder="Stream / event" />
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
-                    <Input type="datetime-local" value={shiftForm.starts_at} onChange={(event) => updateForm(setShiftForm, "starts_at", event.target.value)} />
-                    <Input type="datetime-local" value={shiftForm.ends_at} onChange={(event) => updateForm(setShiftForm, "ends_at", event.target.value)} />
+                    <DateTimeInput value={shiftForm.starts_at} onChange={(event) => updateForm(setShiftForm, "starts_at", event.target.value)} placeholder="Starts: YYYY-MM-DD or YYYY-MM-DD 12:00" />
+                    <DateTimeInput value={shiftForm.ends_at} onChange={(event) => updateForm(setShiftForm, "ends_at", event.target.value)} placeholder="Ends: YYYY-MM-DD or YYYY-MM-DD 12:00" />
                   </div>
                   <Select value={shiftForm.status} onValueChange={(value) => updateForm(setShiftForm, "status", value)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1372,8 +1475,8 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                   <form className="mt-5 space-y-3" onSubmit={handleCreateTimeEntry}>
                     <Input value={timeForm.staff_name} onChange={(event) => updateForm(setTimeForm, "staff_name", event.target.value)} placeholder="Staff name" />
                     <div className="grid gap-3 md:grid-cols-2">
-                      <Input type="datetime-local" value={timeForm.started_at} onChange={(event) => updateForm(setTimeForm, "started_at", event.target.value)} />
-                      <Input type="datetime-local" value={timeForm.ended_at} onChange={(event) => updateForm(setTimeForm, "ended_at", event.target.value)} />
+                      <DateTimeInput value={timeForm.started_at} onChange={(event) => updateForm(setTimeForm, "started_at", event.target.value)} placeholder="Started: YYYY-MM-DD or YYYY-MM-DD 12:00" />
+                      <DateTimeInput value={timeForm.ended_at} onChange={(event) => updateForm(setTimeForm, "ended_at", event.target.value)} placeholder="Ended: YYYY-MM-DD or YYYY-MM-DD 12:00" />
                     </div>
                     <div className="grid gap-3 md:grid-cols-2">
                       <Input type="number" min="0" value={timeForm.break_minutes} onChange={(event) => updateForm(setTimeForm, "break_minutes", event.target.value)} placeholder="Break minutes" />
@@ -1466,7 +1569,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                 <form className="mt-5 space-y-3" onSubmit={handleCreateStreamLog}>
                   <Input value={streamForm.title} onChange={(event) => updateForm(setStreamForm, "title", event.target.value)} placeholder="Stream title" />
                   <div className="grid gap-3 md:grid-cols-2">
-                    <Input type="datetime-local" value={streamForm.stream_date} onChange={(event) => updateForm(setStreamForm, "stream_date", event.target.value)} />
+                    <DateTimeInput value={streamForm.stream_date} onChange={(event) => updateForm(setStreamForm, "stream_date", event.target.value)} placeholder="Stream date: YYYY-MM-DD or YYYY-MM-DD 12:00" />
                     <Select value={streamForm.rating} onValueChange={(value) => updateForm(setStreamForm, "rating", value)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -1552,8 +1655,8 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                       </SelectContent>
                     </Select>
                     <div className="grid gap-3 md:grid-cols-2">
-                      <Input type="datetime-local" value={doseForm.scheduled_time} onChange={(event) => updateForm(setDoseForm, "scheduled_time", event.target.value)} />
-                      <Input type="datetime-local" value={doseForm.taken_time} onChange={(event) => updateForm(setDoseForm, "taken_time", event.target.value)} />
+                      <DateTimeInput value={doseForm.scheduled_time} onChange={(event) => updateForm(setDoseForm, "scheduled_time", event.target.value)} placeholder="Scheduled: YYYY-MM-DD or YYYY-MM-DD 12:00" />
+                      <DateTimeInput value={doseForm.taken_time} onChange={(event) => updateForm(setDoseForm, "taken_time", event.target.value)} placeholder="Taken: YYYY-MM-DD or YYYY-MM-DD 12:00" />
                     </div>
                     <Select value={doseForm.skipped ? "skipped" : "taken"} onValueChange={(value) => updateForm(setDoseForm, "skipped", value === "skipped")}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1614,20 +1717,40 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                   <Input value={taskForm.title} onChange={(event) => updateForm(setTaskForm, "title", event.target.value)} placeholder="Task title" />
                   <Textarea value={taskForm.description} onChange={(event) => updateForm(setTaskForm, "description", event.target.value)} placeholder="Task details" rows={4} />
                   <div className="grid gap-3 md:grid-cols-2">
-                    <Input value={taskForm.category} onChange={(event) => updateForm(setTaskForm, "category", event.target.value)} placeholder="Category" />
-                    <Input type="datetime-local" value={taskForm.due_date} onChange={(event) => updateForm(setTaskForm, "due_date", event.target.value)} />
+                    <Select value={taskForm.category || "stream"} onValueChange={(value) => updateForm(setTaskForm, "category", value)}>
+                      <SelectTrigger><SelectValue placeholder="Tag" /></SelectTrigger>
+                      <SelectContent>
+                        {TASK_CATEGORY_OPTIONS.map((value) => <SelectItem key={value} value={value}>{TASK_CATEGORY_LABELS[value]}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Select value={taskForm.assigned_to || staffName} onValueChange={(value) => updateForm(setTaskForm, "assigned_to", value)}>
+                      <SelectTrigger><SelectValue placeholder="Assigned user" /></SelectTrigger>
+                      <SelectContent>
+                        {taskAssigneeOptions.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <label className="space-y-1">
+                      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Start</span>
+                      <DateTimeInput value={taskForm.start_date} onChange={(event) => updateForm(setTaskForm, "start_date", event.target.value)} placeholder="Start: YYYY-MM-DD or YYYY-MM-DD 12:00" />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Due</span>
+                      <DateTimeInput value={taskForm.due_date} onChange={(event) => updateForm(setTaskForm, "due_date", event.target.value)} placeholder="Due: YYYY-MM-DD or YYYY-MM-DD 12:00" />
+                    </label>
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
                     <Select value={taskForm.priority} onValueChange={(value) => updateForm(setTaskForm, "priority", value)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {Object.entries(TASK_PRIORITY_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+                        {TASK_PRIORITY_OPTIONS.map((value) => <SelectItem key={value} value={value}>{TASK_PRIORITY_LABELS[value]}</SelectItem>)}
                       </SelectContent>
                     </Select>
                     <Select value={taskForm.status} onValueChange={(value) => updateForm(setTaskForm, "status", value)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {Object.entries(TASK_STATUS_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+                        {TASK_STATUS_OPTIONS.map((value) => <SelectItem key={value} value={value}>{TASK_STATUS_LABELS[value]}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1639,10 +1762,14 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                 </form>
               </GlassCard>
 
-              <div className="space-y-5">
-                <TaskList title="Open Tasks" tasks={openTasks} saving={saving} onStatusChange={updateTaskStatus} />
-                <TaskList title="Completed" tasks={completedTasks} saving={saving} onStatusChange={updateTaskStatus} compact />
-              </div>
+              <TaskWorkspace
+                completedTasks={completedTasks}
+                openTasks={openTasks}
+                saving={saving}
+                taskView={taskView}
+                onStatusChange={updateTaskStatus}
+                onViewChange={setTaskView}
+              />
             </div>
           )}
 
@@ -2167,6 +2294,19 @@ function EmptyState({ title }) {
     <div className="rounded-lg border border-dashed border-border bg-secondary/20 px-4 py-8 text-center text-sm text-muted-foreground">
       {title}
     </div>
+  );
+}
+
+function DateTimeInput({ className = "", onChange, placeholder = "YYYY-MM-DD or YYYY-MM-DD 12:00", value }) {
+  return (
+    <Input
+      type="text"
+      inputMode="text"
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      className={className}
+    />
   );
 }
 

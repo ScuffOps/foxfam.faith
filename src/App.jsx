@@ -65,6 +65,7 @@ const AuthenticatedApp = () => {
         <Route path="/suggestions" element={<CommunityInput defaultTab="suggestions" />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/profile/:profileId" element={<Profile />} />
         <Route path="/prayer" element={<PrayerWall />} />
         <Route path="/collabs" element={<CollabRequests />} />
         <Route path="/roadmap" element={<Roadmap />} />

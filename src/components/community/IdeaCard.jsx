@@ -10,8 +10,11 @@ import GlassCard from "../GlassCard";
 import RichTextContent from "../RichTextContent";
 import PraiseBurst from "../PraiseBurst";
 import CommunityComments from "@/components/community/CommunityComments";
+import ModerationTrail from "@/components/community/ModerationTrail";
 import { getCommunityActorKey } from "@/lib/communityActor";
+import { appendModerationHistory } from "@/lib/moderation";
 import { PRAISE_BURST_DURATION_MS, PRAISE_REFRESH_DELAY_MS } from "@/lib/praiseEffects";
+import { getPublicDisplayName } from "@/lib/userIdentity";
 
 const typeIcons = {
   idea: Lightbulb,
@@ -30,8 +33,18 @@ export default function IdeaCard({ post, isAdmin, user, onRefresh }) {
   const [upvoting, setUpvoting] = useState(false);
   const [voteBurst, setVoteBurst] = useState(0);
   const actorKey = getCommunityActorKey(user);
+  const actorName = getPublicDisplayName(user, "Staff");
   const hasUpvoted = (post.upvoted_by || []).includes(actorKey);
   const Icon = typeIcons[post.type] || Lightbulb;
+
+  const updatePostStatus = async (status, extra = {}) => {
+    await communityClient.entities.CommunityPost.update(post.id, {
+      ...extra,
+      status,
+      moderation_history: appendModerationHistory(post, { status, actorName }),
+    });
+    onRefresh();
+  };
 
   const handleUpvote = async () => {
     if (upvoting) return;
@@ -66,12 +79,10 @@ export default function IdeaCard({ post, isAdmin, user, onRefresh }) {
   };
 
   const handleApprove = async () => {
-    await communityClient.entities.CommunityPost.update(post.id, { status: "approved" });
-    onRefresh();
+    await updatePostStatus("approved");
   };
   const handleReject = async () => {
-    await communityClient.entities.CommunityPost.update(post.id, { status: "rejected" });
-    onRefresh();
+    await updatePostStatus("rejected");
   };
   const handleConvert = async () => {
     await communityClient.entities.Event.create({
@@ -81,23 +92,27 @@ export default function IdeaCard({ post, isAdmin, user, onRefresh }) {
       start_date: new Date().toISOString(),
       status: "active",
     });
-    await communityClient.entities.CommunityPost.update(post.id, { status: "converted" });
-    onRefresh();
+    await updatePostStatus("converted");
   };
 
   const handleAddToRoadmap = async () => {
-    await communityClient.entities.CommunityPost.update(post.id, { roadmap_status: "planned" });
+    await communityClient.entities.CommunityPost.update(post.id, {
+      roadmap_status: "planned",
+      moderation_history: appendModerationHistory(post, {
+        status: "roadmap_planned",
+        actorName,
+        note: "Added to the roadmap.",
+      }),
+    });
     onRefresh();
   };
 
   const handleClose = async () => {
-    await communityClient.entities.CommunityPost.update(post.id, { status: "closed" });
-    onRefresh();
+    await updatePostStatus("closed");
   };
 
   const handleReopen = async () => {
-    await communityClient.entities.CommunityPost.update(post.id, { status: "approved" });
-    onRefresh();
+    await updatePostStatus("approved");
   };
 
   return (
@@ -167,6 +182,13 @@ export default function IdeaCard({ post, isAdmin, user, onRefresh }) {
             </Button>
           )}
         </div>
+        <ModerationTrail
+          item={post}
+          entityName="CommunityPost"
+          isAdmin={isAdmin}
+          actorName={actorName}
+          onRefresh={onRefresh}
+        />
         <CommunityComments post={post} user={user} onRefresh={onRefresh} />
       </div>
     </GlassCard>

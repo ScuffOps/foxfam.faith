@@ -6,6 +6,7 @@ import AvatarUpload from "../components/AvatarUpload";
 import AccentColorPicker from "../components/AccentColorPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import GlassCard from "../components/GlassCard";
 import RankBadge from "../components/RankBadge";
@@ -70,7 +71,7 @@ export default function Settings() {
   const [linkedIdentities, setLinkedIdentities] = useState([]);
   const [identityLoading, setIdentityLoading] = useState(false);
   const [linkingProvider, setLinkingProvider] = useState("");
-  const [profileForm, setProfileForm] = useState({ displayName: "", email: "" });
+  const [profileForm, setProfileForm] = useState({ displayName: "", email: "", profileStatus: "", bio: "", favoriteShrine: "" });
   const [savingProfile, setSavingProfile] = useState("");
   const [calendarSyncStatus, setCalendarSyncStatus] = useState(null);
   const [calendarSyncLoading, setCalendarSyncLoading] = useState(false);
@@ -142,7 +143,13 @@ export default function Settings() {
       try {
         const me = await communityClient.auth.me();
         setUser(me);
-        setProfileForm({ displayName: getPublicDisplayName(me, ""), email: me.email || "" });
+        setProfileForm({
+          displayName: getPublicDisplayName(me, ""),
+          email: me.email || "",
+          profileStatus: me.profile_status || "",
+          bio: me.bio || "",
+          favoriteShrine: me.favorite_shrine || "",
+        });
         const levels = await communityClient.entities.UserLevel.filter({ user_key: getPrivateUserKey(me) });
         if (levels.length > 0) {
           setUserLevel(levels[0]);
@@ -253,6 +260,29 @@ export default function Settings() {
     }
   };
 
+  const handleSavePublicProfile = async () => {
+    setSavingProfile("publicProfile");
+    try {
+      const updated = await communityClient.auth.updateMe({
+        profile_status: profileForm.profileStatus.trim(),
+        bio: profileForm.bio.trim(),
+        favorite_shrine: profileForm.favoriteShrine.trim(),
+      });
+      setUser(updated);
+      setProfileForm((current) => ({
+        ...current,
+        profileStatus: updated.profile_status || "",
+        bio: updated.bio || "",
+        favoriteShrine: updated.favorite_shrine || "",
+      }));
+      toast({ title: "Public profile saved" });
+    } catch (error) {
+      toast({ title: "Public profile could not be saved", description: error?.message || "Refresh and try again.", variant: "destructive" });
+    } finally {
+      setSavingProfile("");
+    }
+  };
+
   const isAdmin = canUseAdminPanel(user);
 
   if (loading) {
@@ -336,6 +366,43 @@ export default function Settings() {
                 <p className="text-xs text-muted-foreground">{getRoleLabel(user?.role)}</p>
               </div>
               <Shield className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="rounded-lg bg-secondary/50 px-4 py-3">
+              <div className="grid gap-3">
+                <label>
+                  <span className="text-sm font-medium">Profile status</span>
+                  <Input
+                    value={profileForm.profileStatus}
+                    onChange={(event) => setProfileForm((current) => ({ ...current, profileStatus: event.target.value }))}
+                    className="mt-1.5 bg-background/70"
+                    maxLength={80}
+                    placeholder="Open for lore, lurking, building shrines..."
+                  />
+                </label>
+                <label>
+                  <span className="text-sm font-medium">Bio</span>
+                  <Textarea
+                    value={profileForm.bio}
+                    onChange={(event) => setProfileForm((current) => ({ ...current, bio: event.target.value }))}
+                    className="mt-1.5 min-h-24 bg-background/70"
+                    maxLength={280}
+                    placeholder="A tiny public intro for your Foxfam profile."
+                  />
+                </label>
+                <label>
+                  <span className="text-sm font-medium">Favorite shrine category</span>
+                  <Input
+                    value={profileForm.favoriteShrine}
+                    onChange={(event) => setProfileForm((current) => ({ ...current, favoriteShrine: event.target.value }))}
+                    className="mt-1.5 bg-background/70"
+                    maxLength={60}
+                    placeholder="Prayer wall, reliquary, polls, offerings..."
+                  />
+                </label>
+                <Button onClick={handleSavePublicProfile} disabled={savingProfile === "publicProfile"} className="w-fit gap-2">
+                  <Save className="h-4 w-4" /> Save public profile
+                </Button>
+              </div>
             </div>
           </div>
         </SettingsSection>

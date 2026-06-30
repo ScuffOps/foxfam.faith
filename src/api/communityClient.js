@@ -21,7 +21,7 @@ const DEFAULT_AUTH_REDIRECT_PATH = "/settings";
 export const LOGIN_EVENT_NAME = "foxfam:open-login";
 const PUBLIC_ROW_SELECT = "id,data,created_at,updated_at";
 const PUBLIC_PROFILE_SELECT =
-  "id,role,display_name,avatar_url,accent_color,notification_preferences,onboarded,created_at,updated_at";
+  "id,role,display_name,avatar_url,accent_color,profile_status,bio,favorite_shrine,notification_preferences,onboarded,created_at,updated_at";
 
 const ENTITY_TABLES = {
   Birthday: "birthdays",
@@ -118,6 +118,9 @@ function normalizeProfile(row) {
     display_name: row.display_name || "Guest",
     avatar_url: row.avatar_url || "",
     accent_color: row.accent_color || "",
+    profile_status: row.profile_status || "",
+    bio: row.bio || "",
+    favorite_shrine: row.favorite_shrine || "",
     notification_preferences: row.notification_preferences || {},
     onboarded: row.onboarded ?? false,
   };

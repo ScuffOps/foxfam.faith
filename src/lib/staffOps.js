@@ -40,15 +40,15 @@ const optionalNumber = z.preprocess(
 );
 
 const streamRatingSchema = z.enum(["quiet", "good", "great", "legendary"]);
-const taskStatusSchema = z.enum(["in_queue", "working_on", "blocked", "done"]);
-const taskPrioritySchema = z.enum(["low", "normal", "high", "urgent"]);
+const taskStatusSchema = z.enum(["in_queue", "working_on", "pending", "blocked", "done", "cancelled", "on_hold"]);
+const taskPrioritySchema = z.enum(["low", "normal", "medium", "high", "urgent", "critical"]);
 const shiftStatusSchema = z.enum(["scheduled", "confirmed", "covered", "missed"]);
 const timeEntryStatusSchema = z.enum(["draft", "submitted", "approved", "paid"]);
 const scuffoxUpdateStatusSchema = z.enum(["draft", "active", "archived"]);
 const scuffoxUpdateToneSchema = z.enum(["announcement", "mood", "info", "stream", "quiet"]);
 const availabilityStatusSchema = z.enum(["free", "on_call", "busy", "dnd"]);
 const shiftPlannerDaySchema = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
-const shiftPlannerBlockSchema = z.enum(["morning", "day", "night"]);
+const shiftPlannerBlockSchema = z.enum(["overnight", "morning", "day", "night"]);
 
 const streamLogSchema = z.object({
   title: requiredTrimmedString,
@@ -85,8 +85,10 @@ const staffTaskSchema = z.object({
   title: requiredTrimmedString,
   description: optionalTrimmedString,
   category: optionalTrimmedString,
+  assigned_to: optionalTrimmedString,
+  start_date: optionalDateTime,
   due_date: optionalDateTime,
-  priority: taskPrioritySchema.default("normal"),
+  priority: taskPrioritySchema.default("medium"),
   status: taskStatusSchema.default("in_queue"),
   link_url: optionalUrl,
 });
@@ -154,18 +156,37 @@ const botCommandSchema = z.object({
 });
 
 export const TASK_STATUS_LABELS = {
-  in_queue: "In Queue",
-  working_on: "Working On",
+  working_on: "ωσякιη' ιt, bᥲbყ",
+  done: "Ɗ O Ɲ Ɛ",
+  pending: "pɛŋɖiŋg",
+  in_queue: "iղ գᴜᥱᴜᥱ",
   blocked: "Blocked",
-  done: "Done",
+  cancelled: "𝘤𝘢𝘯𝘤𝘦𝘭𝘦𝘥",
+  on_hold: "𝚘𝚗 𝚑𝚘𝚕𝚍",
 };
 
 export const TASK_PRIORITY_LABELS = {
-  low: "Low",
-  normal: "Normal",
+  critical: "CRITICAL",
+  urgent: "CRITICAL",
   high: "High",
-  urgent: "Urgent",
+  medium: "Medium",
+  normal: "Medium",
+  low: "Low",
 };
+
+export const TASK_CATEGORY_LABELS = {
+  stream: "ՏƬRҼⱭⱮ",
+  social: "ՏƠƇӀⱭԼ",
+  art: "ⱭRƬ",
+  rl: "RԼ",
+  discord: "ƊISƇORƊ",
+  brand: "ƁRⱭƝƊ",
+  content: "ƇƠƝƬҼƝƬ",
+};
+
+export const TASK_STATUS_OPTIONS = ["working_on", "done", "pending", "in_queue", "cancelled", "on_hold", "blocked"];
+export const TASK_PRIORITY_OPTIONS = ["critical", "high", "medium", "low"];
+export const TASK_CATEGORY_OPTIONS = Object.keys(TASK_CATEGORY_LABELS);
 
 export const STREAM_RATING_LABELS = {
   quiet: "Quiet",
@@ -217,7 +238,11 @@ function compactPayload(payload) {
 
 function parseDateTime(value) {
   if (!value) return undefined;
-  const parsed = new Date(value);
+  const cleanedValue = String(value).trim();
+  const normalizedValue = /^\d{4}-\d{2}-\d{2}$/.test(cleanedValue)
+    ? `${cleanedValue}T12:00`
+    : cleanedValue;
+  const parsed = new Date(normalizedValue);
   return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
 }
 
@@ -255,6 +280,8 @@ export function parseStaffTaskForm(form) {
   const parsed = staffTaskSchema.parse(form);
   return compactPayload({
     ...parsed,
+    priority: parsed.priority === "urgent" ? "critical" : parsed.priority === "normal" ? "medium" : parsed.priority,
+    start_date: parseDateTime(parsed.start_date),
     due_date: parseDateTime(parsed.due_date),
   });
 }
@@ -309,7 +336,7 @@ export function parseBotCommandForm(form) {
 }
 
 export function isOpenTask(task) {
-  return task?.status !== "done";
+  return task?.status !== "done" && task?.status !== "cancelled";
 }
 
 export function getTimeRangeHours(startedAt, endedAt, breakMinutes = 0) {

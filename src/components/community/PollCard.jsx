@@ -10,6 +10,9 @@ import GlassCard from "../GlassCard";
 import RichTextContent from "../RichTextContent";
 import { getCommunityActorKey } from "@/lib/communityActor";
 import CommunityComments from "@/components/community/CommunityComments";
+import ModerationTrail from "@/components/community/ModerationTrail";
+import { appendModerationHistory } from "@/lib/moderation";
+import { getPublicDisplayName } from "@/lib/userIdentity";
 
 const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
 
@@ -25,11 +28,20 @@ export default function PollCard({ post, isAdmin, user, onRefresh }) {
   const [voting, setVoting] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const actorKey = getCommunityActorKey(user);
+  const actorName = getPublicDisplayName(user, "Staff");
   const options = post.poll_options || [];
   const totalVotes = options.reduce((sum, o) => sum + (o.votes || 0), 0);
   const userVotedOption = options.find((o) => (o.voted_by || []).includes(actorKey));
   const leadOption = [...options].sort((a, b) => (b.votes || 0) - (a.votes || 0))[0];
   const accent = getPollAccent(user);
+
+  const updatePostStatus = async (status) => {
+    await communityClient.entities.CommunityPost.update(post.id, {
+      status,
+      moderation_history: appendModerationHistory(post, { status, actorName }),
+    });
+    onRefresh();
+  };
 
   const handleVote = async (optionId) => {
     if (voting || userVotedOption) return;
@@ -55,12 +67,10 @@ export default function PollCard({ post, isAdmin, user, onRefresh }) {
   };
 
   const handleApprove = async () => {
-    await communityClient.entities.CommunityPost.update(post.id, { status: "approved" });
-    onRefresh();
+    await updatePostStatus("approved");
   };
   const handleReject = async () => {
-    await communityClient.entities.CommunityPost.update(post.id, { status: "rejected" });
-    onRefresh();
+    await updatePostStatus("rejected");
   };
   const handleConvert = async () => {
     const topOption = [...options].sort((a, b) => (b.votes || 0) - (a.votes || 0))[0];
@@ -71,16 +81,13 @@ export default function PollCard({ post, isAdmin, user, onRefresh }) {
       start_date: new Date().toISOString(),
       status: "active",
     });
-    await communityClient.entities.CommunityPost.update(post.id, { status: "converted" });
-    onRefresh();
+    await updatePostStatus("converted");
   };
   const handleClose = async () => {
-    await communityClient.entities.CommunityPost.update(post.id, { status: "closed" });
-    onRefresh();
+    await updatePostStatus("closed");
   };
   const handleReopen = async () => {
-    await communityClient.entities.CommunityPost.update(post.id, { status: "approved" });
-    onRefresh();
+    await updatePostStatus("approved");
   };
 
   return (
@@ -192,6 +199,13 @@ export default function PollCard({ post, isAdmin, user, onRefresh }) {
           )}
         </div>
       </div>
+      <ModerationTrail
+        item={post}
+        entityName="CommunityPost"
+        isAdmin={isAdmin}
+        actorName={actorName}
+        onRefresh={onRefresh}
+      />
       <CommunityComments post={post} user={user} onRefresh={onRefresh} />
     </GlassCard>
   );

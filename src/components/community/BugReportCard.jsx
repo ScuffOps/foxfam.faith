@@ -3,6 +3,8 @@ import GlassCard from "../GlassCard";
 import { BUG_SEVERITY_LABELS, BUG_STATUS_LABELS } from "@/lib/bugReport";
 import { communityClient } from "@/api/communityClient";
 import { Button } from "@/components/ui/button";
+import ModerationTrail from "@/components/community/ModerationTrail";
+import { appendModerationHistory } from "@/lib/moderation";
 
 const statusClasses = {
   open: "bg-chart-4/15 text-chart-4",
@@ -18,7 +20,10 @@ export default function BugReportCard({ report, isAdmin = false, onRefresh }) {
   const isClosed = ["closed", "fixed", "cannot_reproduce"].includes(report.status);
 
   const updateStatus = async (status) => {
-    await communityClient.entities.BugReport.update(report.id, { status });
+    await communityClient.entities.BugReport.update(report.id, {
+      status,
+      moderation_history: appendModerationHistory(report, { status, actorName: "Staff" }),
+    });
     onRefresh?.();
   };
 
@@ -101,6 +106,13 @@ export default function BugReportCard({ report, isAdmin = false, onRefresh }) {
           </span>
         )}
       </div>
+      <ModerationTrail
+        item={report}
+        entityName="BugReport"
+        isAdmin={isAdmin}
+        actorName="Staff"
+        onRefresh={onRefresh}
+      />
     </GlassCard>
   );
 }

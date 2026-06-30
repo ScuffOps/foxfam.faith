@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { Dice5, Gem, Loader2, LogIn, Settings, Shield, Sparkles, WandSparkles } from "lucide-react";
+import { Link, useParams } from "react-router-dom";
+import { BookOpen, Dice5, Gem, Loader2, LogIn, Settings, Shield, Sparkles, WandSparkles } from "lucide-react";
 import { communityClient } from "@/api/communityClient";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -27,9 +27,11 @@ function getRelicLoadMessage(error) {
 }
 
 export default function Profile() {
+  const { profileId } = useParams();
   const { openLogin } = useAuth();
   const { toast } = useToast();
   const [user, setUser] = useState(null);
+  const [viewer, setViewer] = useState(null);
   const [level, setLevel] = useState(null);
   const [relic, setRelic] = useState(null);
   const [charms, setCharms] = useState([]);
@@ -43,20 +45,44 @@ export default function Profile() {
     setError("");
     setLoading(true);
     try {
-      const me = await communityClient.auth.me();
-      const [levels, inventory] = await Promise.all([
-        communityClient.entities.UserLevel.filter({ user_key: getPrivateUserKey(me) }).catch(() => []),
-        loadUserRelicInventory(),
-      ]);
-      const eligibility = await loadCharmRollEligibility();
-      setUser(me);
-      setLevel(levels[0] || null);
-      setRelic(inventory.relic);
-      setCharms(inventory.charms);
-      setRollEligibility(eligibility);
+      let me = null;
+      try {
+        me = await communityClient.auth.me();
+      } catch (authError) {
+        if (!profileId) throw authError;
+      }
+
+      let profile = me;
+      if (profileId && profileId !== me?.id) {
+        const profiles = await communityClient.entities.User.list();
+        profile = profiles.find((item) => item.id === profileId) || null;
+        if (!profile) throw new Error("Profile not found.");
+      }
+
+      const isOwner = Boolean(me?.id && profile?.id === me.id);
+      setViewer(me);
+      setUser(profile);
+
+      if (isOwner) {
+        const [levels, inventory] = await Promise.all([
+          communityClient.entities.UserLevel.filter({ user_key: getPrivateUserKey(me) }).catch(() => []),
+          loadUserRelicInventory(),
+        ]);
+        const eligibility = await loadCharmRollEligibility();
+        setLevel(levels[0] || null);
+        setRelic(inventory.relic);
+        setCharms(inventory.charms);
+        setRollEligibility(eligibility);
+      } else {
+        setLevel(null);
+        setRelic(null);
+        setCharms([]);
+        setRollEligibility({ canRoll: false, reason: "Charm rolls are only available on your own profile." });
+      }
     } catch (loadError) {
       setUser(null);
-      setError(getRelicLoadMessage(loadError));
+      setViewer(null);
+      setError(profileId ? loadError?.message || "Profile could not be loaded." : getRelicLoadMessage(loadError));
     } finally {
       setLoading(false);
     }
@@ -64,11 +90,12 @@ export default function Profile() {
 
   useEffect(() => {
     loadProfile();
-  }, []);
+  }, [profileId]);
 
   const groupedCharms = useMemo(() => groupCharmsByRarity(charms), [charms]);
   const equippedCount = charms.filter((charm) => charm.equipped).length;
   const relicTeaser = useMemo(() => user ? getProfileRelicTeaser(user) : null, [user]);
+  const isOwnProfile = Boolean(viewer?.id && user?.id === viewer.id);
 
   const handleRollCharm = async () => {
     setRolling(true);
@@ -117,9 +144,11 @@ export default function Profile() {
         </div>
         <h1 className="mt-4 font-heading text-2xl font-bold">Claim Your Profile Relic</h1>
         <p className="mt-2 text-sm text-muted-foreground">{error || "Sign in to save your relic, roll charms, and attach collectibles."}</p>
-        <Button className="mt-5 gap-2" onClick={openLogin}>
-          <LogIn className="h-4 w-4" /> Sign in
-        </Button>
+        {!profileId && (
+          <Button className="mt-5 gap-2" onClick={openLogin}>
+            <LogIn className="h-4 w-4" /> Sign in
+          </Button>
+        )}
       </div>
     );
   }
@@ -135,9 +164,15 @@ export default function Profile() {
               <h1 className="mt-1 truncate font-heading text-2xl font-bold">{getPublicDisplayName(user, "Profile")}</h1>
               <p className="text-sm text-muted-foreground">{getRoleLabel(user.role)}</p>
             </div>
-            <Button asChild variant="outline" className="gap-2">
-              <Link to="/settings"><Settings className="h-4 w-4" /> Settings</Link>
-            </Button>
+            {isOwnProfile ? (
+              <Button asChild variant="outline" className="gap-2">
+                <Link to="/settings"><Settings className="h-4 w-4" /> Settings</Link>
+              </Button>
+            ) : (
+              <Button asChild variant="outline" className="gap-2">
+                <Link to="/profile"><Shield className="h-4 w-4" /> My profile</Link>
+              </Button>
+            )}
           </div>
 
           <div className="mt-5 grid gap-4 md:grid-cols-[16rem_minmax(0,1fr)]">
@@ -158,11 +193,15 @@ export default function Profile() {
                 />
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <ProfileStat icon={Gem} label="Owned charms" value={charms.length} />
-              <ProfileStat icon={Shield} label="Attached" value={equippedCount} />
-              <ProfileStat icon={Sparkles} label="Favor" value={level?.points || 0} />
-            </div>
+            {isOwnProfile ? (
+              <div className="grid gap-3 sm:grid-cols-3">
+                <ProfileStat icon={Gem} label="Owned charms" value={charms.length} />
+                <ProfileStat icon={Shield} label="Attached" value={equippedCount} />
+                <ProfileStat icon={Sparkles} label="Favor" value={level?.points || 0} />
+              </div>
+            ) : (
+              <PublicProfileMeta user={user} relicTeaser={relicTeaser} />
+            )}
           </div>
         </div>
 
@@ -195,35 +234,85 @@ export default function Profile() {
         </div>
       </section>
 
-      <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <RelicPreview relic={relic} charms={charms} />
+      {isOwnProfile ? (
+        <>
+          <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
+            <RelicPreview relic={relic} charms={charms} />
 
-        <div className="space-y-4">
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-muted-foreground">Charm Draw</p>
-                <h2 className="mt-1 font-heading text-lg font-bold">Relic charm roll</h2>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">Weighted rarity draw. Duplicates are still collectible instances.</p>
+            <div className="space-y-4">
+              <div className="rounded-xl border border-border bg-card p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-muted-foreground">Charm Draw</p>
+                    <h2 className="mt-1 font-heading text-lg font-bold">Relic charm roll</h2>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">Weighted rarity draw. Duplicates are still collectible instances.</p>
+                  </div>
+                  <Dice5 className="h-5 w-5 text-primary" />
+                </div>
+                <Button onClick={handleRollCharm} disabled={rolling || !rollEligibility.canRoll} className="mt-4 w-full gap-2">
+                  {rolling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Dice5 className="h-4 w-4" />}
+                  {rolling ? "Drawing..." : rollEligibility.canRoll ? "Roll Charm" : "Locked"}
+                </Button>
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">{rollEligibility.reason}</p>
               </div>
-              <Dice5 className="h-5 w-5 text-primary" />
             </div>
-            <Button onClick={handleRollCharm} disabled={rolling || !rollEligibility.canRoll} className="mt-4 w-full gap-2">
-              {rolling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Dice5 className="h-4 w-4" />}
-              {rolling ? "Drawing..." : rollEligibility.canRoll ? "Roll Charm" : "Locked"}
-            </Button>
-            <p className="mt-2 text-xs leading-5 text-muted-foreground">{rollEligibility.reason}</p>
-          </div>
-        </div>
-      </section>
+          </section>
 
-      <ProfileCharmShelf
-        charms={charms}
-        groupedCharms={groupedCharms}
-        equippingId={equippingId}
-        onToggleCharm={handleToggleCharm}
-      />
+          <ProfileCharmShelf
+            charms={charms}
+            groupedCharms={groupedCharms}
+            equippingId={equippingId}
+            onToggleCharm={handleToggleCharm}
+          />
+        </>
+      ) : (
+        <PublicTrophyCase user={user} relicTeaser={relicTeaser} />
+      )}
     </div>
+  );
+}
+
+function PublicProfileMeta({ user, relicTeaser }) {
+  return (
+    <div className="grid gap-3">
+      <ProfileStat icon={Sparkles} label="Relic signal" value={relicTeaser?.stage || "Sealed"} />
+      <ProfileStat icon={BookOpen} label="Favorite shrine" value={user.favorite_shrine || "Unchosen"} />
+      <ProfileStat icon={Shield} label="Member since" value={user.created_date ? new Date(user.created_date).getFullYear() : "Soon"} />
+    </div>
+  );
+}
+
+function PublicTrophyCase({ user, relicTeaser }) {
+  const displayName = getPublicDisplayName(user, "Profile");
+
+  return (
+    <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="rounded-xl border border-border bg-card p-5">
+        <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-muted-foreground">Public Signal</p>
+        <h2 className="mt-2 font-heading text-xl font-bold">{user.profile_status || `${displayName} has not set a status yet.`}</h2>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
+          {user.bio || "This profile is still quiet. The shelf is waiting for charms, lore, and a little harmless dramatic timing."}
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-5">
+        <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-muted-foreground">Trophy Case</p>
+        <div className="mt-4 grid grid-cols-3 gap-3">
+          <div className="col-span-2 rounded-lg border border-primary/30 bg-primary/10 p-3">
+            <img src={relicTeaser?.image} alt="" className="mx-auto h-20 w-20 object-contain opacity-85" />
+            <p className="mt-2 text-center text-xs font-semibold">{relicTeaser?.title}</p>
+          </div>
+          {[0, 1].map((index) => (
+            <div key={index} className="flex min-h-28 items-center justify-center rounded-lg border border-dashed border-border bg-secondary/25 text-center text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+              Sealed
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-xs leading-5 text-muted-foreground">
+          Equipped public charms are staged here. Private inventory stays hidden unless the owner exposes a charm.
+        </p>
+      </div>
+    </section>
   );
 }
 
@@ -231,7 +320,7 @@ function ProfileStat({ icon: Icon, label, value }) {
   return (
     <div className="rounded-lg border border-border bg-secondary/30 p-4">
       <Icon className="h-4 w-4 text-primary" />
-      <p className="mt-3 text-2xl font-bold">{value}</p>
+      <p className="mt-3 break-words font-heading text-2xl font-bold">{value}</p>
       <p className="text-xs text-muted-foreground">{label}</p>
     </div>
   );

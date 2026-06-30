@@ -2,6 +2,9 @@ import { communityClient } from "@/api/communityClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Trash2 } from "lucide-react";
 import GlassCard from "../GlassCard";
+import ModerationTrail from "@/components/community/ModerationTrail";
+import { appendModerationHistory } from "@/lib/moderation";
+import { getPublicDisplayName } from "@/lib/userIdentity";
 
 const CATEGORY_META = {
   bug_report:          { label: "Bug Report",          icon: "🐛", color: "text-destructive bg-destructive/15" },
@@ -25,12 +28,16 @@ const STATUS_META = {
 
 const STATUS_OPTIONS = Object.entries(STATUS_META).map(([value, { label }]) => ({ value, label }));
 
-export default function SuggestionCard({ suggestion, isAdmin, onRefresh }) {
+export default function SuggestionCard({ suggestion, isAdmin, user, onRefresh }) {
   const cat = CATEGORY_META[suggestion.category] || CATEGORY_META.other_feedback;
   const stat = STATUS_META[suggestion.status] || STATUS_META.pending_review;
+  const actorName = getPublicDisplayName(user, "Staff");
 
   const handleStatusChange = async (newStatus) => {
-    await communityClient.entities.Suggestion.update(suggestion.id, { status: newStatus });
+    await communityClient.entities.Suggestion.update(suggestion.id, {
+      status: newStatus,
+      moderation_history: appendModerationHistory(suggestion, { status: newStatus, actorName }),
+    });
     onRefresh();
   };
 
@@ -78,6 +85,13 @@ export default function SuggestionCard({ suggestion, isAdmin, onRefresh }) {
           </Select>
         )}
       </div>
+      <ModerationTrail
+        item={suggestion}
+        entityName="Suggestion"
+        isAdmin={isAdmin}
+        actorName={actorName}
+        onRefresh={onRefresh}
+      />
     </GlassCard>
   );
 }

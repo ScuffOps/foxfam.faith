@@ -15,6 +15,7 @@ import ProgressionLoop from "../components/ProgressionLoop";
 import { canModerate } from "@/lib/roles";
 import { sortCommunityPosts } from "@/lib/communitySorting";
 import { isPubliclyHiddenFeaturePost } from "@/lib/hiddenFeatures";
+import { getModerationSummary } from "@/lib/moderation";
 
 const TABS = [
   { key: "feedback", label: "Feedback & Ideas" },
@@ -85,6 +86,24 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
   const isAdmin = canModerate(user);
   const publicPosts = posts.filter((post) => !isPubliclyHiddenFeaturePost(post));
   const pendingCount = publicPosts.filter((p) => p.status === "pending").length;
+  const activeItems =
+    activeTab === "bugs"
+      ? bugReports
+      : activeTab === "suggestions"
+        ? suggestions
+        : publicPosts.filter((post) => {
+            if (activeTab === "feedback") return post.type !== "poll" && post.type !== "update";
+            if (activeTab === "polls") return post.type === "poll";
+            if (activeTab === "updates") return post.type === "update";
+            return true;
+          });
+  const activeClosedStatuses =
+    activeTab === "bugs"
+      ? CLOSED_BUG_STATUSES
+      : activeTab === "suggestions"
+        ? CLOSED_SUGGESTION_STATUSES
+        : CLOSED_POST_STATUSES;
+  const moderationSummary = getModerationSummary(activeItems, activeClosedStatuses);
 
   const filtered = sortCommunityPosts(
     publicPosts.filter((p) => {
@@ -150,6 +169,8 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
         ))}
       </div>
 
+      <ModerationSummary summary={moderationSummary} boardView={boardView} />
+
       {/* Suggestion Box tab content */}
       {activeTab === "suggestions" && (
         <div>
@@ -169,7 +190,7 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
                 .filter((s) => matchesBoardView(s.status, boardView, CLOSED_SUGGESTION_STATUSES))
                 .filter((s) => !search || s.title.toLowerCase().includes(search.toLowerCase()) || (s.description || "").toLowerCase().includes(search.toLowerCase()))
                 .map((s) => (
-                  <SuggestionCard key={s.id} suggestion={s} isAdmin={isAdmin} onRefresh={loadData} />
+                  <SuggestionCard key={s.id} suggestion={s} isAdmin={isAdmin} user={user} onRefresh={loadData} />
                 ))}
             </div>
           )}
@@ -297,6 +318,31 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
       <PostForm open={showForm} onOpenChange={setShowForm} onCreated={loadData} isMod={isAdmin} />
       <BugReportForm open={showBugForm} onOpenChange={setShowBugForm} onCreated={loadData} />
       <SuggestionForm open={showSuggestionForm} onOpenChange={setShowSuggestionForm} onCreated={loadData} />
+    </div>
+  );
+}
+
+function ModerationSummary({ summary, boardView }) {
+  const cards = [
+    { label: "Active", value: summary.active, tone: "text-primary" },
+    { label: "Pending", value: summary.pending, tone: "text-chart-4" },
+    { label: "Closed", value: summary.closed, tone: "text-muted-foreground" },
+    { label: "Total", value: summary.total, tone: "text-foreground" },
+  ];
+
+  return (
+    <div className="mb-4 grid gap-2 sm:grid-cols-4">
+      {cards.map((card) => (
+        <div
+          key={card.label}
+          className={`rounded-lg border bg-card/60 p-3 ${
+            boardView.toLowerCase().startsWith(card.label.toLowerCase()) ? "border-primary/45" : "border-border/70"
+          }`}
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{card.label}</p>
+          <p className={`mt-1 font-heading text-2xl font-bold ${card.tone}`}>{card.value}</p>
+        </div>
+      ))}
     </div>
   );
 }
