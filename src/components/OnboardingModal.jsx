@@ -3,7 +3,7 @@ import { communityClient } from "@/api/communityClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CalendarDays, Users, Cake, MessageSquare, ArrowRight, Check, Sparkles } from "lucide-react";
+import { CalendarDays, Users, Cake, MessageSquare, ArrowRight, Check, LogIn, Sparkles, X } from "lucide-react";
 
 const STEPS = [
   {
@@ -61,6 +61,15 @@ export default function OnboardingModal({ onComplete, onGuestContinue, isGuest =
   const isLast = step === allSteps.length - 1;
   const currentIsSignUp = isGuest && isLast;
 
+  const handleSkip = () => {
+    if (onGuestContinue) onGuestContinue();
+    else onComplete();
+  };
+
+  const handleLogin = () => {
+    communityClient.auth.redirectToLogin();
+  };
+
   const handleNext = async () => {
     if (isLast) {
       setSaving(true);
@@ -80,7 +89,16 @@ export default function OnboardingModal({ onComplete, onGuestContinue, isGuest =
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="glass-card flex h-[min(620px,calc(100vh-2rem))] w-full max-w-md flex-col rounded-2xl p-8 animate-fade-in">
+      <div className="glass-card relative flex h-[min(620px,calc(100vh-2rem))] w-full max-w-md flex-col rounded-2xl p-8 animate-fade-in">
+        <button
+          type="button"
+          onClick={handleSkip}
+          aria-label="Skip onboarding"
+          className="absolute right-4 top-4 rounded-full border border-white/10 bg-white/5 p-2 text-muted-foreground transition hover:bg-white/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
         {/* Progress dots */}
         <div className="mb-8 flex shrink-0 justify-center gap-2">
           {allSteps.map((_, i) => (
@@ -126,21 +144,27 @@ export default function OnboardingModal({ onComplete, onGuestContinue, isGuest =
         {/* Actions */}
         <div className="mt-6 shrink-0">
           <div className="flex min-h-9 items-center justify-between gap-3">
-            {step > 0 ? (
-              <button
-                onClick={() => setStep((s) => s - 1)}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Back
-              </button>
-            ) : <div />}
+            <div className="flex flex-wrap items-center gap-2">
+              {step > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setStep((s) => s - 1)}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Back
+                </button>
+              )}
+              <Button type="button" variant="ghost" size="sm" onClick={handleSkip}>
+                Skip
+              </Button>
+            </div>
             {currentIsSignUp ? (
               <div className="ml-auto flex flex-wrap justify-end gap-2">
-                <Button variant="outline" onClick={onGuestContinue || onComplete}>
-                  Look around
+                <Button variant="outline" onClick={handleLogin} className="gap-2">
+                  <LogIn className="h-4 w-4" /> Login
                 </Button>
-                <Button onClick={() => communityClient.auth.redirectToLogin()} className="gap-2">
-                  <Sparkles className="h-4 w-4" /> Join the Faith
+                <Button onClick={handleLogin} className="gap-2">
+                  <Sparkles className="h-4 w-4" /> Join
                 </Button>
               </div>
             ) : (

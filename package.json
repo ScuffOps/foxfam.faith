@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:safe": "zsh scripts/dev-safe.zsh",
     "build": "vite build",
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
@@ -12,7 +13,8 @@
     "test:e2e:staff-ops": "node scripts/e2e-staff-ops.mjs",
     "test:rls": "node scripts/rls-smoke.mjs",
     "typecheck": "tsc -p ./jsconfig.json",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "preview:safe": "zsh scripts/dev-safe.zsh preview --host 0.0.0.0"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^17.0.0",
@@ -96,6 +98,7 @@
     "globals": "^15.14.0",
     "playwright": "^1.60.0",
     "postcss": "^8.5.3",
+    "shadcn": "^4.12.0",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.2",
     "vercel": "^54.14.0",

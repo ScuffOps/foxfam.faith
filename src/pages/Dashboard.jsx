@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Check, Eye, EyeOff, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
+import { Check, Eye, EyeOff, GripVertical, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { communityClient } from "@/api/communityClient";
 import { Button } from "@/components/ui/button";
 import QuickStats from "../components/dashboard/QuickStats";
@@ -15,14 +16,17 @@ import CommunityUpdates from "../components/dashboard/CommunityUpdates";
 import ScuffoxUpdatesTicker from "../components/dashboard/ScuffoxUpdatesTicker";
 import FoundersCache from "../components/dashboard/FoundersCache";
 import LaunchQuests from "../components/dashboard/LaunchQuests";
+import FavorShopPreview from "../components/dashboard/FaithShopPreview";
+import WeeklyPortalPoll from "../components/dashboard/WeeklyPortalPoll";
+import CommunityBlessingPrompt from "../components/dashboard/CommunityBlessingPrompt";
 import ProgressionLoop from "../components/ProgressionLoop";
 import {
   DASHBOARD_CARD_IDS,
   DASHBOARD_CARD_LABELS,
   DASHBOARD_PREFS_STORAGE_KEY,
   getDashboardPreferencesFromProfile,
-  moveDashboardCard,
   normalizeDashboardPreferences,
+  reorderVisibleDashboardCards,
   setDashboardCardVisibility,
   withDashboardPreferences,
 } from "@/lib/dashboardPreferences";
@@ -31,6 +35,9 @@ const CARD_META = {
   "quick-stats": { className: "sm:col-span-2 lg:col-span-4", render: () => <QuickStats /> },
   "launch-quests": { className: "sm:col-span-2 lg:col-span-4", render: () => <LaunchQuests /> },
   "founders-cache": { className: "sm:col-span-2 lg:col-span-2", render: () => <FoundersCache /> },
+  "favor-shop-preview": { className: "sm:col-span-2 lg:col-span-2", render: () => <FavorShopPreview /> },
+  "weekly-portal-poll": { className: "sm:col-span-2 lg:col-span-2", render: () => <WeeklyPortalPoll /> },
+  "community-blessing": { className: "sm:col-span-2 lg:col-span-2", render: () => <CommunityBlessingPrompt /> },
   progression: { className: "sm:col-span-2 lg:col-span-4", render: () => <ProgressionLoop collapsible positionable /> },
   "upcoming-events": { className: "sm:col-span-2 lg:col-span-2", render: () => <UpcomingEvents /> },
   codex: { className: "sm:col-span-1", render: () => <RecentCodexEntries /> },
@@ -112,8 +119,9 @@ export default function Dashboard() {
     persistPreferences(normalizeDashboardPreferences({ order: DASHBOARD_CARD_IDS, hidden: [] }));
   }
 
-  function moveCard(cardId, direction) {
-    persistPreferences(moveDashboardCard(preferences, cardId, direction));
+  function handleDragEnd(result) {
+    if (!result.destination) return;
+    persistPreferences(reorderVisibleDashboardCards(preferences, result.source.index, result.destination.index));
   }
 
   function setCardVisible(cardId, visible) {
@@ -143,35 +151,67 @@ export default function Dashboard() {
         <DashboardCustomizer
           preferences={preferences}
           saveState={saveState}
-          onMove={moveCard}
           onReset={resetPreferences}
           onSetVisible={setCardVisible}
         />
       )}
 
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {visibleCards.length === 0 ? (
-          <div className="dashboard-empty sm:col-span-2 lg:col-span-4 rounded-xl px-4 py-10 text-center">
-            <p className="font-heading text-base font-semibold">All dashboard cards are hidden</p>
-            <p className="mt-1 text-sm text-muted-foreground">Bring them back when the signal gets too quiet.</p>
-            <Button type="button" className="mt-4 gap-2" onClick={resetPreferences}>
-              <RotateCcw className="h-4 w-4" />
-              Reset Cards
-            </Button>
-          </div>
-        ) : (
-          visibleCards.map((cardId) => {
-            const card = CARD_META[cardId];
-            if (!card) return null;
-            return <div key={cardId} className={card.className}>{card.render()}</div>;
-          })
-        )}
-      </div>
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <Droppable droppableId="dashboard-bento-grid" direction="horizontal">
+          {(provided, snapshot) => (
+            <div
+              ref={provided.innerRef}
+              {...provided.droppableProps}
+              className={`dashboard-bento-grid mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 ${snapshot.isDraggingOver ? "is-dragging-over" : ""}`}
+            >
+              {visibleCards.length === 0 ? (
+                <div className="dashboard-empty sm:col-span-2 lg:col-span-4 rounded-xl px-4 py-10 text-center">
+                  <p className="font-heading text-base font-semibold">All dashboard cards are hidden</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Bring them back when the signal gets too quiet.</p>
+                  <Button type="button" className="mt-4 gap-2" onClick={resetPreferences}>
+                    <RotateCcw className="h-4 w-4" />
+                    Reset Cards
+                  </Button>
+                </div>
+              ) : (
+                visibleCards.map((cardId, index) => {
+                  const card = CARD_META[cardId];
+                  if (!card) return null;
+                  return (
+                    <Draggable key={cardId} draggableId={cardId} index={index}>
+                      {(dragProvided, dragSnapshot) => (
+                        <div
+                          ref={dragProvided.innerRef}
+                          {...dragProvided.draggableProps}
+                          className={`dashboard-bento-item ${card.className} ${dragSnapshot.isDragging ? "is-dragging" : ""}`}
+                          style={dragProvided.draggableProps.style}
+                        >
+                          <button
+                            type="button"
+                            className="dashboard-drag-handle"
+                            {...dragProvided.dragHandleProps}
+                            aria-label={`Drag ${DASHBOARD_CARD_LABELS[cardId]}`}
+                            title={`Drag ${DASHBOARD_CARD_LABELS[cardId]}`}
+                          >
+                            <GripVertical className="h-4 w-4" />
+                          </button>
+                          {card.render()}
+                        </div>
+                      )}
+                    </Draggable>
+                  );
+                })
+              )}
+              {provided.placeholder}
+            </div>
+          )}
+        </Droppable>
+      </DragDropContext>
     </div>
   );
 }
 
-function DashboardCustomizer({ preferences, saveState, onMove, onReset, onSetVisible }) {
+function DashboardCustomizer({ preferences, saveState, onReset, onSetVisible }) {
   const normalized = normalizeDashboardPreferences(preferences);
   const hidden = new Set(normalized.hidden);
 
@@ -180,7 +220,7 @@ function DashboardCustomizer({ preferences, saveState, onMove, onReset, onSetVis
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="font-heading text-sm font-semibold">Dashboard Cards</h2>
-          <p className="text-xs text-muted-foreground">Show, hide, and reorder what you see here.</p>
+          <p className="text-xs text-muted-foreground">Show, hide, and reset cards. Drag cards directly on the dashboard to reorder.</p>
         </div>
         <div className="flex items-center gap-2">
           {saveState === "saved" && <span className="inline-flex items-center gap-1 text-xs text-emerald-200"><Check className="h-3.5 w-3.5" /> Saved</span>}
@@ -206,14 +246,7 @@ function DashboardCustomizer({ preferences, saveState, onMove, onReset, onSetVis
                 {visible ? <Eye className="h-4 w-4 text-primary" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
                 <span className={visible ? "text-foreground" : "text-muted-foreground"}>{DASHBOARD_CARD_LABELS[cardId]}</span>
               </button>
-              <div className="flex shrink-0 items-center gap-1">
-                <Button type="button" size="icon" variant="ghost" disabled={index === 0} onClick={() => onMove(cardId, "up")} aria-label={`Move ${DASHBOARD_CARD_LABELS[cardId]} up`}>
-                  <ArrowUp className="h-4 w-4" />
-                </Button>
-                <Button type="button" size="icon" variant="ghost" disabled={index === normalized.order.length - 1} onClick={() => onMove(cardId, "down")} aria-label={`Move ${DASHBOARD_CARD_LABELS[cardId]} down`}>
-                  <ArrowDown className="h-4 w-4" />
-                </Button>
-              </div>
+              <span className="shrink-0 text-[10px] uppercase tracking-widest text-muted-foreground">{index + 1}</span>
             </div>
           );
         })}

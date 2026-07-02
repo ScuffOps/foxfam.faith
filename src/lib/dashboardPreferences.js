@@ -4,6 +4,9 @@ export const DASHBOARD_CARD_IDS = [
   "quick-stats",
   "launch-quests",
   "founders-cache",
+  "favor-shop-preview",
+  "weekly-portal-poll",
+  "community-blessing",
   "progression",
   "upcoming-events",
   "codex",
@@ -19,6 +22,9 @@ export const DASHBOARD_CARD_LABELS = {
   "quick-stats": "Quick Stats",
   "launch-quests": "Daily Shrine Signal",
   "founders-cache": "Founder's Cache",
+  "favor-shop-preview": "Favor Shop Preview",
+  "weekly-portal-poll": "Weekly Portal Poll",
+  "community-blessing": "Community Blessing",
   progression: "Progression",
   "upcoming-events": "Upcoming Events",
   codex: "Recent Codex",
@@ -64,6 +70,26 @@ export function moveDashboardCard(preferences, cardId, direction) {
   const [item] = order.splice(index, 1);
   order.splice(nextIndex, 0, item);
   return { ...normalized, order };
+}
+
+export function reorderVisibleDashboardCards(preferences, sourceIndex, destinationIndex) {
+  const normalized = normalizeDashboardPreferences(preferences);
+  if (sourceIndex === destinationIndex || destinationIndex == null) return normalized;
+
+  const hidden = new Set(normalized.hidden);
+  const visibleOrder = normalized.order.filter((id) => !hidden.has(id));
+  if (sourceIndex < 0 || sourceIndex >= visibleOrder.length) return normalized;
+  if (destinationIndex < 0 || destinationIndex >= visibleOrder.length) return normalized;
+
+  const nextVisibleOrder = [...visibleOrder];
+  const [movedCard] = nextVisibleOrder.splice(sourceIndex, 1);
+  nextVisibleOrder.splice(destinationIndex, 0, movedCard);
+  const hiddenOrder = normalized.order.filter((id) => hidden.has(id));
+
+  return {
+    ...normalized,
+    order: [...nextVisibleOrder, ...hiddenOrder],
+  };
 }
 
 export function setDashboardCardVisibility(preferences, cardId, visible) {

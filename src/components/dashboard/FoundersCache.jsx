@@ -32,10 +32,10 @@ export default function FoundersCache() {
           </Badge>
         </div>
         <div className="mt-4">
-          <p className="dashboard-candle text-xs font-semibold uppercase tracking-widest text-amber-100/75">faith exchange</p>
+          <p className="dashboard-candle text-xs font-semibold uppercase tracking-widest text-amber-100/75">favor exchange</p>
           <h2 className="font-heading text-lg font-bold text-foreground">Founder&apos;s Cache</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            A future Faith sink for early portal regulars. Good for a launch achievement, profile flex, or special lore item once the Twitch loop is ready.
+            A future Favor sink for early portal regulars. Faith can come from MIU/Twitch first, then convert into portal Favor when the loop is ready.
           </p>
         </div>
 
