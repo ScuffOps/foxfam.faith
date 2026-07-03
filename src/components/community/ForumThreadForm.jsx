@@ -30,7 +30,8 @@ export default function ForumThreadForm({ open, onOpenChange, user, onCreated, d
 
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (event) => {
+    event?.preventDefault();
     if (!form.title.trim() || !getRichTextPlainText(form.body)) return;
     setSaving(true);
     try {
@@ -65,7 +66,7 @@ export default function ForumThreadForm({ open, onOpenChange, user, onCreated, d
         <DialogHeader>
           <DialogTitle className="font-heading">New Forum Thread</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 pt-2">
+        <form className="space-y-4 pt-2" onSubmit={handleSubmit}>
           <div className="grid gap-3 sm:grid-cols-[1fr_180px]">
             <div>
               <Label>Title *</Label>
@@ -104,12 +105,12 @@ export default function ForumThreadForm({ open, onOpenChange, user, onCreated, d
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={saving || !form.title.trim() || !getRichTextPlainText(form.body)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" disabled={saving || !form.title.trim() || !getRichTextPlainText(form.body)}>
               {saving ? "Starting..." : "Start Thread"}
             </Button>
           </div>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

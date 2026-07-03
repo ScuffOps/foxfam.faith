@@ -23,7 +23,8 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
 
   const update = (key, val) => setForm((p) => ({ ...p, [key]: val }));
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (event) => {
+    event?.preventDefault();
     if (!form.title) return;
     setSaving(true);
     try {
@@ -78,7 +79,7 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
         <DialogHeader>
           <DialogTitle className="font-heading">New Post</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 pt-2">
+        <form className="space-y-4 pt-2" onSubmit={handleSubmit}>
           <div>
             <Label>Type</Label>
             <Select value={form.type} onValueChange={(v) => update("type", v)}>
@@ -121,13 +122,13 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
                       className="bg-secondary"
                     />
                     {pollOptions.length > 2 && (
-                      <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground" onClick={() => setPollOptions(pollOptions.filter((_, j) => j !== i))}>
+                      <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground" onClick={() => setPollOptions(pollOptions.filter((_, j) => j !== i))}>
                         <X className="h-4 w-4" />
                       </Button>
                     )}
                   </div>
                 ))}
-                <Button variant="outline" size="sm" className="gap-1" onClick={() => setPollOptions([...pollOptions, ""])}>
+                <Button type="button" variant="outline" size="sm" className="gap-1" onClick={() => setPollOptions([...pollOptions, ""])}>
                   <Plus className="h-3 w-3" /> Add Option
                 </Button>
                 <p className="text-[10px] text-muted-foreground">Poll options support light Markdown too.</p>
@@ -135,12 +136,12 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
             </div>
           )}
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={saving || !form.title}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" disabled={saving || !form.title}>
               {saving ? "Submitting..." : "Submit"}
             </Button>
           </div>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

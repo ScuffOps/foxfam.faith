@@ -34,7 +34,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import GlassCard from "../components/GlassCard";
-import { canModerate } from "@/lib/roles";
+import { canManageRoles, canModerate } from "@/lib/roles";
 import { DEFAULT_COMMAND_REFERENCE, STAFF_HANDBOOK_SECTIONS } from "@/lib/staffHandbook";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import {
@@ -460,6 +460,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
   const [plannerAssignments, setPlannerAssignments] = useState([]);
 
   const isStaff = canModerate(user);
+  const canManageStaffAvailability = canManageRoles(user);
   const staffName = getPublicDisplayName(user, "Staff");
   const timerStorageKey = useMemo(() => `${TIMER_STORAGE_PREFIX}:${user?.id || "guest"}`, [user?.id]);
 
@@ -617,9 +618,22 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
     return [...staffMembers, ...availabilityOnly].sort((a, b) => a.staff_name.localeCompare(b.staff_name));
   }, [data.staffAvailability, data.users]);
 
+  const editableAvailabilityRoster = useMemo(() => {
+    if (canManageStaffAvailability) return staffRoster;
+    const ownRosterRow = staffRoster.find((member) => member.profile_id === user?.id);
+    if (ownRosterRow) return [ownRosterRow];
+    if (!user?.id) return [];
+    return [{
+      profile_id: user.id,
+      staff_name: staffName,
+      role: user.role || "mod",
+      avatar_url: user.avatar_url || "",
+    }];
+  }, [canManageStaffAvailability, staffName, staffRoster, user?.avatar_url, user?.id, user?.role]);
+
   const selectedAvailabilityMember = useMemo(
-    () => staffRoster.find((member) => member.profile_id === selectedAvailabilityProfile) || staffRoster[0] || null,
-    [selectedAvailabilityProfile, staffRoster],
+    () => editableAvailabilityRoster.find((member) => member.profile_id === selectedAvailabilityProfile) || editableAvailabilityRoster[0] || null,
+    [editableAvailabilityRoster, selectedAvailabilityProfile],
   );
 
   const selectedAvailabilityRow = useMemo(() => {
@@ -645,10 +659,12 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
   }, [commandSearch, data.commands]);
 
   useEffect(() => {
-    if (!selectedAvailabilityProfile && staffRoster.length > 0) {
-      setSelectedAvailabilityProfile(staffRoster[0].profile_id);
+    if (!editableAvailabilityRoster.length) return;
+    const canEditSelected = editableAvailabilityRoster.some((member) => member.profile_id === selectedAvailabilityProfile);
+    if (!canEditSelected) {
+      setSelectedAvailabilityProfile(editableAvailabilityRoster[0].profile_id);
     }
-  }, [selectedAvailabilityProfile, staffRoster]);
+  }, [editableAvailabilityRoster, selectedAvailabilityProfile]);
 
   useEffect(() => {
     setAvailabilityDraft(selectedAvailabilityRow?.availability || {});
@@ -1408,7 +1424,8 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                 onToggleSlot={cycleAvailabilitySlot}
                 saving={saving === "availability"}
                 selectedProfile={selectedAvailabilityMember?.profile_id || ""}
-                staffRoster={staffRoster}
+                staffRoster={editableAvailabilityRoster}
+                canSelectMember={canManageStaffAvailability}
               />
               <ShiftPlanner
                 assignments={plannerAssignments}
@@ -1941,7 +1958,9 @@ function isAvailableForBlock(assignment, availabilityRows, day, block) {
   return block.hours.some((hour) => ["free", "on_call"].includes(row.availability[day][hour]));
 }
 
-function AvailabilityManager({ availabilityDraft, onClearDay, onSave, onSelectMember, onSetDay, onToggleSlot, saving, selectedProfile, staffRoster }) {
+function AvailabilityManager({ availabilityDraft, canSelectMember, onClearDay, onSave, onSelectMember, onSetDay, onToggleSlot, saving, selectedProfile, staffRoster }) {
+  const selectedMember = staffRoster.find((member) => member.profile_id === selectedProfile);
+
   return (
     <GlassCard>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1952,19 +1971,25 @@ function AvailabilityManager({ availabilityDraft, onClearDay, onSave, onSelectMe
         </Button>
       </div>
 
-      <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-center">
-        <label className="text-sm font-semibold text-foreground" htmlFor="availability-member">Select team member:</label>
-        <Select value={selectedProfile} onValueChange={onSelectMember}>
-          <SelectTrigger id="availability-member" className="max-w-sm">
-            <SelectValue placeholder="Choose staff" />
-          </SelectTrigger>
-          <SelectContent>
-            {staffRoster.map((member) => (
-              <SelectItem key={member.profile_id} value={member.profile_id}>{member.staff_name} - {member.role}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {canSelectMember ? (
+        <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-center">
+          <label className="text-sm font-semibold text-foreground" htmlFor="availability-member">Select team member:</label>
+          <Select value={selectedProfile} onValueChange={onSelectMember}>
+            <SelectTrigger id="availability-member" className="max-w-sm">
+              <SelectValue placeholder="Choose staff" />
+            </SelectTrigger>
+            <SelectContent>
+              {staffRoster.map((member) => (
+                <SelectItem key={member.profile_id} value={member.profile_id}>{member.staff_name} - {member.role}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : (
+        <div className="mt-5 rounded-lg border border-primary/20 bg-primary/10 px-3 py-2 text-sm text-muted-foreground">
+          Editing availability for <span className="font-semibold text-foreground">{selectedMember?.staff_name || "your account"}</span>. Mods can only change their own schedule.
+        </div>
+      )}
 
       <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground">
         {AVAILABILITY_STATUSES.map((status) => (

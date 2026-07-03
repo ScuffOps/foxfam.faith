@@ -33,7 +33,8 @@ export default function SuggestionForm({ open, onOpenChange, onCreated }) {
 
   const update = (key, val) => setForm((p) => ({ ...p, [key]: val }));
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (event) => {
+    event?.preventDefault();
     if (!form.title.trim() || !form.description.trim()) return;
     setSaving(true);
     try {
@@ -75,7 +76,7 @@ export default function SuggestionForm({ open, onOpenChange, onCreated }) {
         <DialogHeader>
           <DialogTitle className="font-heading">Drop a Suggestion 📬</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 pt-2">
+        <form className="space-y-4 pt-2" onSubmit={handleSubmit}>
           <div>
             <Label>Category</Label>
             <Select value={form.category} onValueChange={(v) => update("category", v)}>
@@ -113,12 +114,12 @@ export default function SuggestionForm({ open, onOpenChange, onCreated }) {
             </Label>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={saving || !form.title.trim() || !form.description.trim()}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" disabled={saving || !form.title.trim() || !form.description.trim()}>
               {saving ? "Sending..." : "Send Suggestion"}
             </Button>
           </div>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );
