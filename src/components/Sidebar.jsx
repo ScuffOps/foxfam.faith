@@ -32,9 +32,11 @@ import {
   Pill,
   Radio,
   Users,
+  Gem,
 } from "lucide-react";
 import SidebarProfile from "./SidebarProfile";
-import { canBookCollab, canUseAdminPanel } from "@/lib/roles";
+import { canBookCollab, canManageRoles, canUseAdminPanel } from "@/lib/roles";
+import { loadRelicRollGate } from "@/lib/relicService";
 
 const rootNavItems = [
   { path: "/", label: "Dashboard", icon: Home },
@@ -67,6 +69,7 @@ const navGroups = [
       { path: "/blessings", label: "Blessings", icon: Sparkles },
       { path: "/offerings", label: "Offerings", icon: HeartHandshake },
       { path: "/reliquary", label: "Reliquary", icon: Feather },
+      { path: "/relic-forge", label: "Relic Forge", icon: Gem, gatedFeature: "relicRolls" },
       { path: "/codex", label: "Codex", icon: BookOpen },
     ],
   },
@@ -114,10 +117,12 @@ const utilityNavItems = [
 export default function Sidebar({ onClose }) {
   const location = useLocation();
   const [userRole, setUserRole] = useState(null);
+  const [relicRollsOpen, setRelicRollsOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState({});
 
   useEffect(() => {
     communityClient.auth.me().then((u) => setUserRole(u?.role)).catch(() => {});
+    loadRelicRollGate().then((gate) => setRelicRollsOpen(Boolean(gate?.enabled))).catch(() => {});
   }, []);
 
   const user = userRole ? { role: userRole } : null;
@@ -125,6 +130,7 @@ export default function Sidebar({ onClose }) {
   const canShowItem = (item) => {
     if (item.creatorOnly) return canBookCollab(user);
     if (item.adminOnly) return canUseAdminPanel(user);
+    if (item.gatedFeature === "relicRolls") return relicRollsOpen || canManageRoles(user);
     return true;
   };
 

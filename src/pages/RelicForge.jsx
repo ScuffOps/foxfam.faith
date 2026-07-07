@@ -7,8 +7,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import RelicPreview from "@/components/relics/RelicPreview";
 import { useAuth } from "@/lib/AuthContext";
-import { getOrCreateUserRelic, saveUserRelic } from "@/lib/relicService";
+import { communityClient } from "@/api/communityClient";
+import { getOrCreateUserRelic, loadRelicRollGate, saveUserRelic } from "@/lib/relicService";
 import { normalizeRelic, RELIC_BASES, RELIC_EFFECTS, RELIC_THEMES } from "@/lib/relicCharms";
+import { canManageRoles } from "@/lib/roles";
 
 const BASE_ICONS = {
   lantern: Lamp,
@@ -108,6 +110,8 @@ export default function RelicForge() {
   const { openLogin } = useAuth();
   const { toast } = useToast();
   const [step, setStep] = useState("Base");
+  const [user, setUser] = useState(null);
+  const [gate, setGate] = useState(null);
   const [relic, setRelic] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -118,8 +122,16 @@ export default function RelicForge() {
     const loadRelic = async () => {
       setLoading(true);
       try {
-        const loaded = await getOrCreateUserRelic();
-        if (mounted) setRelic(loaded);
+        const [me, loaded, loadedGate] = await Promise.all([
+          communityClient.auth.me(),
+          getOrCreateUserRelic(),
+          loadRelicRollGate(),
+        ]);
+        if (mounted) {
+          setUser(me);
+          setRelic(loaded);
+          setGate(loadedGate);
+        }
       } catch (loadError) {
         if (mounted) setError(getRelicLoadMessage(loadError));
       } finally {
@@ -131,6 +143,8 @@ export default function RelicForge() {
   }, []);
 
   const normalizedRelic = normalizeRelic(relic);
+  const canBypassGate = canManageRoles(user);
+  const forgeOpen = Boolean(gate?.enabled) || canBypassGate;
   const selectedEffects = RELIC_EFFECTS.filter((item) => normalizedRelic.effects.includes(item.id));
   const relicReady = normalizedRelic.name.trim().length >= 4 && normalizedRelic.lore.trim().length >= 18 && selectedEffects.length > 0;
 
@@ -178,6 +192,21 @@ export default function RelicForge() {
         <p className="mt-2 text-sm text-muted-foreground">{error}</p>
         <Button className="mt-5 gap-2" onClick={openLogin}>
           <LogIn className="h-4 w-4" /> Sign in
+        </Button>
+      </div>
+    );
+  }
+
+  if (!forgeOpen) {
+    return (
+      <div className="mx-auto max-w-2xl rounded-xl border border-border bg-card p-6 text-center">
+        <Hammer className="mx-auto h-8 w-8 text-primary" />
+        <h1 className="mt-4 font-heading text-2xl font-bold">Relic Forge Locked</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {gate?.reason || "Relic charms are locked until Veri opens the forge."}
+        </p>
+        <Button asChild className="mt-5 gap-2">
+          <Link to="/profile"><Shield className="h-4 w-4" /> Back to Profile</Link>
         </Button>
       </div>
     );

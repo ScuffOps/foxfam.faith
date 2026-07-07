@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { communityClient } from "@/api/communityClient";
-import { Check, X, ShieldAlert, Handshake, Lightbulb, Cake, BarChart3, CalendarPlus, Map, Crown, UserCog } from "lucide-react";
+import { Check, X, ShieldAlert, Handshake, Lightbulb, Cake, BarChart3, CalendarPlus, Map, Crown, UserCog, Gem, LockKeyhole, UnlockKeyhole } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +10,7 @@ import GlassCard from "../components/GlassCard";
 import ActivityChart from "../components/dashboard/ActivityChart";
 import RichTextContent from "../components/RichTextContent";
 import { canManageRoles, canUseAdminPanel, getRoleLabel, ROLE_OPTIONS } from "@/lib/roles";
+import { loadRelicRollGate, setRelicRollGate } from "@/lib/relicService";
 
 const TABS = [
   { key: "ideas", label: "Ideas & Feedback", icon: Lightbulb },
@@ -18,6 +19,7 @@ const TABS = [
   { key: "birthdays", label: "Birthdays", icon: Cake },
   { key: "activity", label: "Activity", icon: BarChart3 },
   { key: "favor", label: "Favored", icon: Crown },
+  { key: "relics", label: "Relics", icon: Gem, adminOnly: true },
   { key: "roles", label: "Roles", icon: UserCog, adminOnly: true },
 ];
 
@@ -25,7 +27,7 @@ export default function Admin() {
   const { toast } = useToast();
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState("ideas");
-  const [data, setData] = useState({ ideas: [], polls: [], collabs: [], birthdays: [], favor: [], profiles: [] });
+  const [data, setData] = useState({ ideas: [], polls: [], collabs: [], birthdays: [], favor: [], profiles: [], relicGate: null });
   const [loading, setLoading] = useState(true);
 
   const loadAll = async () => {
@@ -38,12 +40,13 @@ export default function Admin() {
       setUser(null);
     }
 
-    const [posts, collabs, birthdays, levels, profiles] = await Promise.all([
+    const [posts, collabs, birthdays, levels, profiles, relicGate] = await Promise.all([
       communityClient.entities.CommunityPost.filter({ status: "pending" }).catch(() => []),
       communityClient.entities.CollabRequest.filter({ status: "pending" }).catch(() => []),
       communityClient.entities.Birthday.filter({ status: "pending" }).catch(() => []),
       communityClient.entities.UserLevel.list("-points", 100).catch(() => []),
       canManageRoles(me) ? communityClient.entities.User.list().catch(() => []) : Promise.resolve([]),
+      canManageRoles(me) ? loadRelicRollGate().catch(() => null) : Promise.resolve(null),
     ]);
     setData({
       ideas: posts.filter((p) => p.type !== "poll"),
@@ -52,6 +55,7 @@ export default function Admin() {
       birthdays,
       favor: levels,
       profiles,
+      relicGate,
     });
     setLoading(false);
   };
@@ -78,6 +82,7 @@ export default function Admin() {
     birthdays: data.birthdays.length,
     activity: 0,
     favor: data.favor.filter((level) => level.is_favored).length,
+    relics: data.relicGate?.enabled ? 1 : 0,
     roles: data.profiles.length,
   };
   const totalPending = counts.ideas + counts.polls + counts.collabs + counts.birthdays;
@@ -99,6 +104,22 @@ export default function Admin() {
   const updateFavor = async (id, update) => {
     await communityClient.entities.UserLevel.update(id, update);
     loadAll();
+  };
+  const updateRelicGate = async ({ enabled, reason }) => {
+    try {
+      const relicGate = await setRelicRollGate({ enabled, reason });
+      setData((current) => ({ ...current, relicGate }));
+      toast({
+        title: enabled ? "Relic rolls opened" : "Relic rolls locked",
+        description: relicGate.reason,
+      });
+    } catch (error) {
+      toast({
+        title: "Relic gate update failed",
+        description: error?.message || "Only admins and lead mods can change this.",
+        variant: "destructive",
+      });
+    }
   };
   const updateProfileRole = async (profile, role, reason) => {
     try {
@@ -307,6 +328,13 @@ export default function Admin() {
             />
           )}
 
+          {activeTab === "relics" && isRoleAdmin && (
+            <RelicGatePanel
+              gate={data.relicGate}
+              onSave={updateRelicGate}
+            />
+          )}
+
           {activeTab === "roles" && isRoleAdmin && (
             <Section
               items={data.profiles}
@@ -323,6 +351,69 @@ export default function Admin() {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+function RelicGatePanel({ gate, onSave }) {
+  const [reason, setReason] = useState(gate?.reason || "");
+  const [saving, setSaving] = useState(false);
+  const enabled = Boolean(gate?.enabled);
+
+  useEffect(() => {
+    setReason(gate?.reason || "");
+  }, [gate?.reason]);
+
+  const handleToggle = async (nextEnabled) => {
+    setSaving(true);
+    try {
+      await onSave({ enabled: nextEnabled, reason });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <GlassCard>
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border ${enabled ? "border-emerald-300/40 bg-emerald-400/15 text-emerald-100" : "border-amber-300/35 bg-amber-400/12 text-amber-100"}`}>
+                {enabled ? <UnlockKeyhole className="h-5 w-5" /> : <LockKeyhole className="h-5 w-5" />}
+              </span>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-muted-foreground">Relic Forge Access</p>
+                <h2 className="font-heading text-xl font-bold">{enabled ? "Charm rolling is live" : "Charm rolling is locked"}</h2>
+              </div>
+            </div>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
+              This controls whether signed-in users can roll relic charms from their profile and access the Relic Forge route.
+              Leave it locked until you are ready to run the community loop.
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">Current note: {gate?.reason || "No gate note set."}</p>
+          </div>
+
+          <div className="grid w-full gap-3 md:max-w-sm">
+            <Textarea
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              className="min-h-24 bg-secondary/50 text-sm"
+              placeholder="Message users see when the forge is locked or opened..."
+            />
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Button type="button" variant={enabled ? "outline" : "default"} disabled={saving || !enabled} onClick={() => handleToggle(false)} className="gap-2">
+                <LockKeyhole className="h-4 w-4" />
+                Lock Rolls
+              </Button>
+              <Button type="button" variant={enabled ? "default" : "outline"} disabled={saving || enabled} onClick={() => handleToggle(true)} className="gap-2">
+                <UnlockKeyhole className="h-4 w-4" />
+                Open Rolls
+              </Button>
+            </div>
+          </div>
+        </div>
+      </GlassCard>
     </div>
   );
 }

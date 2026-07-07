@@ -1,7 +1,55 @@
 import { communityClient } from "@/api/communityClient";
 import { DEFAULT_RELIC, normalizeCharm, normalizeRelic, rollRelicCharm } from "@/lib/relicCharms";
 
-export const RELIC_ROLL_LOCK_REASON = "Relic charms are locked until the MIU -> Database -> Portal -> Twitch Extension loop is ready.";
+export const RELIC_ROLL_GATE_KEY = "relic_roll_gate";
+export const RELIC_ROLL_LOCK_REASON = "Relic charms are locked until Veri opens the forge.";
+
+const DEFAULT_RELIC_ROLL_GATE = {
+  key: RELIC_ROLL_GATE_KEY,
+  enabled: false,
+  status: "closed",
+  reason: RELIC_ROLL_LOCK_REASON,
+  source: "admin-toggle",
+};
+
+function normalizeRelicRollGate(row = {}) {
+  return {
+    id: row.id || "",
+    ...DEFAULT_RELIC_ROLL_GATE,
+    ...(row || {}),
+    enabled: Boolean(row?.enabled),
+    status: row?.enabled ? "open" : "closed",
+    reason: row?.reason || (row?.enabled ? "The relic forge is open." : RELIC_ROLL_LOCK_REASON),
+  };
+}
+
+function isRelicRollGate(row) {
+  return [row?.key, row?.name, row?.type].includes(RELIC_ROLL_GATE_KEY);
+}
+
+export async function loadRelicRollGate() {
+  const rows = await communityClient.entities.SyncState.list("-updated_date", 100).catch(() => []);
+  return normalizeRelicRollGate(rows.find(isRelicRollGate));
+}
+
+export async function setRelicRollGate({ enabled, reason = "" } = {}) {
+  await communityClient.auth.me();
+  const currentGate = await loadRelicRollGate();
+  const payload = {
+    key: RELIC_ROLL_GATE_KEY,
+    enabled: Boolean(enabled),
+    status: enabled ? "open" : "closed",
+    reason: String(reason || "").trim() || (enabled ? "The relic forge is open." : RELIC_ROLL_LOCK_REASON),
+    source: "admin-toggle",
+    updated_at: new Date().toISOString(),
+  };
+
+  const saved = currentGate.id
+    ? await communityClient.entities.SyncState.update(currentGate.id, payload)
+    : await communityClient.entities.SyncState.create(payload);
+
+  return normalizeRelicRollGate(saved);
+}
 
 export async function getOrCreateUserRelic() {
   await communityClient.auth.me();
@@ -46,10 +94,21 @@ export async function loadUserRelicInventory() {
 }
 
 export async function loadCharmRollEligibility() {
+  const gate = await loadRelicRollGate();
+  if (gate.enabled) {
+    return {
+      canRoll: true,
+      reason: gate.reason,
+      streamState: null,
+      gate,
+    };
+  }
+
   return {
     canRoll: false,
-    reason: RELIC_ROLL_LOCK_REASON,
+    reason: gate.reason || RELIC_ROLL_LOCK_REASON,
     streamState: null,
+    gate,
   };
 }
 
