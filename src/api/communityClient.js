@@ -19,7 +19,8 @@ export const supabase = isSupabaseConfigured
 const UPLOAD_BUCKET = import.meta.env.VITE_SUPABASE_UPLOAD_BUCKET || "community-uploads";
 const DEFAULT_AUTH_REDIRECT_PATH = "/settings";
 export const LOGIN_EVENT_NAME = "foxfam:open-login";
-const PUBLIC_ROW_SELECT = "id,user_id,data,created_at,updated_at";
+const PUBLIC_ROW_SELECT = "id,data,created_at,updated_at";
+const OWNER_ROW_SELECT = "id,user_id,data,created_at,updated_at";
 const PUBLIC_PROFILE_SELECT =
   "id,role,display_name,avatar_url,accent_color,notification_preferences,onboarded,created_at,updated_at";
 const AUTO_PROFILE_NAMES = new Set(["guest", "guest fox", "foxfam member"]);
@@ -108,6 +109,19 @@ function normalizeRow(row) {
     updated_date: row.updated_at,
     ...(row.data || {}),
   };
+}
+
+function isOwnerMetadataSelectError(error) {
+  return error?.code === "42501" && /permission denied/i.test(error?.message || "");
+}
+
+async function selectEntityRows(buildQuery, { includeOwner = true } = {}) {
+  const select = includeOwner ? OWNER_ROW_SELECT : PUBLIC_ROW_SELECT;
+  const result = await buildQuery(select);
+  if (result.error && includeOwner && isOwnerMetadataSelectError(result.error)) {
+    return buildQuery(PUBLIC_ROW_SELECT);
+  }
+  return result;
 }
 
 function normalizeProfile(row) {
@@ -271,7 +285,7 @@ function createEntityApi(entityName) {
   return {
     async list(orderBy = "-created_date", limit = 1000) {
       const client = getClient();
-      const { data, error } = await client.from(table).select(PUBLIC_ROW_SELECT).limit(1000);
+      const { data, error } = await selectEntityRows((select) => client.from(table).select(select).limit(1000));
       if (error) throw error;
       return sortRows((data || []).map(normalizeRow), orderBy).slice(0, limit);
     },
@@ -283,7 +297,7 @@ function createEntityApi(entityName) {
 
     async get(id) {
       const client = getClient();
-      const { data, error } = await client.from(table).select(PUBLIC_ROW_SELECT).eq("id", id).single();
+      const { data, error } = await selectEntityRows((select) => client.from(table).select(select).eq("id", id).single());
       if (error) throw error;
       return normalizeRow(data);
     },
@@ -292,15 +306,17 @@ function createEntityApi(entityName) {
       const client = getClient();
       const { data: authData } = await client.auth.getUser();
       const user = authData?.user;
-      const { data, error } = await client
-        .from(table)
-        .insert({
-          user_id: user?.id || null,
-          created_by: null,
-          data: dataOnly(payload),
-        })
-        .select(PUBLIC_ROW_SELECT)
-        .single();
+      const { data, error } = await selectEntityRows((select) =>
+        client
+          .from(table)
+          .insert({
+            user_id: user?.id || null,
+            created_by: null,
+            data: dataOnly(payload),
+          })
+          .select(select)
+          .single(),
+      );
       if (error) throw error;
       return normalizeRow(data);
     },
@@ -308,12 +324,14 @@ function createEntityApi(entityName) {
     async update(id, payload = {}) {
       const client = getClient();
       const current = await this.get(id);
-      const { data, error } = await client
-        .from(table)
-        .update({ data: { ...dataOnly(current), ...dataOnly(payload) } })
-        .eq("id", id)
-        .select(PUBLIC_ROW_SELECT)
-        .single();
+      const { data, error } = await selectEntityRows((select) =>
+        client
+          .from(table)
+          .update({ data: { ...dataOnly(current), ...dataOnly(payload) } })
+          .eq("id", id)
+          .select(select)
+          .single(),
+      );
       if (error) throw error;
       return normalizeRow(data);
     },
