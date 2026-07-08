@@ -155,6 +155,17 @@ const botCommandSchema = z.object({
   notes: optionalTrimmedString,
 });
 
+const staffBrainDumpSchema = z.object({
+  title: requiredTrimmedString,
+  body: requiredTrimmedString,
+  category: z.enum(["idea", "stream", "task", "question", "risk", "resource"]).default("idea"),
+  priority: taskPrioritySchema.default("normal"),
+  status: z.enum(["fresh", "triaged", "converted", "archived"]).default("fresh"),
+  assigned_to: optionalTrimmedString,
+  tags: optionalTrimmedString,
+  source_url: optionalUrl,
+});
+
 export const TASK_STATUS_LABELS = {
   in_queue: "iղ գᴜᥱᴜᥱ",
   pending: "pɛŋɖiŋg",
@@ -213,17 +224,34 @@ export const COMMAND_SOURCE_LABELS = {
   streamlabs: "Streamlabs",
 };
 
+export const BRAIN_DUMP_CATEGORY_LABELS = {
+  idea: "Idea",
+  stream: "Stream",
+  task: "Task seed",
+  question: "Question",
+  risk: "Risk",
+  resource: "Resource",
+};
+
+export const BRAIN_DUMP_STATUS_LABELS = {
+  fresh: "Fresh",
+  triaged: "Triaged",
+  converted: "Converted",
+  archived: "Archived",
+};
+
 function compactPayload(payload) {
   return Object.fromEntries(
     Object.entries(payload).filter(([, value]) => value !== undefined && value !== ""),
   );
 }
 
-function parseDateTime(value) {
+export function parseDateTime(value, options = {}) {
   if (!value) return undefined;
   const trimmed = String(value).trim();
   if (!trimmed) return undefined;
-  const parsed = new Date(/^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? `${trimmed}T12:00` : trimmed);
+  const dateOnlyTime = options.dateOnlyTime || "12:00";
+  const parsed = new Date(/^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? `${trimmed}T${dateOnlyTime}` : trimmed);
   return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
 }
 
@@ -240,7 +268,7 @@ export function parseStreamLogForm(form) {
     ...parsed,
     stream_date: parseDateTime(parsed.stream_date),
     start_time: parseDateTime(parsed.start_time),
-    end_time: parseDateTime(parsed.end_time),
+    end_time: parseDateTime(parsed.end_time, { dateOnlyTime: "00:00" }),
   });
 }
 
@@ -253,7 +281,7 @@ export function parseMedicationDoseForm(form) {
   return compactPayload({
     ...parsed,
     scheduled_time: parseDateTime(parsed.scheduled_time),
-    taken_time: parseDateTime(parsed.taken_time),
+    taken_time: parseDateTime(parsed.taken_time, { dateOnlyTime: "00:00" }),
   });
 }
 
@@ -262,7 +290,7 @@ export function parseStaffTaskForm(form) {
   return compactPayload({
     ...parsed,
     start_date: parseDateTime(parsed.start_date),
-    due_date: parseDateTime(parsed.due_date),
+    due_date: parseDateTime(parsed.due_date, { dateOnlyTime: "00:00" }),
   });
 }
 
@@ -271,7 +299,7 @@ export function parseModShiftForm(form) {
   return compactPayload({
     ...parsed,
     starts_at: parseDateTime(parsed.starts_at),
-    ends_at: parseDateTime(parsed.ends_at),
+    ends_at: parseDateTime(parsed.ends_at, { dateOnlyTime: "00:00" }),
   });
 }
 
@@ -281,7 +309,7 @@ export function parseStaffTimeEntryForm(form) {
     ...parsed,
     work_date: parseDateTime(parsed.work_date),
     started_at: parseDateTime(parsed.started_at),
-    ended_at: parseDateTime(parsed.ended_at),
+    ended_at: parseDateTime(parsed.ended_at, { dateOnlyTime: "00:00" }),
   });
 }
 
@@ -290,7 +318,7 @@ export function parseScuffoxUpdateForm(form) {
   return compactPayload({
     ...parsed,
     starts_at: parseDateTime(parsed.starts_at),
-    expires_at: parseDateTime(parsed.expires_at),
+    expires_at: parseDateTime(parsed.expires_at, { dateOnlyTime: "00:00" }),
   });
 }
 
@@ -313,6 +341,11 @@ export function parseBotCommandForm(form) {
     ...parsed,
     command,
   });
+}
+
+export function parseStaffBrainDumpForm(form) {
+  const parsed = staffBrainDumpSchema.parse(form);
+  return compactPayload(parsed);
 }
 
 export function isOpenTask(task) {

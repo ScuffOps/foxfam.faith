@@ -23,7 +23,7 @@ test("timer duration formats elapsed work time", () => {
   assert.equal(formatTimerDuration("", "2026-06-20T01:02:03.000Z", 0), "00:00:00");
 });
 
-test("staff task date-only inputs default to noon", () => {
+test("staff task date-only inputs default start to noon and due date to midnight", () => {
   const parsed = parseStaffTaskForm({
     title: "Date-only task",
     start_date: "2026-07-01",
@@ -33,5 +33,5 @@ test("staff task date-only inputs default to noon", () => {
   });
 
   assert.equal(parsed.start_date, new Date("2026-07-01T12:00").toISOString());
-  assert.equal(parsed.due_date, new Date("2026-07-02T12:00").toISOString());
+  assert.equal(parsed.due_date, new Date("2026-07-02T00:00").toISOString());
 });

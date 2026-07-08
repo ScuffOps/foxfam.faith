@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { communityClient } from "@/api/communityClient";
-import { Check, X, CalendarPlus, Lightbulb, MessageSquare, Map, Newspaper, Sparkles, ArchiveRestore, Lock } from "lucide-react";
+import { Check, X, CalendarPlus, Edit3, Lightbulb, MessageSquare, Map, Newspaper, Sparkles, ArchiveRestore, Lock } from "lucide-react";
 import { awardPoints } from "@/hooks/usePoints";
 import { useLevelUpToast } from "@/hooks/useLevelUpToast";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import StatusBadge from "../StatusBadge";
 import GlassCard from "../GlassCard";
@@ -11,6 +13,7 @@ import RichTextContent from "../RichTextContent";
 import PraiseBurst from "../PraiseBurst";
 import CommunityComments from "@/components/community/CommunityComments";
 import { getCommunityActorKey } from "@/lib/communityActor";
+import { canEditCommunityRecord } from "@/lib/editPermissions";
 import { PRAISE_BURST_DURATION_MS, PRAISE_REFRESH_DELAY_MS } from "@/lib/praiseEffects";
 
 const typeIcons = {
@@ -29,9 +32,23 @@ export default function IdeaCard({ post, isAdmin, user, onRefresh }) {
   const { toast } = useToast();
   const [upvoting, setUpvoting] = useState(false);
   const [voteBurst, setVoteBurst] = useState(0);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ title: post.title || "", description: post.description || "" });
   const actorKey = getCommunityActorKey(user);
   const hasUpvoted = (post.upvoted_by || []).includes(actorKey);
   const Icon = typeIcons[post.type] || Lightbulb;
+  const canEdit = canEditCommunityRecord(user, post);
+
+  const handleSaveEdit = async () => {
+    if (!editForm.title.trim()) return;
+    await communityClient.entities.CommunityPost.update(post.id, {
+      title: editForm.title.trim(),
+      description: editForm.description,
+      edited_at: new Date().toISOString(),
+    });
+    setEditing(false);
+    onRefresh?.();
+  };
 
   const handleUpvote = async () => {
     if (upvoting) return;
@@ -119,15 +136,32 @@ export default function IdeaCard({ post, isAdmin, user, onRefresh }) {
 
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <div className={`flex h-6 w-6 items-center justify-center rounded-md ${typeColors[post.type]}`}>
               <Icon className="h-3.5 w-3.5" />
             </div>
-            <h4 className="font-medium">{post.title}</h4>
+            {editing ? (
+              <Input value={editForm.title} onChange={(event) => setEditForm((current) => ({ ...current, title: event.target.value }))} className="h-8 bg-secondary/60" />
+            ) : (
+              <h4 className="font-medium">{post.title}</h4>
+            )}
             <StatusBadge status={post.status} />
           </div>
+          {canEdit && !editing && (
+            <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => setEditing(true)} aria-label="Edit post">
+              <Edit3 className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
-        {post.description && (
+        {editing ? (
+          <div className="mt-2 space-y-2">
+            <Textarea value={editForm.description} onChange={(event) => setEditForm((current) => ({ ...current, description: event.target.value }))} className="min-h-24 bg-secondary/60 text-sm" />
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setEditForm({ title: post.title || "", description: post.description || "" }); }}>Cancel</Button>
+              <Button size="sm" onClick={handleSaveEdit} disabled={!editForm.title.trim()}>Save</Button>
+            </div>
+          </div>
+        ) : post.description && (
           <RichTextContent className="mt-1.5 text-sm text-muted-foreground">
             {post.description}
           </RichTextContent>

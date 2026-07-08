@@ -169,7 +169,7 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
                 .filter((s) => matchesBoardView(s.status, boardView, CLOSED_SUGGESTION_STATUSES))
                 .filter((s) => !search || s.title.toLowerCase().includes(search.toLowerCase()) || (s.description || "").toLowerCase().includes(search.toLowerCase()))
                 .map((s) => (
-                  <SuggestionCard key={s.id} suggestion={s} isAdmin={isAdmin} onRefresh={loadData} />
+                  <SuggestionCard key={s.id} suggestion={s} isAdmin={isAdmin} user={user} onRefresh={loadData} />
                 ))}
             </div>
           )}
@@ -213,7 +213,7 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
                 .filter((report) => matchesBoardView(report.status || "open", boardView, CLOSED_BUG_STATUSES))
                 .filter((report) => !search || report.title.toLowerCase().includes(search.toLowerCase()) || (report.description || "").toLowerCase().includes(search.toLowerCase()))
                 .map((report) => (
-                  <BugReportCard key={report.id} report={report} isAdmin={isAdmin} onRefresh={loadData} />
+                  <BugReportCard key={report.id} report={report} isAdmin={isAdmin} user={user} onRefresh={loadData} />
                 ))}
             </div>
           )}

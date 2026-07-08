@@ -5,12 +5,17 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
+import DateTimeFields from "@/components/ui/date-time-fields";
 import GlassCard from "../components/GlassCard";
-import { Send, Users, Clock, Gamepad2, MessageSquareMore, CheckCircle, XCircle, Hourglass } from "lucide-react";
+import { Send, Users, Clock, Gamepad2, MessageSquareMore, CheckCircle, XCircle, Hourglass, Link2 } from "lucide-react";
 import { canBookCollab, canModerate } from "@/lib/roles";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 
 const DURATION_OPTIONS = ["30 min", "1 hour", "1.5 hours", "2 hours", "2+ hours", "TBD"];
+const REQUEST_TYPES = {
+  collab: "collab",
+  oneOnOne: "one_on_one",
+};
 
 const STATUS_STYLES = {
   pending: { label: "Pending", icon: Hourglass, cls: "text-warning bg-warning/10 border-warning/20" },
@@ -22,12 +27,16 @@ export default function CollabRequests() {
   const { toast } = useToast();
   const [user, setUser] = useState(null);
   const [requests, setRequests] = useState([]);
+  const [linkedIdentities, setLinkedIdentities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   const [form, setForm] = useState({
+    request_type: REQUEST_TYPES.collab,
     game_category: "",
     estimated_duration: "",
+    preferred_time: "",
+    contact_preference: "discord",
     description: "",
     shared_chat: false,
     extra_info: "",
@@ -38,6 +47,12 @@ export default function CollabRequests() {
     try {
       const me = await communityClient.auth.me();
       setUser(me);
+      try {
+        const identities = await communityClient.auth.getLinkedIdentities();
+        setLinkedIdentities(identities);
+      } catch {
+        setLinkedIdentities([]);
+      }
     } catch {}
     const all = await communityClient.entities.CollabRequest.list("-created_date", 100);
     setRequests(all);
@@ -48,10 +63,29 @@ export default function CollabRequests() {
 
   const isCreator = canBookCollab(user);
   const isMod = canModerate(user);
+  const hasDiscordOrTwitch = linkedIdentities.some((identity) => ["discord", "twitch"].includes(identity.provider));
+  const canSubmitRequest = isCreator || hasDiscordOrTwitch;
+  const isOneOnOne = form.request_type === REQUEST_TYPES.oneOnOne;
 
   const handleChange = (field, value) => setForm((f) => ({ ...f, [field]: value }));
 
   const handleSubmit = async () => {
+    if (!canSubmitRequest) {
+      toast({
+        title: "Link Discord or Twitch first.",
+        description: "One-on-one requests need a connected account so Veri can actually find you.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (isOneOnOne && !hasDiscordOrTwitch) {
+      toast({
+        title: "Discord or Twitch required.",
+        description: "Connect one in Settings, then come back to book the appointment.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!form.game_category.trim() || !form.description.trim()) {
       toast({ title: "Please fill in the required fields.", variant: "destructive" });
       return;
@@ -62,8 +96,8 @@ export default function CollabRequests() {
       submitted_by_name: getPublicDisplayName(user, ""),
       status: "pending",
     });
-    toast({ title: "✦ Collab request submitted!", description: "The mod team will review it shortly." });
-    setForm({ game_category: "", estimated_duration: "", description: "", shared_chat: false, extra_info: "" });
+    toast({ title: isOneOnOne ? "✦ Appointment request submitted!" : "✦ Collab request submitted!", description: "The mod team will review it shortly." });
+    setForm({ request_type: REQUEST_TYPES.collab, game_category: "", estimated_duration: "", preferred_time: "", contact_preference: "discord", description: "", shared_chat: false, extra_info: "" });
     loadData();
     setSubmitting(false);
   };
@@ -87,26 +121,65 @@ export default function CollabRequests() {
       <div className="mb-6">
         <h1 className="font-heading text-2xl font-bold md:text-3xl">Collab Requests</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {isCreator ? "Submit a collab request to stream with Veri." : isMod ? "Review incoming collab requests." : "You need the Creator role to submit collab requests."}
+          {isCreator
+            ? "Submit a collab request to stream with Veri, or request a one-on-one slot."
+            : hasDiscordOrTwitch
+              ? "Request a one-on-one slot with Veri. Stream collabs still need Creator role."
+              : isMod
+                ? "Review incoming collab requests."
+                : "Link Discord or Twitch to request a one-on-one slot."}
         </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-5">
-        {/* Form — only for Creators */}
-        {isCreator && (
+        {/* Form */}
+        {canSubmitRequest && (
           <div className="lg:col-span-2">
             <GlassCard>
               <h2 className="font-heading text-sm font-semibold mb-4 flex items-center gap-2">
                 <Users className="h-4 w-4 text-primary" /> New Request
               </h2>
               <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-secondary/35 p-1">
+                  {[
+                    { value: REQUEST_TYPES.collab, label: "Stream collab" },
+                    { value: REQUEST_TYPES.oneOnOne, label: "1:1 with Veri" },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => handleChange("request_type", option.value)}
+                      className={`rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
+                        form.request_type === option.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+
+                {isOneOnOne && !hasDiscordOrTwitch && (
+                  <div className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs text-warning">
+                    Link Discord or Twitch in Settings before requesting a one-on-one slot.
+                  </div>
+                )}
+
                 <div>
-                  <Label className="text-xs">Game / Stream Category <span className="text-destructive">*</span></Label>
+                  <Label className="text-xs">{isOneOnOne ? "Appointment Topic" : "Game / Stream Category"} <span className="text-destructive">*</span></Label>
                   <Input
                     value={form.game_category}
                     onChange={(e) => handleChange("game_category", e.target.value)}
-                    placeholder="e.g. Minecraft, Just Chatting..."
+                    placeholder={isOneOnOne ? "e.g. lore planning, collab intro, check-in..." : "e.g. Minecraft, Just Chatting..."}
                     className="mt-1 bg-secondary/50"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs flex items-center gap-1.5"><Clock className="h-3 w-3" /> Preferred Date & Time</Label>
+                  <DateTimeFields
+                    value={form.preferred_time}
+                    onChangeValue={(value) => handleChange("preferred_time", value)}
+                    className="mt-1"
                   />
                 </div>
 
@@ -128,6 +201,32 @@ export default function CollabRequests() {
                     ))}
                   </div>
                 </div>
+
+                {isOneOnOne && (
+                  <div>
+                    <Label className="text-xs flex items-center gap-1.5"><Link2 className="h-3 w-3" /> Best Contact</Label>
+                    <div className="mt-1.5 grid grid-cols-2 gap-2">
+                      {["discord", "twitch"].map((provider) => {
+                        const connected = linkedIdentities.some((identity) => identity.provider === provider);
+                        return (
+                          <button
+                            key={provider}
+                            type="button"
+                            disabled={!connected}
+                            onClick={() => handleChange("contact_preference", provider)}
+                            className={`rounded-lg border px-3 py-2 text-xs font-semibold capitalize transition-colors ${
+                              form.contact_preference === provider
+                                ? "border-primary bg-primary/15 text-primary"
+                                : "border-border bg-secondary/45 text-muted-foreground hover:text-foreground"
+                            } disabled:cursor-not-allowed disabled:opacity-45`}
+                          >
+                            {provider} {connected ? "linked" : "not linked"}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <Label className="text-xs">Brief Description <span className="text-destructive">*</span></Label>
@@ -168,8 +267,8 @@ export default function CollabRequests() {
                   />
                 </div>
 
-                <Button onClick={handleSubmit} disabled={submitting} className="w-full gap-2">
-                  <Send className="h-4 w-4" /> {submitting ? "Submitting..." : "Submit Request"}
+                  <Button onClick={handleSubmit} disabled={submitting} className="w-full gap-2">
+                  <Send className="h-4 w-4" /> {submitting ? "Submitting..." : isOneOnOne ? "Request Appointment" : "Submit Request"}
                 </Button>
               </div>
             </GlassCard>
@@ -177,7 +276,14 @@ export default function CollabRequests() {
         )}
 
         {/* Request List */}
-        <div className={isCreator ? "lg:col-span-3" : "lg:col-span-5"}>
+        <div className={canSubmitRequest ? "lg:col-span-3" : "lg:col-span-5"}>
+          {!canSubmitRequest && !isMod && (
+            <GlassCard className="mb-4">
+              <p className="text-sm text-muted-foreground">
+                Connect Discord or Twitch in Settings to request a one-on-one slot with Veri. Creator-role users can also submit stream collab requests.
+              </p>
+            </GlassCard>
+          )}
           {requests.length === 0 ? (
             <GlassCard>
               <p className="text-center text-sm text-muted-foreground py-6">No collab requests yet.</p>
@@ -193,8 +299,14 @@ export default function CollabRequests() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
                           <span className="font-heading text-sm font-semibold">{req.game_category}</span>
+                          {req.request_type === REQUEST_TYPES.oneOnOne && (
+                            <span className="text-[10px] rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-primary">1:1 appointment</span>
+                          )}
                           {req.estimated_duration && (
                             <span className="text-[10px] rounded-full border border-border px-2 py-0.5 text-muted-foreground">{req.estimated_duration}</span>
+                          )}
+                          {req.preferred_time && (
+                            <span className="text-[10px] rounded-full border border-border px-2 py-0.5 text-muted-foreground">{new Date(req.preferred_time).toLocaleString()}</span>
                           )}
                           {req.shared_chat && (
                             <span className="text-[10px] rounded-full bg-accent/10 border border-accent/20 text-accent px-2 py-0.5">Shared Chat</span>

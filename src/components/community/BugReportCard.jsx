@@ -1,8 +1,12 @@
-import { AlertTriangle, ExternalLink, Monitor, RadioTower } from "lucide-react";
+import { useState } from "react";
+import { AlertTriangle, Edit3, ExternalLink, Monitor, RadioTower } from "lucide-react";
 import GlassCard from "../GlassCard";
 import { BUG_SEVERITY_LABELS, BUG_STATUS_LABELS } from "@/lib/bugReport";
 import { communityClient } from "@/api/communityClient";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { canEditCommunityRecord } from "@/lib/editPermissions";
 
 const statusClasses = {
   open: "bg-chart-4/15 text-chart-4",
@@ -13,12 +17,35 @@ const statusClasses = {
   veri_broke_it_live: "bg-chart-5/15 text-chart-5",
 };
 
-export default function BugReportCard({ report, isAdmin = false, onRefresh }) {
+export default function BugReportCard({ report, isAdmin = false, user, onRefresh }) {
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    title: report.title || "",
+    description: report.description || "",
+    attempted_action: report.attempted_action || "",
+    expected_behavior: report.expected_behavior || "",
+    steps_to_reproduce: report.steps_to_reproduce || "",
+    notes: report.notes || "",
+  });
   const screenshots = report.screenshots || [];
   const isClosed = ["closed", "fixed", "cannot_reproduce"].includes(report.status);
+  const canEdit = canEditCommunityRecord(user, report);
 
   const updateStatus = async (status) => {
     await communityClient.entities.BugReport.update(report.id, { status });
+    onRefresh?.();
+  };
+
+  const updateField = (field, value) => setEditForm((current) => ({ ...current, [field]: value }));
+
+  const handleSaveEdit = async () => {
+    if (!editForm.title.trim()) return;
+    await communityClient.entities.BugReport.update(report.id, {
+      ...editForm,
+      title: editForm.title.trim(),
+      edited_at: new Date().toISOString(),
+    });
+    setEditing(false);
     onRefresh?.();
   };
 
@@ -30,9 +57,17 @@ export default function BugReportCard({ report, isAdmin = false, onRefresh }) {
             <div className="dashboard-icon-well flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/15 text-destructive">
               <AlertTriangle className="h-4 w-4" />
             </div>
-            <h3 className="font-heading text-sm font-semibold">{report.title}</h3>
+            {editing ? (
+              <Input value={editForm.title} onChange={(event) => updateField("title", event.target.value)} className="bg-secondary/60" />
+            ) : (
+              <h3 className="font-heading text-sm font-semibold">{report.title}</h3>
+            )}
           </div>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{report.description}</p>
+          {editing ? (
+            <Textarea value={editForm.description} onChange={(event) => updateField("description", event.target.value)} className="mt-2 min-h-24 bg-secondary/60 text-sm" />
+          ) : (
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{report.description}</p>
+          )}
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
           <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusClasses[report.status] || statusClasses.open}`}>
@@ -44,7 +79,33 @@ export default function BugReportCard({ report, isAdmin = false, onRefresh }) {
         </div>
       </div>
 
-      {(report.area || report.attempted_action || report.steps_to_reproduce || report.expected_behavior || report.recurrence || report.device || report.browser_name || report.notes) && (
+      {canEdit && !editing && (
+        <div className="-mt-2 flex justify-end">
+          <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => setEditing(true)}>
+            <Edit3 className="h-3 w-3" /> Edit
+          </Button>
+        </div>
+      )}
+
+      {editing ? (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {[
+            ["Trying to do", "attempted_action"],
+            ["Expected", "expected_behavior"],
+            ["Steps", "steps_to_reproduce"],
+            ["Notes", "notes"],
+          ].map(([label, field]) => (
+            <div key={field} className="rounded-lg border border-border/70 bg-secondary/30 p-3">
+              <p className="mb-1 text-[11px] font-semibold uppercase text-muted-foreground">{label}</p>
+              <Textarea value={editForm[field]} onChange={(event) => updateField(field, event.target.value)} className="min-h-20 bg-background/50 text-xs" />
+            </div>
+          ))}
+          <div className="flex justify-end gap-2 sm:col-span-2">
+            <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setEditForm({ title: report.title || "", description: report.description || "", attempted_action: report.attempted_action || "", expected_behavior: report.expected_behavior || "", steps_to_reproduce: report.steps_to_reproduce || "", notes: report.notes || "" }); }}>Cancel</Button>
+            <Button size="sm" onClick={handleSaveEdit} disabled={!editForm.title.trim()}>Save</Button>
+          </div>
+        </div>
+      ) : (report.area || report.attempted_action || report.steps_to_reproduce || report.expected_behavior || report.recurrence || report.device || report.browser_name || report.notes) && (
         <div className="grid gap-2 sm:grid-cols-2">
           {[
             ["Area", report.area],

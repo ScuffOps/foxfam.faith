@@ -27,6 +27,7 @@ import {
   ClipboardList,
   Bell,
   Bot,
+  Brain,
   CalendarClock,
   Clock,
   Pill,
@@ -55,7 +56,7 @@ const navGroups = [
     items: [
       { path: "/events", label: "Events", icon: PartyPopper },
       { path: "/birthdays", label: "Birthdays", icon: Cake },
-      { path: "/collabs", label: "Book a Collab", icon: Handshake, creatorOnly: true },
+      { path: "/collabs", label: "Book a Collab", icon: Handshake },
       { path: "/roadmap", label: "Roadmap", icon: Map },
     ],
   },
@@ -96,6 +97,7 @@ const staffOpsGroup = {
   adminOnly: true,
   items: [
     { path: "/ops", label: "Dashboard", icon: ClipboardList },
+    { path: "/ops/braindump", label: "Brain Dump", icon: Brain },
     { path: "/ops/handbook", label: "Handbook", icon: BookOpen },
     { path: "/ops/updates", label: "Updates", icon: Bell },
     { path: "/ops/commands", label: "Commands", icon: Bot },

@@ -76,6 +76,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin" element={<Admin />} />
         <Route path="/ops" element={<StaffOps />} />
         <Route path="/ops/dashboard" element={<StaffOps defaultTab="dashboard" />} />
+        <Route path="/ops/braindump" element={<StaffOps defaultTab="braindump" />} />
         <Route path="/ops/handbook" element={<StaffOps defaultTab="handbook" />} />
         <Route path="/ops/updates" element={<StaffOps defaultTab="updates" />} />
         <Route path="/ops/commands" element={<StaffOps defaultTab="commands" />} />

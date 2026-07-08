@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { communityClient } from "@/api/communityClient";
-import { ChevronDown, ChevronUp, Lock, MessageCircle, Send, Trash2, Unlock } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Edit3, Lock, MessageCircle, Send, Trash2, Unlock, X } from "lucide-react";
 import { useGuestProfile } from "@/hooks/useGuestProfile";
 import GlassCard from "../GlassCard";
 import RichTextContent from "../RichTextContent";
@@ -9,6 +9,7 @@ import { getPublicDisplayName } from "@/lib/userIdentity";
 import { useToast } from "@/components/ui/use-toast";
 import PraiseBurst from "../PraiseBurst";
 import { getCommunityActorKey } from "@/lib/communityActor";
+import { canEditCommunityRecord } from "@/lib/editPermissions";
 import { PRAISE_BURST_DURATION_MS, PRAISE_REFRESH_DELAY_MS } from "@/lib/praiseEffects";
 
 export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
@@ -19,12 +20,17 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
   const [comments, setComments] = useState([]);
   const [loadingComments, setLoadingComments] = useState(false);
   const [commentText, setCommentText] = useState("");
+  const [editingThread, setEditingThread] = useState(false);
+  const [editThreadForm, setEditThreadForm] = useState({ title: thread.title || "", body: thread.body || "", tags: (thread.tags || []).join(", ") });
+  const [editingCommentId, setEditingCommentId] = useState("");
+  const [commentDraft, setCommentDraft] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [reactionBurst, setReactionBurst] = useState(0);
   const actorId = getCommunityActorKey(user);
   const actorName = user ? getPublicDisplayName(user, "Guest") : profile.name || "Guest";
   const hasReacted = (thread.reacted_by || []).includes(actorId);
   const section = getForumSection(thread.category);
+  const canEditThread = canEditCommunityRecord(user, thread, { forum: true });
 
   const loadComments = async () => {
     setLoadingComments(true);
@@ -95,6 +101,18 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
     onRefresh();
   };
 
+  const handleSaveThread = async () => {
+    if (!editThreadForm.title.trim()) return;
+    await communityClient.entities.CommunityThread.update(thread.id, {
+      title: editThreadForm.title.trim(),
+      body: editThreadForm.body,
+      tags: editThreadForm.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+      edited_at: new Date().toISOString(),
+    });
+    setEditingThread(false);
+    onRefresh();
+  };
+
   const handleToggleLock = async () => {
     try {
       await communityClient.entities.CommunityThread.update(thread.id, {
@@ -132,6 +150,24 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
     }
   };
 
+  const handleSaveComment = async (comment) => {
+    if (!commentDraft.trim()) return;
+    try {
+      await communityClient.entities.CommunityThreadComment.update(comment.id, {
+        message: commentDraft.trim(),
+        edited_at: new Date().toISOString(),
+      });
+      setEditingCommentId("");
+      setCommentDraft("");
+      await loadComments();
+    } catch {
+      toast({
+        title: "Reply could not be edited",
+        description: "Your role may not have forum edit access yet.",
+      });
+    }
+  };
+
   return (
     <GlassCard className="space-y-4">
       <div className="flex items-start justify-between gap-3">
@@ -146,34 +182,75 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
               </span>
             )}
           </div>
-          <h3 className="font-heading text-lg font-semibold">{thread.title}</h3>
+          {editingThread ? (
+            <input
+              value={editThreadForm.title}
+              onChange={(event) => setEditThreadForm((current) => ({ ...current, title: event.target.value }))}
+              className="w-full rounded-lg border border-border bg-secondary/60 px-3 py-2 font-heading text-lg font-semibold"
+            />
+          ) : (
+            <h3 className="font-heading text-lg font-semibold">{thread.title}</h3>
+          )}
           <p className="mt-1 text-xs text-muted-foreground">by {thread.author_name || "Favored Fox"}</p>
         </div>
-        {isAdmin && (
+        {(canEditThread || isAdmin) && (
           <div className="flex shrink-0 items-center gap-1">
-            <button
-              type="button"
-              onClick={handleToggleLock}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              title={thread.is_locked ? "Unlock thread" : "Lock thread"}
-              aria-label={thread.is_locked ? "Unlock thread" : "Lock thread"}
-            >
-              {thread.is_locked ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-            </button>
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-              title="Delete thread"
-              aria-label="Delete thread"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+            {canEditThread && !editingThread && (
+              <button
+                type="button"
+                onClick={() => setEditingThread(true)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                title="Edit thread"
+                aria-label="Edit thread"
+              >
+                <Edit3 className="h-4 w-4" />
+              </button>
+            )}
+            {isAdmin && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleToggleLock}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  title={thread.is_locked ? "Unlock thread" : "Lock thread"}
+                  aria-label={thread.is_locked ? "Unlock thread" : "Lock thread"}
+                >
+                  {thread.is_locked ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  title="Delete thread"
+                  aria-label="Delete thread"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
 
-      {showDetails ? (
+      {editingThread ? (
+        <div className="space-y-2">
+          <textarea
+            value={editThreadForm.body}
+            onChange={(event) => setEditThreadForm((current) => ({ ...current, body: event.target.value }))}
+            className="min-h-28 w-full rounded-lg border border-border bg-secondary/60 px-3 py-2 text-sm"
+          />
+          <input
+            value={editThreadForm.tags}
+            onChange={(event) => setEditThreadForm((current) => ({ ...current, tags: event.target.value }))}
+            placeholder="comma, separated, tags"
+            className="w-full rounded-lg border border-border bg-secondary/60 px-3 py-2 text-sm"
+          />
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => { setEditingThread(false); setEditThreadForm({ title: thread.title || "", body: thread.body || "", tags: (thread.tags || []).join(", ") }); }} className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary">Cancel</button>
+            <button type="button" onClick={handleSaveThread} className="rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground">Save</button>
+          </div>
+        </div>
+      ) : showDetails ? (
         <>
           <RichTextContent className="text-sm leading-relaxed text-muted-foreground">
             {thread.body}
@@ -252,6 +329,18 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
                         {comment.message}
                       </RichTextContent>
                     </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                    {canEditCommunityRecord(user, comment, { forum: true }) && editingCommentId !== comment.id && (
+                      <button
+                        type="button"
+                        onClick={() => { setEditingCommentId(comment.id); setCommentDraft(comment.message || ""); }}
+                        className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                        title="Edit reply"
+                        aria-label="Edit reply"
+                      >
+                        <Edit3 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                     {isAdmin && (
                       <button
                         type="button"
@@ -263,7 +352,15 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     )}
+                    </div>
                   </div>
+                  {editingCommentId === comment.id ? (
+                    <div className="mt-2 flex gap-2">
+                      <input value={commentDraft} onChange={(event) => setCommentDraft(event.target.value)} className="min-w-0 flex-1 rounded-md border border-border bg-background/60 px-2 py-1 text-xs" />
+                      <button type="button" onClick={() => handleSaveComment(comment)} className="text-primary" aria-label="Save reply"><Check className="h-3.5 w-3.5" /></button>
+                      <button type="button" onClick={() => setEditingCommentId("")} className="text-muted-foreground" aria-label="Cancel edit"><X className="h-3.5 w-3.5" /></button>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ))

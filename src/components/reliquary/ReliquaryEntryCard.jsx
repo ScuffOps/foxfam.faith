@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { communityClient } from "@/api/communityClient";
 import { format } from "date-fns";
-import { CalendarDays, ChevronDown, ChevronUp, Edit3, MessageCircle, Send, Sparkles, Tag, Trash2 } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, ChevronUp, Edit3, MessageCircle, Send, Sparkles, Tag, Trash2, X } from "lucide-react";
 import PraiseBurst from "@/components/PraiseBurst";
 import RichTextContent, { getRichTextPlainText } from "@/components/RichTextContent";
 import { awardPoints } from "@/hooks/usePoints";
@@ -10,6 +10,7 @@ import { getPublicDisplayName } from "@/lib/userIdentity";
 import { getCommunityActorKey } from "@/lib/communityActor";
 import { PRAISE_BURST_DURATION_MS, PRAISE_REFRESH_DELAY_MS } from "@/lib/praiseEffects";
 import { getReliquaryPreview } from "@/lib/reliquaryPreview";
+import { canEditCommunityRecord } from "@/lib/editPermissions";
 
 export default function ReliquaryEntryCard({ entry, user, isAdmin, featured = false, onEdit, onRefresh }) {
   const checkLevelUp = useLevelUpToast();
@@ -24,6 +25,8 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, featured = fa
     upvotes: entry.upvotes || 0,
     upvotedBy: entry.upvoted_by || [],
   });
+  const [editingCommentId, setEditingCommentId] = useState("");
+  const [commentDraft, setCommentDraft] = useState("");
 
   useEffect(() => {
     setLocalPraise({
@@ -42,6 +45,7 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, featured = fa
   const plainBody = getRichTextPlainText(entry.body);
   const preview = getReliquaryPreview(plainBody);
   const shouldShowPreview = !isExpanded && !entry.image_url && preview.text;
+  const canEditEntry = canEditCommunityRecord(user, entry);
 
   const handlePraise = async () => {
     const previousPraise = localPraise;
@@ -113,6 +117,24 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, featured = fa
     await communityClient.entities.ReliquaryEntry.delete(entry.id);
     onRefresh();
   };
+
+  const startCommentEdit = (comment) => {
+    setEditingCommentId(comment.id);
+    setCommentDraft(comment.message || "");
+  };
+
+  const handleSaveComment = async (comment) => {
+    const message = commentDraft.trim();
+    if (!message) return;
+    await communityClient.entities.ReliquaryComment.update(comment.id, {
+      message,
+      edited_at: new Date().toISOString(),
+    });
+    setEditingCommentId("");
+    setCommentDraft("");
+    loadComments();
+  };
+
   const publishedDate = entry.created_date ? format(new Date(entry.created_date), "MMM d, yyyy") : "Undated";
 
   return (
@@ -132,24 +154,28 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, featured = fa
           <h2 className={`font-heading font-bold text-foreground ${featured ? "text-2xl md:text-3xl" : "text-xl"}`}>{entry.title}</h2>
           {entry.subtitle && <p className="mt-1 text-sm text-muted-foreground">{entry.subtitle}</p>}
         </div>
-        {isAdmin && (
+        {(canEditEntry || isAdmin) && (
           <div className="flex shrink-0 items-center gap-1">
-            <button
-              onClick={() => onEdit?.(entry)}
-              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              title="Edit post"
-              type="button"
-            >
-              <Edit3 className="h-4 w-4" />
-            </button>
-            <button
-              onClick={handleDelete}
-              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-destructive"
-              title="Delete post"
-              type="button"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+            {canEditEntry && (
+              <button
+                onClick={() => onEdit?.(entry)}
+                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                title="Edit post"
+                type="button"
+              >
+                <Edit3 className="h-4 w-4" />
+              </button>
+            )}
+            {isAdmin && (
+              <button
+                onClick={handleDelete}
+                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-destructive"
+                title="Delete post"
+                type="button"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -230,19 +256,57 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, featured = fa
           ) : comments.length === 0 ? (
             <p className="py-2 text-center text-xs text-muted-foreground">No comments yet. Leave the first echo.</p>
           ) : (
-            comments.map((comment) => (
+            comments.map((comment) => {
+              const canEditComment = canEditCommunityRecord(user, comment);
+              const isEditing = editingCommentId === comment.id;
+              return (
               <div key={comment.id} className="flex gap-2">
                 <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold text-primary">
                   {(comment.author_name || "?")[0].toUpperCase()}
                 </div>
                 <div className="flex-1 rounded-lg bg-secondary/50 px-3 py-2">
-                  <span className="text-xs font-semibold text-foreground">{comment.author_name || "Guest"} </span>
-                  <RichTextContent className="inline text-xs text-muted-foreground" inline>
-                    {comment.message}
-                  </RichTextContent>
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <span className="text-xs font-semibold text-foreground">{comment.author_name || "Guest"} </span>
+                      {isEditing ? (
+                        <input
+                          value={commentDraft}
+                          onChange={(event) => setCommentDraft(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") handleSaveComment(comment);
+                            if (event.key === "Escape") setEditingCommentId("");
+                          }}
+                          className="mt-1 w-full rounded-md border border-border bg-background/70 px-2 py-1 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
+                        />
+                      ) : (
+                        <RichTextContent className="inline text-xs text-muted-foreground" inline>
+                          {comment.message}
+                        </RichTextContent>
+                      )}
+                    </div>
+                    {canEditComment && (
+                      <div className="flex shrink-0 items-center gap-1">
+                        {isEditing ? (
+                          <>
+                            <button type="button" className="rounded p-1 text-primary hover:bg-primary/10" onClick={() => handleSaveComment(comment)} aria-label="Save comment">
+                              <Check className="h-3 w-3" />
+                            </button>
+                            <button type="button" className="rounded p-1 text-muted-foreground hover:bg-secondary" onClick={() => setEditingCommentId("")} aria-label="Cancel edit">
+                              <X className="h-3 w-3" />
+                            </button>
+                          </>
+                        ) : (
+                          <button type="button" className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground" onClick={() => startCommentEdit(comment)} aria-label="Edit comment">
+                            <Edit3 className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            ))
+              );
+            })
           )}
 
           {user ? (

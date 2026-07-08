@@ -19,7 +19,7 @@ export const supabase = isSupabaseConfigured
 const UPLOAD_BUCKET = import.meta.env.VITE_SUPABASE_UPLOAD_BUCKET || "community-uploads";
 const DEFAULT_AUTH_REDIRECT_PATH = "/settings";
 export const LOGIN_EVENT_NAME = "foxfam:open-login";
-const PUBLIC_ROW_SELECT = "id,data,created_at,updated_at";
+const PUBLIC_ROW_SELECT = "id,user_id,data,created_at,updated_at";
 const PUBLIC_PROFILE_SELECT =
   "id,role,display_name,avatar_url,accent_color,notification_preferences,onboarded,created_at,updated_at";
 const AUTO_PROFILE_NAMES = new Set(["guest", "guest fox", "foxfam member"]);
@@ -42,6 +42,7 @@ const ENTITY_TABLES = {
   ReliquaryEntry: "reliquary_entries",
   ScuffoxUpdate: "scuffox_updates",
   ShiftPlannerAssignment: "shift_planner_assignments",
+  StaffBrainDump: "staff_brain_dumps",
   Medication: "medications",
   MedDose: "medication_doses",
   ModShift: "mod_shifts",
@@ -102,6 +103,7 @@ function normalizeRow(row) {
   if (!row) return null;
   return {
     id: row.id,
+    user_id: row.user_id || "",
     created_date: row.created_at,
     updated_date: row.updated_at,
     ...(row.data || {}),

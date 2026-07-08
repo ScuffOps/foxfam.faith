@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronUp, MessageCircle, Send, Sparkles } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Edit3, MessageCircle, Send, Sparkles, X } from "lucide-react";
 import { communityClient } from "@/api/communityClient";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import RichTextContent from "@/components/RichTextContent";
 import { getCommunityActorKey } from "@/lib/communityActor";
+import { canEditCommunityRecord } from "@/lib/editPermissions";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 
 function sortOldest(items = []) {
@@ -121,6 +122,24 @@ export default function CommunityComments({ post, user, onRefresh }) {
     }
   }
 
+  async function updateComment(comment, message) {
+    const cleaned = String(message || "").trim();
+    if (!cleaned) return;
+    try {
+      const updated = await communityClient.entities.CommunityPostComment.update(comment.id, {
+        message: cleaned,
+        edited_at: new Date().toISOString(),
+      });
+      setComments((current) => current.map((item) => item.id === comment.id ? updated : item));
+    } catch {
+      toast({
+        title: "Comment could not be edited",
+        description: "Refresh and try again.",
+        variant: "destructive",
+      });
+    }
+  }
+
   return (
     <div className="mt-2">
       <button
@@ -150,12 +169,14 @@ export default function CommunityComments({ post, user, onRefresh }) {
                 comment={comment}
                 onReply={() => setReplyParentId(replyParentId === comment.id ? "" : comment.id)}
                 onSubmitReply={() => createComment(comment.id)}
+                onUpdateComment={updateComment}
                 onToggleUpvoteComment={toggleUpvote}
                 replyOpen={replyParentId === comment.id}
                 replyText={replyText}
                 setReplyText={setReplyText}
                 submitting={submitting}
                 upvoting={upvotingId === comment.id}
+                user={user}
               />
             ))
           )}
@@ -183,14 +204,19 @@ function CommentNode({
   comment,
   onReply,
   onSubmitReply,
+  onUpdateComment,
   onToggleUpvoteComment,
   replyOpen,
   replyText,
   setReplyText,
   submitting,
   upvoting,
+  user,
 }) {
   const hasUpvoted = (comment.upvoted_by || []).includes(actorKey);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(comment.message || "");
+  const canEdit = canEditCommunityRecord(user, comment);
 
   return (
     <div className="space-y-2">
@@ -200,9 +226,25 @@ function CommentNode({
         </div>
         <div className="min-w-0 flex-1 rounded-lg bg-secondary/50 px-3 py-2">
           <span className="text-xs font-semibold text-foreground">{comment.author_name || "Guest"} </span>
-          <RichTextContent className="inline text-xs text-muted-foreground" inline>
-            {comment.message}
-          </RichTextContent>
+          {editing ? (
+            <div className="mt-1 flex gap-2">
+              <input
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                className="min-w-0 flex-1 rounded-md border border-border bg-background/60 px-2 py-1 text-xs"
+              />
+              <button type="button" onClick={() => { onUpdateComment(comment, draft); setEditing(false); }} className="text-primary" aria-label="Save comment">
+                <Check className="h-3.5 w-3.5" />
+              </button>
+              <button type="button" onClick={() => { setDraft(comment.message || ""); setEditing(false); }} className="text-muted-foreground" aria-label="Cancel edit">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <RichTextContent className="inline text-xs text-muted-foreground" inline>
+              {comment.message}
+            </RichTextContent>
+          )}
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <button type="button" onClick={onReply} className="text-[11px] font-medium text-muted-foreground hover:text-foreground">
               Reply
@@ -218,6 +260,12 @@ function CommentNode({
               <Sparkles className="h-3 w-3" />
               {comment.upvotes || 0}
             </button>
+            {canEdit && !editing && (
+              <button type="button" onClick={() => setEditing(true)} className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground">
+                <Edit3 className="h-3 w-3" />
+                Edit
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -246,12 +294,14 @@ function CommentNode({
               comment={reply}
               onReply={onReply}
               onSubmitReply={onSubmitReply}
+              onUpdateComment={onUpdateComment}
               onToggleUpvoteComment={onToggleUpvoteComment}
               replyOpen={false}
               replyText=""
               setReplyText={() => {}}
               submitting={submitting}
               upvoting={false}
+              user={user}
             />
           ))}
         </div>

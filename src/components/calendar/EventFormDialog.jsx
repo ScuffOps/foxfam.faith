@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { communityClient } from "@/api/communityClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import DateTimeFields from "@/components/ui/date-time-fields";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,13 +13,21 @@ import { ImagePlus, Loader2, X } from "lucide-react";
 import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 import { useToast } from "@/components/ui/use-toast";
 
+function toLocalDateTimeInputValue(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
 function toEventForm(event) {
+  const nowValue = toLocalDateTimeInputValue();
   return {
     title: event?.title || "",
     description: event?.description || "",
     category: event?.category || "personal",
-    start_date: event?.start_date ? event.start_date.slice(0, 16) : "",
-    end_date: event?.end_date ? event.end_date.slice(0, 16) : "",
+    start_date: event?.start_date ? toLocalDateTimeInputValue(event.start_date) : nowValue,
+    end_date: event?.end_date ? toLocalDateTimeInputValue(event.end_date) : "",
     all_day: event?.all_day || false,
     location: event?.location || "",
     image_url: event?.image_url || "",
@@ -27,11 +36,12 @@ function toEventForm(event) {
   };
 }
 
-function parseEventDateTime(value) {
+function parseEventDateTime(value, options = {}) {
   const cleanedValue = String(value || "").trim();
   if (!cleanedValue) return "";
+  const dateOnlyTime = options.dateOnlyTime || "12:00";
   const normalizedValue = /^\d{4}-\d{2}-\d{2}$/.test(cleanedValue)
-    ? `${cleanedValue}T12:00`
+    ? `${cleanedValue}T${dateOnlyTime}`
     : cleanedValue;
   const parsed = new Date(normalizedValue);
   return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString();
@@ -80,7 +90,7 @@ export default function EventFormDialog({ open, onOpenChange, event, onSaved }) 
         ...form,
         image_url: imageUrl,
         start_date: parseEventDateTime(form.start_date),
-        end_date: form.end_date ? parseEventDateTime(form.end_date) : parseEventDateTime(form.start_date),
+        end_date: form.end_date ? parseEventDateTime(form.end_date, { dateOnlyTime: "00:00" }) : parseEventDateTime(form.start_date),
       };
       if (!data.start_date) throw new Error("Use a valid start date.");
       const savedEvent = isEdit
@@ -141,25 +151,45 @@ export default function EventFormDialog({ open, onOpenChange, event, onSaved }) 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label>Start {form.all_day ? "Date" : "Date & Time"} *</Label>
-              <Input
-                type={form.all_day ? "date" : "text"}
-                inputMode="text"
-                value={form.all_day ? form.start_date.slice(0, 10) : form.start_date}
-                onChange={(e) => update("start_date", e.target.value)}
-                placeholder={form.all_day ? "YYYY-MM-DD" : "YYYY-MM-DD or YYYY-MM-DD 12:00"}
-                className="mt-1.5 bg-secondary"
-              />
+              {form.all_day ? (
+                <Input
+                  type="date"
+                  value={form.start_date.slice(0, 10)}
+                  onChange={(e) => update("start_date", e.target.value)}
+                  onFocus={() => {
+                    if (!form.start_date) update("start_date", toLocalDateTimeInputValue());
+                  }}
+                  className="mt-1.5 bg-secondary"
+                />
+              ) : (
+                <DateTimeFields
+                  className="mt-1.5"
+                  value={form.start_date}
+                  onChangeValue={(value) => update("start_date", value)}
+                />
+              )}
             </div>
             <div>
               <Label>End {form.all_day ? "Date" : "Date & Time"}</Label>
-              <Input
-                type={form.all_day ? "date" : "text"}
-                inputMode="text"
-                value={form.all_day ? (form.end_date || "").slice(0, 10) : form.end_date}
-                onChange={(e) => update("end_date", e.target.value)}
-                placeholder={form.all_day ? "YYYY-MM-DD" : "YYYY-MM-DD or YYYY-MM-DD 12:00"}
-                className="mt-1.5 bg-secondary"
-              />
+              {form.all_day ? (
+                <Input
+                  type="date"
+                  value={(form.end_date || "").slice(0, 10)}
+                  onChange={(e) => update("end_date", e.target.value)}
+                  onFocus={() => {
+                    if (!form.end_date) update("end_date", form.start_date || toLocalDateTimeInputValue());
+                  }}
+                  className="mt-1.5 bg-secondary"
+                />
+              ) : (
+                <DateTimeFields
+                  allowDateOnly
+                  className="mt-1.5"
+                  defaultTime="00:00"
+                  value={form.end_date}
+                  onChangeValue={(value) => update("end_date", value)}
+                />
+              )}
             </div>
           </div>
           <div>

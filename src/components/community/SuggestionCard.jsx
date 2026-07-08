@@ -1,7 +1,12 @@
+import { useState } from "react";
 import { communityClient } from "@/api/communityClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2 } from "lucide-react";
+import { Edit3, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import GlassCard from "../GlassCard";
+import { canEditCommunityRecord } from "@/lib/editPermissions";
 
 const CATEGORY_META = {
   bug_report:          { label: "Bug Report",          icon: "🐛", color: "text-destructive bg-destructive/15" },
@@ -25,9 +30,28 @@ const STATUS_META = {
 
 const STATUS_OPTIONS = Object.entries(STATUS_META).map(([value, { label }]) => ({ value, label }));
 
-export default function SuggestionCard({ suggestion, isAdmin, onRefresh }) {
+export default function SuggestionCard({ suggestion, isAdmin, user, onRefresh }) {
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    title: suggestion.title || "",
+    description: suggestion.description || "",
+    category: suggestion.category || "other_feedback",
+  });
   const cat = CATEGORY_META[suggestion.category] || CATEGORY_META.other_feedback;
   const stat = STATUS_META[suggestion.status] || STATUS_META.pending_review;
+  const canEdit = canEditCommunityRecord(user, suggestion);
+
+  const handleSaveEdit = async () => {
+    if (!editForm.title.trim()) return;
+    await communityClient.entities.Suggestion.update(suggestion.id, {
+      title: editForm.title.trim(),
+      description: editForm.description,
+      category: editForm.category,
+      edited_at: new Date().toISOString(),
+    });
+    setEditing(false);
+    onRefresh();
+  };
 
   const handleStatusChange = async (newStatus) => {
     await communityClient.entities.Suggestion.update(suggestion.id, { status: newStatus });
@@ -51,15 +75,45 @@ export default function SuggestionCard({ suggestion, isAdmin, onRefresh }) {
             {stat.label}
           </span>
         </div>
-        {isAdmin && (
-          <button onClick={handleDelete} className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+        {(canEdit || isAdmin) && (
+          <div className="flex shrink-0 gap-1">
+            {canEdit && !editing && (
+              <button onClick={() => setEditing(true)} className="text-muted-foreground transition-colors hover:text-foreground" aria-label="Edit suggestion">
+                <Edit3 className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {isAdmin && (
+              <button onClick={handleDelete} className="text-muted-foreground hover:text-destructive transition-colors" aria-label="Delete suggestion">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
         )}
       </div>
 
-      <h4 className="font-medium leading-snug">{suggestion.title}</h4>
-      <p className="text-sm text-muted-foreground leading-relaxed">{suggestion.description}</p>
+      {editing ? (
+        <div className="space-y-2">
+          <Input value={editForm.title} onChange={(event) => setEditForm((current) => ({ ...current, title: event.target.value }))} className="bg-secondary/60" />
+          <Select value={editForm.category} onValueChange={(value) => setEditForm((current) => ({ ...current, category: value }))}>
+            <SelectTrigger className="bg-secondary/60"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {Object.entries(CATEGORY_META).map(([value, meta]) => (
+                <SelectItem key={value} value={value}>{meta.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Textarea value={editForm.description} onChange={(event) => setEditForm((current) => ({ ...current, description: event.target.value }))} className="min-h-24 bg-secondary/60 text-sm" />
+          <div className="flex justify-end gap-2">
+            <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setEditForm({ title: suggestion.title || "", description: suggestion.description || "", category: suggestion.category || "other_feedback" }); }}>Cancel</Button>
+            <Button size="sm" onClick={handleSaveEdit} disabled={!editForm.title.trim()}>Save</Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <h4 className="font-medium leading-snug">{suggestion.title}</h4>
+          <p className="text-sm text-muted-foreground leading-relaxed">{suggestion.description}</p>
+        </>
+      )}
 
       <div className="flex items-center justify-between gap-2 pt-1">
         <span className="text-xs text-muted-foreground">

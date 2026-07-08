@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { communityClient } from "@/api/communityClient";
-import { ArchiveRestore, BarChart3, CalendarPlus, Check, ChevronDown, ChevronUp, Lock, X } from "lucide-react";
+import { ArchiveRestore, BarChart3, CalendarPlus, Check, ChevronDown, ChevronUp, Edit3, Lock, X } from "lucide-react";
 import { awardPoints } from "@/hooks/usePoints";
 import { useLevelUpToast } from "@/hooks/useLevelUpToast";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import StatusBadge from "../StatusBadge";
 import GlassCard from "../GlassCard";
 import RichTextContent from "../RichTextContent";
 import { getCommunityActorKey } from "@/lib/communityActor";
+import { canEditCommunityRecord } from "@/lib/editPermissions";
 import CommunityComments from "@/components/community/CommunityComments";
 
 const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
@@ -24,12 +27,31 @@ export default function PollCard({ post, isAdmin, user, onRefresh }) {
   const { toast } = useToast();
   const [voting, setVoting] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    title: post.title || "",
+    description: post.description || "",
+    options: (post.poll_options || []).map((option) => ({ ...option })),
+  });
   const actorKey = getCommunityActorKey(user);
   const options = post.poll_options || [];
   const totalVotes = options.reduce((sum, o) => sum + (o.votes || 0), 0);
   const userVotedOption = options.find((o) => (o.voted_by || []).includes(actorKey));
   const leadOption = [...options].sort((a, b) => (b.votes || 0) - (a.votes || 0))[0];
   const accent = getPollAccent(user);
+  const canEdit = canEditCommunityRecord(user, post);
+
+  const handleSaveEdit = async () => {
+    if (!editForm.title.trim()) return;
+    await communityClient.entities.CommunityPost.update(post.id, {
+      title: editForm.title.trim(),
+      description: editForm.description,
+      poll_options: editForm.options.map((option) => ({ ...option, text: String(option.text || "").trim() })).filter((option) => option.text),
+      edited_at: new Date().toISOString(),
+    });
+    setEditing(false);
+    onRefresh();
+  };
 
   const handleVote = async (optionId) => {
     if (voting || userVotedOption) return;
@@ -90,20 +112,53 @@ export default function PollCard({ post, isAdmin, user, onRefresh }) {
           <div className="flex h-6 w-6 items-center justify-center rounded-md bg-chart-2/15">
             <BarChart3 className="h-3.5 w-3.5 text-chart-2" />
           </div>
-          <h4 className="font-medium">{post.title}</h4>
+          {editing ? (
+            <Input value={editForm.title} onChange={(event) => setEditForm((current) => ({ ...current, title: event.target.value }))} className="h-8 bg-secondary/60" />
+          ) : (
+            <h4 className="font-medium">{post.title}</h4>
+          )}
           <StatusBadge status={post.status} />
         </div>
-        <button
-          type="button"
-          onClick={() => setExpanded((value) => !value)}
-          className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          aria-expanded={expanded}
-        >
-          {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          {expanded ? "Collapse" : "Open"}
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          {canEdit && !editing && (
+            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditing(true)} aria-label="Edit poll">
+              <Edit3 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          <button
+            type="button"
+            onClick={() => setExpanded((value) => !value)}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            aria-expanded={expanded}
+          >
+            {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            {expanded ? "Collapse" : "Open"}
+          </button>
+        </div>
       </div>
-      {post.description && (
+      {editing ? (
+        <div className="mt-3 space-y-3 rounded-lg border border-border bg-secondary/20 p-3">
+          <Textarea value={editForm.description} onChange={(event) => setEditForm((current) => ({ ...current, description: event.target.value }))} className="min-h-20 bg-secondary/60 text-sm" />
+          <div className="space-y-2">
+            {editForm.options.map((option, index) => (
+              <Input
+                key={option.id || index}
+                value={option.text}
+                onChange={(event) => {
+                  const nextOptions = [...editForm.options];
+                  nextOptions[index] = { ...option, text: event.target.value };
+                  setEditForm((current) => ({ ...current, options: nextOptions }));
+                }}
+                className="bg-secondary/60"
+              />
+            ))}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setEditForm({ title: post.title || "", description: post.description || "", options: (post.poll_options || []).map((option) => ({ ...option })) }); }}>Cancel</Button>
+            <Button size="sm" onClick={handleSaveEdit} disabled={!editForm.title.trim()}>Save</Button>
+          </div>
+        </div>
+      ) : post.description && (
         <RichTextContent className="mt-2 text-sm text-muted-foreground" inline={false}>
           {post.description}
         </RichTextContent>

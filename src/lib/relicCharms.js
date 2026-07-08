@@ -68,6 +68,15 @@ export function getRelicTheme(themeId) {
   return RELIC_THEMES.find((item) => item.id === themeId) || RELIC_THEMES[0];
 }
 
+export function calculateRelicFavorCost(relic = {}) {
+  const normalized = normalizeRelic(relic);
+  const baseCost = getRelicBase(normalized.base_type).cost || 0;
+  const effectCost = RELIC_EFFECTS
+    .filter((effect) => normalized.effects.includes(effect.id))
+    .reduce((sum, effect) => sum + (effect.cost || 0), 0);
+  return baseCost + effectCost;
+}
+
 export function getCharmDefinition(charmKey) {
   return RELIC_CHARM_CATALOG.find((item) => item.key === charmKey) || RELIC_CHARM_CATALOG[0];
 }

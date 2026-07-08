@@ -3,9 +3,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import {
   Activity,
+  Archive,
   BookOpen,
   Bell,
   Bot,
+  Brain,
   CalendarClock,
   ChevronDown,
   CheckCircle2,
@@ -28,6 +30,7 @@ import {
 import { communityClient } from "@/api/communityClient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import DateTimeFields from "@/components/ui/date-time-fields";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -39,6 +42,8 @@ import { DEFAULT_COMMAND_REFERENCE, STAFF_HANDBOOK_SECTIONS } from "@/lib/staffH
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import {
   COMMAND_SOURCE_LABELS,
+  BRAIN_DUMP_CATEGORY_LABELS,
+  BRAIN_DUMP_STATUS_LABELS,
   SCUFFOX_UPDATE_STATUS_LABELS,
   SCUFFOX_UPDATE_TONE_LABELS,
   SHIFT_STATUS_LABELS,
@@ -52,6 +57,7 @@ import {
   getValidationMessage,
   isOpenTask,
   parseBotCommandForm,
+  parseStaffBrainDumpForm,
   parseMedicationDoseForm,
   parseMedicationForm,
   parseModShiftForm,
@@ -65,6 +71,7 @@ import {
 
 const TABS = [
   { key: "dashboard", label: "Dashboard", icon: Activity },
+  { key: "braindump", label: "Brain Dump", icon: Brain },
   { key: "handbook", label: "Handbook", icon: BookOpen },
   { key: "updates", label: "Updates", icon: Bell },
   { key: "commands", label: "Commands", icon: Bot },
@@ -86,6 +93,7 @@ const STAFF_HANDY_LINKS = [
 ];
 
 const STAFF_MODULE_SHORTCUTS = [
+  { label: "Brain Dump", description: "Loose ideas, risks, links, and task seeds before they evaporate.", tab: "braindump", icon: Brain },
   { label: "Team", description: "Display names and staff roster sanity checks.", tab: "members", icon: UserCog },
   { label: "Availability", description: "Who can be summoned when stream time becomes a rumor.", tab: "schedule", icon: CalendarClock },
   { label: "Schedule", description: "Coverage, shifts, and on-duty handoffs.", tab: "schedule", icon: CalendarClock },
@@ -137,6 +145,13 @@ const TASK_FILTER_DEFAULTS = {
   priority: "all",
   category: "all",
   assignee: "all",
+};
+
+const BRAIN_DUMP_FILTER_DEFAULTS = {
+  query: "",
+  status: "active",
+  category: "all",
+  priority: "all",
 };
 
 const TASK_CATEGORY_OPTIONS = [
@@ -246,6 +261,17 @@ const DEFAULT_COMMAND_FORM = {
 const DEFAULT_MEMBER_FORM = {
   profile_id: "",
   display_name: "",
+};
+
+const DEFAULT_BRAIN_DUMP_FORM = {
+  title: "",
+  body: "",
+  category: "idea",
+  priority: "normal",
+  status: "fresh",
+  assigned_to: "",
+  tags: "",
+  source_url: "",
 };
 
 function formatDateTime(value) {
@@ -386,6 +412,34 @@ function getTaskFilterOptions(tasks) {
   };
 }
 
+function filterBrainDumps(items, filters) {
+  const query = filters.query.trim().toLowerCase();
+  return [...items]
+    .filter((item) => {
+      if (filters.status === "active" && item.status === "archived") return false;
+      if (filters.status !== "all" && filters.status !== "active" && item.status !== filters.status) return false;
+      if (filters.category !== "all" && item.category !== filters.category) return false;
+      if (filters.priority !== "all" && item.priority !== filters.priority) return false;
+      if (!query) return true;
+      return [
+        item.title,
+        item.body,
+        item.tags,
+        item.assigned_to,
+        item.captured_by_name,
+        BRAIN_DUMP_CATEGORY_LABELS[item.category],
+        BRAIN_DUMP_STATUS_LABELS[item.status],
+      ].filter(Boolean).join(" ").toLowerCase().includes(query);
+    })
+    .sort((a, b) => {
+      const statusDelta = (a.status === "fresh" ? 0 : 1) - (b.status === "fresh" ? 0 : 1);
+      if (statusDelta !== 0) return statusDelta;
+      const priorityDelta = getTaskPriorityRank(a.priority) - getTaskPriorityRank(b.priority);
+      if (priorityDelta !== 0) return priorityDelta;
+      return new Date(b.created_date || 0) - new Date(a.created_date || 0);
+    });
+}
+
 function playTaskCompleteChime() {
   if (typeof window === "undefined") return;
   const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -422,6 +476,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [commandSearch, setCommandSearch] = useState("");
+  const [brainDumpFilters, setBrainDumpFilters] = useState(BRAIN_DUMP_FILTER_DEFAULTS);
   const [handbookSearch, setHandbookSearch] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
   const [taskView, setTaskView] = useState("list");
@@ -441,6 +496,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
     timeEntries: [],
     commands: [],
     updates: [],
+    brainDumps: [],
     users: [],
   });
   const [streamForm, setStreamForm] = useState(DEFAULT_STREAM_FORM);
@@ -455,6 +511,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
   const [commandForm, setCommandForm] = useState(DEFAULT_COMMAND_FORM);
   const [updateFormState, setUpdateFormState] = useState(DEFAULT_UPDATE_FORM);
   const [memberForm, setMemberForm] = useState(DEFAULT_MEMBER_FORM);
+  const [brainDumpForm, setBrainDumpForm] = useState(DEFAULT_BRAIN_DUMP_FORM);
   const [selectedAvailabilityProfile, setSelectedAvailabilityProfile] = useState("");
   const [availabilityDraft, setAvailabilityDraft] = useState({});
   const [plannerAssignments, setPlannerAssignments] = useState([]);
@@ -481,12 +538,13 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
           timeEntries: [],
           commands: [],
           updates: [],
+          brainDumps: [],
           users: [],
         });
         return;
       }
 
-      const [streamLogs, medications, medDoses, tasks, staffAvailability, shiftAssignments, shifts, timeEntries, commands, updates, users] = await Promise.all([
+      const [streamLogs, medications, medDoses, tasks, staffAvailability, shiftAssignments, shifts, timeEntries, commands, updates, brainDumps, users] = await Promise.all([
         communityClient.entities.StreamLog.list("-created_date", 100),
         communityClient.entities.Medication.list("-created_date", 100),
         communityClient.entities.MedDose.list("-created_date", 100),
@@ -497,6 +555,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
         communityClient.entities.StaffTimeEntry.list("-created_date", 200).catch(() => []),
         communityClient.entities.BotCommand.list("-created_date", 500).catch(() => []),
         communityClient.entities.ScuffoxUpdate.list("-created_date", 200).catch(() => []),
+        communityClient.entities.StaffBrainDump.list("-created_date", 300).catch(() => []),
         communityClient.entities.User.list().catch(() => []),
       ]);
       setData({
@@ -510,6 +569,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
         timeEntries: sortNewest(timeEntries),
         commands: sortNewest(commands),
         updates: sortNewest(updates),
+        brainDumps: sortNewest(brainDumps),
         users,
       });
     } catch (error) {
@@ -540,6 +600,10 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
   const filteredOpenTasks = useMemo(() => filteredTasks.filter(isOpenTask), [filteredTasks]);
   const filteredCompletedTasks = useMemo(() => filteredTasks.filter((task) => task.status === "done"), [filteredTasks]);
   const taskFilterOptions = useMemo(() => getTaskFilterOptions(data.tasks), [data.tasks]);
+  const filteredBrainDumps = useMemo(
+    () => filterBrainDumps(data.brainDumps, brainDumpFilters),
+    [brainDumpFilters, data.brainDumps],
+  );
   const filteredHandbookSections = useMemo(() => {
     const query = handbookSearch.trim().toLowerCase();
     if (!query) return STAFF_HANDBOOK_SECTIONS;
@@ -936,6 +1000,73 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
     }
   }
 
+  async function handleCreateBrainDump(event) {
+    event.preventDefault();
+    setSaving("braindump");
+    try {
+      await communityClient.entities.StaffBrainDump.create({
+        ...parseStaffBrainDumpForm(brainDumpForm),
+        captured_by_name: staffName,
+      });
+      setBrainDumpForm(DEFAULT_BRAIN_DUMP_FORM);
+      await loadData();
+      toast({ title: "Brain dump captured", description: "Filed where staff can actually find it later." });
+    } catch (error) {
+      toast({ title: "Brain dump needs attention", description: getValidationMessage(error), variant: "destructive" });
+    } finally {
+      setSaving("");
+    }
+  }
+
+  async function updateBrainDumpStatus(item, status) {
+    setSaving(item.id);
+    try {
+      await communityClient.entities.StaffBrainDump.update(item.id, { status });
+      await loadData();
+    } catch (error) {
+      toast({ title: "Brain dump update failed", description: getValidationMessage(error), variant: "destructive" });
+    } finally {
+      setSaving("");
+    }
+  }
+
+  async function deleteBrainDump(item) {
+    setSaving(item.id);
+    try {
+      await communityClient.entities.StaffBrainDump.delete(item.id);
+      await loadData();
+      toast({ title: "Brain dump removed" });
+    } catch (error) {
+      toast({ title: "Brain dump delete failed", description: getValidationMessage(error), variant: "destructive" });
+    } finally {
+      setSaving("");
+    }
+  }
+
+  async function convertBrainDumpToTask(item) {
+    setSaving(item.id);
+    try {
+      await communityClient.entities.StaffTask.create({
+        title: item.title,
+        description: [item.body, item.source_url ? `Source: ${item.source_url}` : "", item.tags ? `Tags: ${item.tags}` : ""].filter(Boolean).join("\n\n"),
+        category: item.category === "task" ? "" : item.category,
+        assigned_to: item.assigned_to || "",
+        priority: item.priority || "normal",
+        status: "in_queue",
+        link_url: item.source_url || "",
+        created_by_name: staffName,
+        source_brain_dump_id: item.id,
+      });
+      await communityClient.entities.StaffBrainDump.update(item.id, { status: "converted" });
+      await loadData();
+      toast({ title: "Task created", description: "Brain dump promoted into the tasklist." });
+    } catch (error) {
+      toast({ title: "Conversion failed", description: getValidationMessage(error), variant: "destructive" });
+    } finally {
+      setSaving("");
+    }
+  }
+
   async function updateScuffoxUpdateStatus(update, status) {
     setSaving(update.id);
     try {
@@ -1242,6 +1373,52 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
             />
           )}
 
+          {activeTab === "braindump" && (
+            <div className="grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
+              <GlassCard>
+                <SectionHeader icon={Brain} title="Staff Brain Dump" subtitle="Fast capture for loose ideas, risks, resources, and task seeds. No hydration nagging. No DM reminders." />
+                <form className="mt-5 space-y-3" onSubmit={handleCreateBrainDump}>
+                  <Input value={brainDumpForm.title} onChange={(event) => updateForm(setBrainDumpForm, "title", event.target.value)} placeholder="Tiny title for the thought" />
+                  <Textarea value={brainDumpForm.body} onChange={(event) => updateForm(setBrainDumpForm, "body", event.target.value)} placeholder="Dump the messy context here. Links, fragments, decisions, suspicious vibes..." rows={7} />
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Select value={brainDumpForm.category} onValueChange={(value) => updateForm(setBrainDumpForm, "category", value)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(BRAIN_DUMP_CATEGORY_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Select value={brainDumpForm.priority} onValueChange={(value) => updateForm(setBrainDumpForm, "priority", value)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {TASK_PRIORITY_ORDER.map((value) => <SelectItem key={value} value={value}>{TASK_PRIORITY_LABELS[value]}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Input value={brainDumpForm.assigned_to} onChange={(event) => updateForm(setBrainDumpForm, "assigned_to", event.target.value)} placeholder="Owner / follow-up person" />
+                    <Input value={brainDumpForm.tags} onChange={(event) => updateForm(setBrainDumpForm, "tags", event.target.value)} placeholder="Tags, comma separated" />
+                  </div>
+                  <Input value={brainDumpForm.source_url} onChange={(event) => updateForm(setBrainDumpForm, "source_url", event.target.value)} placeholder="Source URL, optional" />
+                  <Button type="submit" disabled={saving === "braindump"} className="w-full gap-2">
+                    <Plus className="h-4 w-4" />
+                    Capture Thought
+                  </Button>
+                </form>
+              </GlassCard>
+
+              <BrainDumpWorkspace
+                filters={brainDumpFilters}
+                items={filteredBrainDumps}
+                onConvert={convertBrainDumpToTask}
+                onDelete={deleteBrainDump}
+                onFiltersChange={setBrainDumpFilters}
+                onStatusChange={updateBrainDumpStatus}
+                saving={saving}
+                totalCount={data.brainDumps.length}
+              />
+            </div>
+          )}
+
           {activeTab === "handbook" && (
             <div className="space-y-5">
               <div className="grid gap-4 md:grid-cols-3">
@@ -1302,7 +1479,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
                     <DateTimeInput value={updateFormState.starts_at} onChange={(event) => updateForm(setUpdateFormState, "starts_at", event.target.value)} placeholder="Starts, e.g. 2026-07-01 or 2026-07-01 12:00" />
-                    <DateTimeInput value={updateFormState.expires_at} onChange={(event) => updateForm(setUpdateFormState, "expires_at", event.target.value)} placeholder="Expires, optional" />
+                    <DateTimeInput value={updateFormState.expires_at} onChange={(event) => updateForm(setUpdateFormState, "expires_at", event.target.value)} allowDateOnly defaultTime="00:00" />
                   </div>
                   <Button type="submit" disabled={saving === "update"} className="w-full gap-2">
                     <Plus className="h-4 w-4" />
@@ -1447,7 +1624,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
                     <DateTimeInput value={shiftForm.starts_at} onChange={(event) => updateForm(setShiftForm, "starts_at", event.target.value)} placeholder="Shift starts, e.g. 2026-07-01" />
-                    <DateTimeInput value={shiftForm.ends_at} onChange={(event) => updateForm(setShiftForm, "ends_at", event.target.value)} placeholder="Shift ends, e.g. 2026-07-01 16:00" />
+                    <DateTimeInput value={shiftForm.ends_at} onChange={(event) => updateForm(setShiftForm, "ends_at", event.target.value)} allowDateOnly defaultTime="00:00" />
                   </div>
                   <Select value={shiftForm.status} onValueChange={(value) => updateForm(setShiftForm, "status", value)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1566,7 +1743,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                     <Input value={timeForm.staff_name} onChange={(event) => updateForm(setTimeForm, "staff_name", event.target.value)} placeholder="Staff name" />
                     <div className="grid gap-3 md:grid-cols-2">
                       <DateTimeInput value={timeForm.started_at} onChange={(event) => updateForm(setTimeForm, "started_at", event.target.value)} placeholder="Started, e.g. 2026-07-01" />
-                      <DateTimeInput value={timeForm.ended_at} onChange={(event) => updateForm(setTimeForm, "ended_at", event.target.value)} placeholder="Ended, e.g. 2026-07-01 15:30" />
+                      <DateTimeInput value={timeForm.ended_at} onChange={(event) => updateForm(setTimeForm, "ended_at", event.target.value)} allowDateOnly defaultTime="00:00" />
                     </div>
                     <div className="grid gap-3 md:grid-cols-2">
                       <Input type="number" min="0" value={timeForm.break_minutes} onChange={(event) => updateForm(setTimeForm, "break_minutes", event.target.value)} placeholder="Break minutes" />
@@ -1746,7 +1923,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                     </Select>
                     <div className="grid gap-3 md:grid-cols-2">
                       <DateTimeInput value={doseForm.scheduled_time} onChange={(event) => updateForm(setDoseForm, "scheduled_time", event.target.value)} placeholder="Scheduled, e.g. 2026-07-01" />
-                      <DateTimeInput value={doseForm.taken_time} onChange={(event) => updateForm(setDoseForm, "taken_time", event.target.value)} placeholder="Taken, optional" />
+                      <DateTimeInput value={doseForm.taken_time} onChange={(event) => updateForm(setDoseForm, "taken_time", event.target.value)} allowDateOnly defaultTime="00:00" />
                     </div>
                     <Select value={doseForm.skipped ? "skipped" : "taken"} onValueChange={(value) => updateForm(setDoseForm, "skipped", value === "skipped")}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1819,7 +1996,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
                     <DateTimeInput value={taskForm.start_date} onChange={(event) => updateForm(setTaskForm, "start_date", event.target.value)} placeholder="Start date, optional" />
-                    <DateTimeInput value={taskForm.due_date} onChange={(event) => updateForm(setTaskForm, "due_date", event.target.value)} placeholder="Due date, e.g. 2026-07-01" />
+                    <DateTimeInput value={taskForm.due_date} onChange={(event) => updateForm(setTaskForm, "due_date", event.target.value)} allowDateOnly defaultTime="00:00" />
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
                     <Select value={taskForm.priority} onValueChange={(value) => updateForm(setTaskForm, "priority", value)}>
@@ -2488,14 +2665,14 @@ function SectionHeader({ icon: Icon, title, subtitle }) {
   );
 }
 
-function DateTimeInput({ className = "", placeholder = "YYYY-MM-DD or YYYY-MM-DD 12:00", ...props }) {
+function DateTimeInput({ allowDateOnly = false, className = "", defaultTime = "12:00", onChange, value }) {
   return (
-    <Input
-      {...props}
-      type="text"
-      inputMode="text"
-      placeholder={placeholder}
+    <DateTimeFields
+      allowDateOnly={allowDateOnly}
       className={className}
+      defaultTime={defaultTime}
+      onChangeValue={(nextValue) => onChange?.({ target: { value: nextValue } })}
+      value={value}
     />
   );
 }
@@ -2519,6 +2696,116 @@ function EmptyState({ title }) {
   return (
     <div className="rounded-lg border border-dashed border-border bg-secondary/20 px-4 py-8 text-center text-sm text-muted-foreground">
       {title}
+    </div>
+  );
+}
+
+function BrainDumpWorkspace({ filters, items, onConvert, onDelete, onFiltersChange, onStatusChange, saving, totalCount }) {
+  const hasFilters = Object.entries(filters).some(([key, value]) => BRAIN_DUMP_FILTER_DEFAULTS[key] !== value);
+  return (
+    <div className="space-y-4">
+      <GlassCard>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <SectionHeader icon={Brain} title="Brain Dump Board" subtitle="Filter loose thoughts before they become tasks, updates, or blessed evidence." />
+          <Badge variant="outline">{items.length} shown / {totalCount} total</Badge>
+        </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="relative md:col-span-2 xl:col-span-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              value={filters.query}
+              onChange={(event) => onFiltersChange((current) => ({ ...current, query: event.target.value }))}
+              placeholder="Search dumps..."
+            />
+          </div>
+          <Select value={filters.status} onValueChange={(value) => onFiltersChange((current) => ({ ...current, status: value }))}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="all">All statuses</SelectItem>
+              {Object.entries(BRAIN_DUMP_STATUS_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filters.category} onValueChange={(value) => onFiltersChange((current) => ({ ...current, category: value }))}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              {Object.entries(BRAIN_DUMP_CATEGORY_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filters.priority} onValueChange={(value) => onFiltersChange((current) => ({ ...current, priority: value }))}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All priorities</SelectItem>
+              {TASK_PRIORITY_ORDER.map((value) => <SelectItem key={value} value={value}>{TASK_PRIORITY_LABELS[value]}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        {hasFilters && (
+          <Button type="button" size="sm" variant="ghost" className="mt-3" onClick={() => onFiltersChange(BRAIN_DUMP_FILTER_DEFAULTS)}>
+            Reset filters
+          </Button>
+        )}
+      </GlassCard>
+
+      {items.length === 0 ? (
+        <EmptyState title="No brain dumps match that filter" />
+      ) : (
+        <div className="grid gap-3 xl:grid-cols-2">
+          {items.map((item) => (
+            <GlassCard key={item.id}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-heading text-base font-semibold">{item.title}</h3>
+                    <Badge variant="outline">{BRAIN_DUMP_CATEGORY_LABELS[item.category] || "Idea"}</Badge>
+                    <span className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${priorityTone(item.priority)}`}>
+                      {TASK_PRIORITY_LABELS[item.priority] || TASK_PRIORITY_LABELS.normal}
+                    </span>
+                    <Badge variant={item.status === "archived" ? "secondary" : "outline"}>{BRAIN_DUMP_STATUS_LABELS[item.status] || "Fresh"}</Badge>
+                  </div>
+                  <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{item.body}</p>
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    <span>by {item.captured_by_name || "Staff"}</span>
+                    {item.assigned_to && <span>owner: {item.assigned_to}</span>}
+                    {item.tags && <span>tags: {item.tags}</span>}
+                    {item.source_url && (
+                      <a className="inline-flex items-center gap-1 text-primary hover:underline" href={item.source_url} target="_blank" rel="noreferrer">
+                        source <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {item.status !== "triaged" && item.status !== "archived" && (
+                    <Button size="sm" variant="outline" disabled={saving === item.id} onClick={() => onStatusChange(item, "triaged")}>
+                      Triage
+                    </Button>
+                  )}
+                  {item.status !== "converted" && item.status !== "archived" && (
+                    <Button size="sm" disabled={saving === item.id} onClick={() => onConvert(item)}>
+                      To task
+                    </Button>
+                  )}
+                  {item.status !== "archived" ? (
+                    <Button size="icon" variant="ghost" disabled={saving === item.id} onClick={() => onStatusChange(item, "archived")} aria-label={`Archive ${item.title}`}>
+                      <Archive className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" disabled={saving === item.id} onClick={() => onStatusChange(item, "fresh")}>
+                      Restore
+                    </Button>
+                  )}
+                  <Button size="icon" variant="ghost" disabled={saving === item.id} onClick={() => onDelete(item)} aria-label={`Delete ${item.title}`}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </GlassCard>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -2644,17 +2931,17 @@ function TaskList({ title, tasks, saving, onStatusChange, compact = false }) {
 
 function TaskPriorityView({ tasks, saving, onStatusChange }) {
   return (
-    <div className="grid gap-3 xl:grid-cols-5">
+    <div className="grid gap-3 xl:grid-cols-4">
       {TASK_PRIORITY_ORDER.map((priority) => {
         const laneTasks = tasks.filter((task) => task.priority === priority || (priority === "critical" && task.priority === "urgent"));
         if (priority === "urgent") return null;
         return (
-          <section key={priority} className="rounded-xl border border-border bg-card/70 p-3">
+          <section key={priority} className="max-h-[34rem] overflow-hidden rounded-xl border border-border bg-card/70 p-3">
             <div className="mb-3 flex items-center justify-between gap-2">
               <span className={`rounded-md border px-2 py-1 text-xs font-bold ${priorityTone(priority)}`}>{TASK_PRIORITY_LABELS[priority]}</span>
               <Badge variant="outline">{laneTasks.length}</Badge>
             </div>
-            <div className="space-y-3">
+            <div className="max-h-[28rem] space-y-3 overflow-y-auto pr-1">
               {laneTasks.length === 0 ? <EmptyState title="No tasks" /> : laneTasks.map((task) => (
                 <TaskCard key={task.id} compact saving={saving} task={task} onStatusChange={onStatusChange} />
               ))}
@@ -2670,7 +2957,7 @@ function TaskMatrixView({ tasks, saving, onStatusChange }) {
   const priorities = TASK_PRIORITY_ORDER.filter((priority) => priority !== "urgent");
   return (
     <div className="overflow-x-auto pb-2">
-      <div className="grid min-w-[980px] grid-cols-[8rem_repeat(4,minmax(12rem,1fr))] gap-3">
+      <div className="grid min-w-[920px] grid-cols-[8rem_repeat(4,minmax(11rem,1fr))] gap-3">
         <div />
         {priorities.map((priority) => (
           <div key={priority} className={`rounded-lg border px-3 py-2 text-center text-xs font-bold ${priorityTone(priority)}`}>
@@ -2687,8 +2974,8 @@ function TaskMatrixView({ tasks, saving, onStatusChange }) {
                 task.status === status && (task.priority === priority || (priority === "critical" && task.priority === "urgent")),
               );
               return (
-                <div key={`${status}:${priority}`} className="min-h-32 rounded-lg border border-border bg-secondary/15 p-2">
-                  <div className="space-y-2">
+                <div key={`${status}:${priority}`} className="max-h-80 min-h-28 overflow-y-auto rounded-lg border border-border bg-secondary/15 p-2">
+                  <div className="space-y-2 pr-1">
                     {cellTasks.length === 0 ? (
                       <p className="pt-8 text-center text-xs text-muted-foreground">Quiet</p>
                     ) : (
@@ -2731,22 +3018,22 @@ function TaskTimelineView({ tasks, saving, onStatusChange }) {
 
 function TaskCard({ compact = false, saving, task, onStatusChange }) {
   return (
-    <GlassCard>
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <GlassCard className={compact ? "p-3" : undefined}>
+      <div className={`flex flex-wrap items-start justify-between ${compact ? "gap-2" : "gap-3"}`}>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-heading text-base font-semibold">{task.title}</h3>
-            <span className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${statusTone(task.status)}`}>
+            <h3 className={`font-heading font-semibold ${compact ? "text-sm leading-tight" : "text-base"}`}>{task.title}</h3>
+            <span className={`rounded-md border px-2 py-0.5 font-semibold ${compact ? "text-[10px]" : "text-xs"} ${statusTone(task.status)}`}>
               {TASK_STATUS_LABELS[task.status] || TASK_STATUS_LABELS.in_queue}
             </span>
-            <span className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${priorityTone(task.priority)}`}>
+            <span className={`rounded-md border px-2 py-0.5 font-semibold ${compact ? "text-[10px]" : "text-xs"} ${priorityTone(task.priority)}`}>
               {TASK_PRIORITY_LABELS[task.priority] || TASK_PRIORITY_LABELS.normal}
             </span>
           </div>
           {!compact && task.description && (
             <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{task.description}</p>
           )}
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <div className={`mt-3 flex flex-wrap items-center gap-2 text-muted-foreground ${compact ? "text-[10px]" : "text-xs"}`}>
             <Badge variant="outline">{getTaskCategoryLabel(task.category)}</Badge>
             {task.assigned_to && <span>for {task.assigned_to}</span>}
             {task.start_date && (
@@ -2761,27 +3048,27 @@ function TaskCard({ compact = false, saving, task, onStatusChange }) {
                 due {formatDateTime(task.due_date)}
               </span>
             )}
-            <span>by {task.created_by_name || "Staff"}</span>
+            {!compact && <span>by {task.created_by_name || "Staff"}</span>}
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className={`flex flex-wrap items-center ${compact ? "gap-1.5" : "gap-2"}`}>
           {task.link_url && (
             <a className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline" href={task.link_url} target="_blank" rel="noreferrer">
               Link <ExternalLink className="h-3 w-3" />
             </a>
           )}
           {task.status !== "pending" && task.status !== "done" && (
-            <Button size="sm" variant="outline" disabled={saving === task.id} onClick={() => onStatusChange(task, "pending")}>
+            <Button size="sm" variant="outline" className={compact ? "h-7 px-2 text-[10px]" : undefined} disabled={saving === task.id} onClick={() => onStatusChange(task, "pending")}>
               Pending
             </Button>
           )}
           {task.status !== "working_on" && task.status !== "done" && (
-            <Button size="sm" variant="outline" disabled={saving === task.id} onClick={() => onStatusChange(task, "working_on")}>
+            <Button size="sm" variant="outline" className={compact ? "h-7 px-2 text-[10px]" : undefined} disabled={saving === task.id} onClick={() => onStatusChange(task, "working_on")}>
               Start
             </Button>
           )}
           {task.status !== "done" && (
-            <Button size="sm" disabled={saving === task.id} onClick={() => onStatusChange(task, "done")}>
+            <Button size="sm" className={compact ? "h-7 px-2 text-[10px]" : undefined} disabled={saving === task.id} onClick={() => onStatusChange(task, "done")}>
               Done
             </Button>
           )}
