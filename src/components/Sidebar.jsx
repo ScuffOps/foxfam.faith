@@ -64,8 +64,9 @@ const navGroups = [
     key: "shrine",
     label: "The Shrine",
     icon: Landmark,
-    activePaths: ["/shrine"],
+    activePaths: ["/shrine", "/quarters"],
     items: [
+      { path: "/quarters", label: "Quarters", icon: Home },
       { path: "/prayer", label: "Prayer Wall", icon: Flame },
       { path: "/blessings", label: "Blessings", icon: Sparkles },
       { path: "/offerings", label: "Offerings", icon: HeartHandshake },

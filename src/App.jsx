@@ -23,6 +23,13 @@ import Reliquary from './pages/Reliquary';
 import Offerings from './pages/Offerings';
 import StaffOps from './pages/StaffOps';
 import RelicForge from './pages/RelicForge';
+import QuartersHub from './pages/QuartersHub';
+import Starfishing from './pages/Starfishing';
+import MatchMerge from './pages/MatchMerge';
+import BobaCafe from './pages/BobaCafe';
+import FindVezmir from './pages/FindVezmir';
+import TimeRunner from './pages/TimeRunner';
+import CommunityWordle from './pages/CommunityWordle';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -72,6 +79,13 @@ const AuthenticatedApp = () => {
         <Route path="/offerings" element={<Offerings />} />
         <Route path="/codex" element={<Codex />} />
         <Route path="/reliquary" element={<Reliquary />} />
+        <Route path="/quarters" element={<QuartersHub />} />
+        <Route path="/starfishing" element={<Starfishing />} />
+        <Route path="/match-merge" element={<MatchMerge />} />
+        <Route path="/boba-cafe" element={<BobaCafe />} />
+        <Route path="/find-vezmir" element={<FindVezmir />} />
+        <Route path="/time-runner" element={<TimeRunner />} />
+        <Route path="/community-wordle" element={<CommunityWordle />} />
         <Route path="/relic-forge" element={<RelicForge />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/ops" element={<StaffOps />} />
