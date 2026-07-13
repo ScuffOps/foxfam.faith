@@ -5,7 +5,8 @@ export const GAME_WORLD_KEYS = {
   bobaCafe: "boba-cafe",
   puzzleCat: "puzzle-cat",
   timeRunner: "time-runner",
-  communityWordle: "community-wordle",
+  wordGarden: "word-garden",
+  communityWordle: "word-garden",
 };
 
 export const HUB_UNLOCK_STATES = {
@@ -46,10 +47,10 @@ export const FORGE_MATERIALS = [
     description: "Sweet lacquer for cafe decor, charm gloss, and cozy counter upgrades.",
   },
   {
-    key: "hymn-ink",
-    label: "Hymn Ink",
-    source: "Community Wordle",
-    description: "Archive ink for word streak trophies and chapel board cosmetics.",
+    key: "blooming-ink",
+    label: "Blooming Ink",
+    source: "Word Garden",
+    description: "Botanical archive ink for Full Bloom charms, greenhouse decor, and garden trophies.",
   },
   {
     key: "clock-brass",
@@ -64,10 +65,10 @@ export const FORGE_MATERIALS = [
     description: "A soft silver used for hidden-object trophies and visitor keepsakes.",
   },
   {
-    key: "vezmir-thread",
-    label: "Vezmir Thread",
+    key: "voidthread",
+    label: "Voidthread",
     source: "Find Vezmir",
-    description: "A quiet thread for profile frames, room curtains, and secret-path decor.",
+    description: "A quiet void-spun thread for profile frames, room curtains, and secret-path decor.",
   },
 ];
 
@@ -126,7 +127,7 @@ export const GAME_WORLD_ORDER = [
     shortLabel: "Find Vezmir",
     route: "/find-vezmir",
     status: HUB_UNLOCK_STATES.open,
-    sourceMaterialKeys: ["catnip-silver", "vezmir-thread"],
+    sourceMaterialKeys: ["catnip-silver", "voidthread"],
     rewardFocus: "Hidden-object clears, lore scraps, profile frames, visitor trophies.",
     lore: "Follow small clues through the cloister until the missing familiar gives up hiding.",
     trophyExamples: ["First Clue Found", "No-Hint Cloister", "Vezmir Whisper"],
@@ -145,16 +146,16 @@ export const GAME_WORLD_ORDER = [
     charmExamples: ["Bellstep Charm", "Pendulum Frame"],
   },
   {
-    key: GAME_WORLD_KEYS.communityWordle,
-    label: "Community Wordle",
-    shortLabel: "Wordle",
-    route: "/community-wordle",
+    key: GAME_WORLD_KEYS.wordGarden,
+    label: "Word Garden",
+    shortLabel: "Word Garden",
+    route: "/word-garden",
     status: HUB_UNLOCK_STATES.open,
-    sourceMaterialKeys: ["hymn-ink"],
-    rewardFocus: "Daily streaks, community board cosmetics, Hymn Ink, Twitch-ready results.",
-    lore: "Light the chapel board with one shared word and a spoiler-safe little ritual.",
-    trophyExamples: ["First Guess", "Seven-Day Hymn", "Chapel Streak"],
-    charmExamples: ["Hymn Ink Seal", "Wordlight Frame"],
+    sourceMaterialKeys: ["blooming-ink"],
+    rewardFocus: "Daily ranks, community greenhouse growth, Blooming Ink, and Twitch-ready results.",
+    lore: "Grow words around the heart letter and help one shared Priory flower bloom.",
+    trophyExamples: ["First Sprout", "Seven-Day Garden", "Full Bloom"],
+    charmExamples: ["Full Bloom Sigil", "Greenhouse Frame"],
   },
 ];
 
@@ -167,6 +168,15 @@ export const MATERIAL_BY_KEY = FORGE_MATERIALS.reduce((items, material) => {
   items[material.key] = material;
   return items;
 }, {});
+
+export const LEGACY_MATERIAL_KEYS = Object.freeze({
+  "vezmir-thread": "voidthread",
+  "hymn-ink": "blooming-ink",
+});
+
+export function normalizeMaterialKey(key) {
+  return LEGACY_MATERIAL_KEYS[key] || key;
+}
 
 export function getGameWorldByKey(key) {
   return GAME_WORLD_BY_KEY[key] || null;
