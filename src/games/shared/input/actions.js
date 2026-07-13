@@ -1,4 +1,11 @@
 export const GAME_ACTIONS = {
+  moveLeft: "move-left",
+  moveUp: "move-up",
+  moveRight: "move-right",
+  moveDown: "move-down",
+  interact: "interact",
+  primary: "primary",
+  secondary: "secondary",
   cast: "cast",
   reel: "reel",
   confirm: "confirm",

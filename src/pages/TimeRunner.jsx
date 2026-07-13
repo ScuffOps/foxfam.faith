@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, Clock3, Sparkles } from "lucide-react";
 import GameCanvasHost from "@/games/shared/ui/GameCanvasHost";
 import { GAME_ACTIONS } from "@/games/shared/input/actions";
-import { getActionForKeyboardEvent } from "@/games/shared/input/bindings";
+import { useGameControls } from "@/games/shared/input/useGameControls";
 import { createSceneBridge } from "@/games/shared/phaser/sceneBridge";
 import TimeRunnerScene from "@/games/timeRunner/phaser/TimeRunnerScene";
 import TimeRunnerHud from "@/games/timeRunner/ui/TimeRunnerHud";
@@ -33,7 +33,13 @@ export default function TimeRunner() {
   }, [rewardLog]);
 
   const dispatchAction = useCallback((action) => {
-    setState((current) => applyTimeRunnerAction(current, action));
+    const legacyAction = {
+      [GAME_ACTIONS.primary]: GAME_ACTIONS.qteUp,
+      [GAME_ACTIONS.moveUp]: GAME_ACTIONS.qteUp,
+      [GAME_ACTIONS.moveDown]: GAME_ACTIONS.qteDown,
+      [GAME_ACTIONS.moveRight]: GAME_ACTIONS.qteRight,
+    }[action] || action;
+    setState((current) => applyTimeRunnerAction(current, legacyAction));
   }, []);
 
   useEffect(() => {
@@ -44,17 +50,7 @@ export default function TimeRunner() {
     return () => window.clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      const action = getActionForKeyboardEvent(event);
-      if (!action) return;
-      event.preventDefault();
-      dispatchAction(action === GAME_ACTIONS.cast ? GAME_ACTIONS.confirm : action);
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [dispatchAction]);
+  useGameControls({ onAction: dispatchAction });
 
   const bridge = useMemo(
     () => createSceneBridge({

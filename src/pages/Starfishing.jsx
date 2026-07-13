@@ -4,7 +4,7 @@ import { ArrowLeft, Fish, Sparkles } from "lucide-react";
 import GameCanvasHost from "@/games/shared/ui/GameCanvasHost";
 import { createSceneBridge } from "@/games/shared/phaser/sceneBridge";
 import { GAME_ACTIONS } from "@/games/shared/input/actions";
-import { getActionForKeyboardEvent } from "@/games/shared/input/bindings";
+import { useGameControls } from "@/games/shared/input/useGameControls";
 import StarfishingScene from "@/games/starfishing/phaser/StarfishingScene";
 import FishpediaPanel from "@/games/starfishing/ui/FishpediaPanel";
 import StarfishingHud from "@/games/starfishing/ui/StarfishingHud";
@@ -43,13 +43,22 @@ export default function Starfishing() {
   }, [rewardLog]);
 
   const dispatchAction = useCallback((action) => {
-    if (action === GAME_ACTIONS.cast) {
+    const legacyAction = {
+      [GAME_ACTIONS.primary]: GAME_ACTIONS.cast,
+      [GAME_ACTIONS.confirm]: GAME_ACTIONS.cast,
+      [GAME_ACTIONS.moveLeft]: GAME_ACTIONS.qteLeft,
+      [GAME_ACTIONS.moveUp]: GAME_ACTIONS.qteUp,
+      [GAME_ACTIONS.moveRight]: GAME_ACTIONS.qteRight,
+      [GAME_ACTIONS.moveDown]: GAME_ACTIONS.qteDown,
+    }[action] || action;
+
+    if (legacyAction === GAME_ACTIONS.cast) {
       setState((current) => beginCast(current));
       return;
     }
 
-    if ([GAME_ACTIONS.qteLeft, GAME_ACTIONS.qteUp, GAME_ACTIONS.qteRight, GAME_ACTIONS.qteDown].includes(action)) {
-      setState((current) => applyQteAction(current, action, fishpediaRef.current));
+    if ([GAME_ACTIONS.qteLeft, GAME_ACTIONS.qteUp, GAME_ACTIONS.qteRight, GAME_ACTIONS.qteDown].includes(legacyAction)) {
+      setState((current) => applyQteAction(current, legacyAction, fishpediaRef.current));
     }
   }, []);
 
@@ -61,17 +70,7 @@ export default function Starfishing() {
     return () => window.clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      const action = getActionForKeyboardEvent(event);
-      if (!action) return;
-      event.preventDefault();
-      dispatchAction(action === GAME_ACTIONS.confirm ? GAME_ACTIONS.cast : action);
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [dispatchAction]);
+  useGameControls({ onAction: dispatchAction });
 
   const bridge = useMemo(
     () => createSceneBridge({
