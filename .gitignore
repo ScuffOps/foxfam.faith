@@ -35,3 +35,4 @@ preview/
 # Local Codex/agent tooling
 .agents/
 skills-lock.json
+.superpowers/
