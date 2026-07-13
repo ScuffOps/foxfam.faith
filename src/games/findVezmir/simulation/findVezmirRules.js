@@ -28,12 +28,18 @@ export const FIND_VEZMIR_SCORING = {
 };
 
 const MAX_FOCUS = 5;
+export const FIND_VEZMIR_DIORAMA_LAYERS = ["foreground", "room", "background"];
+export const FIND_VEZMIR_PAN_BOUNDS = { x: 12, y: 9 };
 
 export function createInitialFindVezmirState({ now = Date.now() } = {}) {
   return {
     phase: FIND_VEZMIR_PHASES.seeking,
     foundKeys: [],
     activeHintKey: "",
+    activeHintRegion: "",
+    layers: [...FIND_VEZMIR_DIORAMA_LAYERS],
+    activeLayer: 1,
+    pan: { x: 0, y: 0 },
     focus: MAX_FOCUS,
     misses: 0,
     hintsUsed: 0,
@@ -43,6 +49,20 @@ export function createInitialFindVezmirState({ now = Date.now() } = {}) {
     completedAt: 0,
     lastRewardIntent: null,
   };
+}
+
+export function cycleDioramaLayer(state, delta) {
+  if (!state?.layers?.length) return state;
+  const count = state.layers.length;
+  const activeLayer = (state.activeLayer + Math.sign(delta || 0) + count) % count;
+  return { ...state, activeLayer };
+}
+
+export function panDiorama(state, delta) {
+  if (!state?.pan) return state;
+  const x = clamp(state.pan.x + Number(delta?.x || 0), -FIND_VEZMIR_PAN_BOUNDS.x, FIND_VEZMIR_PAN_BOUNDS.x);
+  const y = clamp(state.pan.y + Number(delta?.y || 0), -FIND_VEZMIR_PAN_BOUNDS.y, FIND_VEZMIR_PAN_BOUNDS.y);
+  return { ...state, pan: { x, y } };
 }
 
 export function resolveFindVezmirTap(state, tap, now = Date.now()) {
@@ -79,6 +99,7 @@ export function resolveFindVezmirTap(state, tap, now = Date.now()) {
     phase: nextPhase,
     foundKeys,
     activeHintKey: state.activeHintKey === object.key ? "" : state.activeHintKey,
+    activeHintRegion: state.activeHintKey === object.key ? "" : state.activeHintRegion,
     completedAt: completed ? now : 0,
     message: getFoundMessage(object, cluesComplete, completed),
   };
@@ -97,8 +118,9 @@ export function requestFindVezmirHint(state) {
   const nextState = {
     ...state,
     activeHintKey: nextTarget.key,
+    activeHintRegion: nextTarget.region,
     hintsUsed: state.hintsUsed + 1,
-    message: `The clue tray glints near ${nextTarget.label}.`,
+    message: `A soft glimmer stirs near the ${nextTarget.region}.`,
   };
 
   return {
@@ -181,8 +203,8 @@ export function buildFindVezmirRewardIntent({
   const favorPreview = Math.max(4, Math.min(32, 10 + (state.focus * 3) - state.hintsUsed - state.misses));
   const items = [
     {
-      key: "moonwax",
-      label: "Moonwax",
+      key: "voidthread",
+      label: "Voidthread",
       quantity: 2 + Math.max(0, state.focus),
       type: "material",
     },
@@ -276,3 +298,6 @@ function getFoundMessage(object, cluesComplete, completed) {
   return `${object.label} found. The clue tray is getting warmer.`;
 }
 
+function clamp(value, minimum, maximum) {
+  return Math.min(maximum, Math.max(minimum, value));
+}

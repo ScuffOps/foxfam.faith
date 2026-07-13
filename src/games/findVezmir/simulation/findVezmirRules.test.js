@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildFindVezmirRewardIntent,
+  cycleDioramaLayer,
   createInitialFindVezmirState,
   FIND_VEZMIR_PHASES,
   getNextFindVezmirTarget,
   hitTestFindVezmirHotspot,
+  panDiorama,
   requestFindVezmirHint,
   resolveFindVezmirTap,
 } from "./findVezmirRules.js";
@@ -15,6 +17,34 @@ describe("findVezmirRules", () => {
     const state = createInitialFindVezmirState({ now: 1000 });
     assert.equal(state.phase, FIND_VEZMIR_PHASES.seeking);
     assert.equal(getNextFindVezmirTarget(state).key, "moon-mug");
+    assert.deepEqual(state.layers, ["foreground", "room", "background"]);
+    assert.equal(state.activeLayer, 1);
+  });
+
+  it("cycles through diorama layers in both directions without losing found targets", () => {
+    const foundState = resolveFindVezmirTap(
+      createInitialFindVezmirState({ now: 1000 }),
+      { objectKey: "moon-mug" },
+      1100,
+    );
+
+    const forward = cycleDioramaLayer({ ...foundState, activeLayer: 2 }, 1);
+    const backward = cycleDioramaLayer({ ...foundState, activeLayer: 0 }, -1);
+
+    assert.equal(forward.activeLayer, 0);
+    assert.equal(backward.activeLayer, 2);
+    assert.deepEqual(forward.foundKeys, ["moon-mug"]);
+    assert.deepEqual(backward.foundKeys, ["moon-mug"]);
+  });
+
+  it("keeps keyboard and pointer panning inside the cloister bounds", () => {
+    const state = createInitialFindVezmirState({ now: 1000 });
+    const farCorner = panDiorama(state, { x: 900, y: -900 });
+    const oppositeCorner = panDiorama(farCorner, { x: -1800, y: 1800 });
+
+    assert.deepEqual(farCorner.pan, { x: 12, y: -9 });
+    assert.deepEqual(oppositeCorner.pan, { x: -12, y: 9 });
+    assert.deepEqual(oppositeCorner.foundKeys, []);
   });
 
   it("does not allow Vezmir before every clue is found", () => {
@@ -54,6 +84,7 @@ describe("findVezmirRules", () => {
     assert.equal(intent.duplicatePolicy, "none");
     assert.ok(intent.achievementKeys.includes("found-vezmir"));
     assert.ok(intent.favorPreview > 0);
+    assert.ok(intent.items.some((item) => item.key === "voidthread"));
   });
 
   it("hit tests percentage hotspots without renderer state", () => {
@@ -66,8 +97,8 @@ describe("findVezmirRules", () => {
     const state = requestFindVezmirHint(createInitialFindVezmirState({ now: 1000 }));
 
     assert.equal(state.activeHintKey, "moon-mug");
+    assert.equal(state.activeHintRegion, "southwest hearth");
     assert.equal(state.hintsUsed, 1);
     assert.equal(state.score, 183);
   });
 });
-
