@@ -6,6 +6,7 @@ import {
   createInitialBobaCafeState,
   getTrayCompletion,
   markBobaCafeClaimed,
+  selectCafeOptionByShortcut,
   selectBobaIngredient,
   selectBobaSweetness,
   startNextBobaOrder,
@@ -32,6 +33,23 @@ describe("bobaCafeRules", () => {
     assert.equal(state.tray.milk, "cream-cloud");
     assert.equal(state.tray.sweetness, "glow");
     assert.equal(getTrayCompletion(state.tray), 60);
+  });
+
+  it("selects available station options by one-based shortcut", () => {
+    const state = createInitialBobaCafeState({ now: 1000, seed: "shortcut" });
+    const teaState = selectCafeOptionByShortcut(state, "tea", 2, 1100);
+    const sweetState = selectCafeOptionByShortcut(teaState, "sweetness", 3, 1200);
+
+    assert.equal(teaState.tray.tea, "black-tea");
+    assert.equal(sweetState.tray.sweetness, "festival");
+  });
+
+  it("leaves state unchanged for unknown stations or unavailable ordinals", () => {
+    const state = createInitialBobaCafeState({ now: 1000, seed: "shortcut-invalid" });
+
+    assert.equal(selectCafeOptionByShortcut(state, "tea", 9), state);
+    assert.equal(selectCafeOptionByShortcut(state, "unknown", 1), state);
+    assert.equal(selectCafeOptionByShortcut(state, "milk", 0), state);
   });
 
   it("scores a perfect order and advances to result", () => {

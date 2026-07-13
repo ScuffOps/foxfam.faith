@@ -1,8 +1,10 @@
 import { buildRewardIntent, DUPLICATE_POLICIES } from "../../../lib/gameRewards.js";
 import {
+  BOBA_CAFE_INGREDIENT_GROUPS,
   BOBA_CUSTOMERS,
   BOBA_ORDER_TEMPLATES,
   BOBA_INGREDIENTS_BY_KEY,
+  SWEETNESS_LEVELS,
   SWEETNESS_BY_KEY,
 } from "../content/bobaCatalog.js";
 
@@ -19,6 +21,11 @@ export const BOBA_CAFE_GROUPS = ["tea", "milk", "topping", "charm"];
 export const BOBA_ORDER_LIMIT = 8;
 export const ORDER_PATIENCE_MS = 32000;
 export const MIN_PATIENCE_MULTIPLIER = 0.35;
+
+export const BOBA_OPTIONS_BY_STATION = Object.freeze({
+  ...Object.fromEntries(BOBA_CAFE_INGREDIENT_GROUPS.map((group) => [group.key, group.options])),
+  sweetness: SWEETNESS_LEVELS,
+});
 
 export function createInitialBobaCafeState({ now = Date.now(), seed = "foxfam-cafe" } = {}) {
   return {
@@ -81,6 +88,16 @@ export function selectBobaSweetness(state, sweetnessKey, now = Date.now()) {
     },
     updatedAt: new Date(now).toISOString(),
   };
+}
+
+export function selectCafeOptionByShortcut(state, stationKey, ordinal, now = Date.now()) {
+  const options = BOBA_OPTIONS_BY_STATION[stationKey] || [];
+  const option = options[ordinal - 1];
+  if (!option) return state;
+
+  return stationKey === "sweetness"
+    ? selectBobaSweetness(state, option.key, now)
+    : selectBobaIngredient(state, option.key, now);
 }
 
 export function clearBobaTray(state, now = Date.now()) {
