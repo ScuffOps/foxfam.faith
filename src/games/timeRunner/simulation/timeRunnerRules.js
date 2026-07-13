@@ -3,6 +3,7 @@ import { applyLocalRewardCap, buildRewardIntent, DUPLICATE_POLICIES } from "../.
 export const TIME_RUNNER_PHASES = {
   ready: "ready",
   running: "running",
+  paused: "paused",
   finished: "finished",
 };
 
@@ -19,6 +20,8 @@ export const TIME_RUNNER_REWARD_LOG_KEY = "foxfam_time_runner_reward_log_v1";
 export const TIME_RUNNER_RUN_MS = 45000;
 export const TIME_RUNNER_COLLISION_X = 18;
 export const TIME_RUNNER_COLLISION_WINDOW = 4.4;
+
+const LANDING_KINDS = ["minute-hand", "roman-dial", "pendulum-step", "hour-hand"];
 
 const HAZARD_CATALOG = {
   handSweep: {
@@ -49,6 +52,7 @@ export function createInitialTimeRunnerState({ seed = "clocktower-v1", now = Dat
     phase: TIME_RUNNER_PHASES.ready,
     seed,
     runStartedAt: 0,
+    pausedAt: 0,
     elapsedMs: 0,
     lastTickAt: now,
     nextHazardAt: 700,
@@ -64,6 +68,9 @@ export function createInitialTimeRunnerState({ seed = "clocktower-v1", now = Dat
     bestCombo: 0,
     clockShards: 0,
     focus: 0,
+    routeStep: 0,
+    selectedLandingId: null,
+    availableLandings: createAvailableLandings(seed, 0),
     finishReason: "",
     completed: false,
     lastMoment: null,
@@ -129,11 +136,36 @@ export function tickTimeRunner(state, now = Date.now()) {
 }
 
 export function applyTimeRunnerAction(state, action, now = Date.now()) {
+  if (state.phase === TIME_RUNNER_PHASES.paused && (action === "start" || action === "confirm" || action === "cancel")) {
+    return {
+      ...state,
+      phase: TIME_RUNNER_PHASES.running,
+      runStartedAt: state.runStartedAt + Math.max(0, now - state.pausedAt),
+      pausedAt: 0,
+      lastTickAt: now,
+      updatedAt: new Date(now).toISOString(),
+    };
+  }
+
   if (action === "start" || action === "cast" || action === "confirm") {
     return startTimeRunner(state, now);
   }
 
   if (state.phase !== TIME_RUNNER_PHASES.running) return state;
+
+  if (action === "cancel") {
+    return {
+      ...state,
+      phase: TIME_RUNNER_PHASES.paused,
+      pausedAt: now,
+      updatedAt: new Date(now).toISOString(),
+    };
+  }
+
+  if (action === "primary") {
+    const landing = state.availableLandings[0];
+    return landing ? beginJump(state, landing, now) : state;
+  }
 
   if (action === "qte-up") {
     return setPosture(state, TIME_RUNNER_POSTURES.jump, 680, now);
@@ -161,6 +193,23 @@ export function applyTimeRunnerAction(state, action, now = Date.now()) {
   return state;
 }
 
+export function selectMouseLanding(state, landingId, now = Date.now()) {
+  if (state.phase !== TIME_RUNNER_PHASES.running) return state;
+  const landing = state.availableLandings.find((item) => item.id === landingId);
+  return landing ? beginJump(state, landing, now) : state;
+}
+
+export function beginJump(state, landing, now = Date.now()) {
+  const routeStep = state.routeStep + 1;
+  return {
+    ...setPosture(state, TIME_RUNNER_POSTURES.jump, 680, now),
+    routeStep,
+    selectedLandingId: landing.id,
+    availableLandings: createAvailableLandings(state.seed, routeStep),
+    lastMoment: createMoment("landing", `${landing.label} reached`, now),
+  };
+}
+
 export function buildTimeRunnerRewardIntent({ state, durationMs = state?.elapsedMs || 0 }) {
   const unclaimedScore = Math.max(0, (state?.score || 0) - (state?.claimedScore || 0));
   if (unclaimedScore <= 0 && !state?.completed) return null;
@@ -168,8 +217,8 @@ export function buildTimeRunnerRewardIntent({ state, durationMs = state?.elapsed
   const items = [];
   if ((state?.clockShards || 0) > 0) {
     items.push({
-      key: "clock-face-shard",
-      label: "Clock-Face Shard",
+      key: "clock-brass",
+      label: "Clock Brass",
       quantity: Math.max(1, state.clockShards),
       type: "material",
     });
@@ -355,4 +404,24 @@ function seededUnit(input) {
     hash = Math.imul(hash, 16777619);
   }
   return ((hash >>> 0) % 100000) / 100000;
+}
+
+function createAvailableLandings(seed, routeStep) {
+  return [0, 1].map((branch) => {
+    const kindIndex = (routeStep + branch + Math.floor(seededUnit(`${seed}:landing:${routeStep}`) * 3)) % LANDING_KINDS.length;
+    const kind = LANDING_KINDS[kindIndex];
+    const labels = {
+      "minute-hand": "Minute hand",
+      "roman-dial": "Roman dial",
+      "pendulum-step": "Pendulum step",
+      "hour-hand": "Hour hand",
+    };
+
+    return {
+      id: `landing-${routeStep}-${branch}`,
+      kind,
+      label: labels[kind],
+      branch,
+    };
+  });
 }

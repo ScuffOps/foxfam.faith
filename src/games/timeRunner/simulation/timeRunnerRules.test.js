@@ -4,6 +4,7 @@ import {
   applyTimeRunnerAction,
   buildTimeRunnerRewardIntent,
   createInitialTimeRunnerState,
+  selectMouseLanding,
   startTimeRunner,
   tickTimeRunner,
   TIME_RUNNER_COLLISION_X,
@@ -88,6 +89,45 @@ describe("timeRunnerRules", () => {
     assert.equal(skipped.focus, 5);
   });
 
+  it("accepts only a currently reachable mouse landing", () => {
+    const now = 2000;
+    const running = startTimeRunner(createInitialTimeRunnerState({ now }), now);
+    const landing = running.availableLandings[1];
+
+    const selected = selectMouseLanding(running, landing.id, now + 25);
+    const ignored = selectMouseLanding(running, "unreachable-landing", now + 25);
+
+    assert.equal(selected.selectedLandingId, landing.id);
+    assert.equal(selected.routeStep, 1);
+    assert.equal(selected.posture, TIME_RUNNER_POSTURES.jump);
+    assert.equal(ignored, running);
+  });
+
+  it("maps primary input to the same jump transition as the default mouse landing", () => {
+    const now = 2000;
+    const running = startTimeRunner(createInitialTimeRunnerState({ now }), now);
+    const defaultLanding = running.availableLandings[0];
+
+    const fromKeyboard = applyTimeRunnerAction(running, "primary", now + 25);
+    const fromMouse = selectMouseLanding(running, defaultLanding.id, now + 25);
+
+    assert.deepEqual(fromKeyboard, fromMouse);
+  });
+
+  it("freezes elapsed time while paused and resumes without counting the pause", () => {
+    const started = startTimeRunner(createInitialTimeRunnerState({ now: 1000 }), 1000);
+    const advanced = tickTimeRunner(started, 2000);
+    const paused = applyTimeRunnerAction(advanced, "cancel", 2000);
+    const frozen = tickTimeRunner(paused, 6000);
+    const resumed = applyTimeRunnerAction(frozen, "confirm", 6000);
+    const next = tickTimeRunner(resumed, 6500);
+
+    assert.equal(paused.phase, TIME_RUNNER_PHASES.paused);
+    assert.equal(frozen.elapsedMs, advanced.elapsedMs);
+    assert.equal(next.phase, TIME_RUNNER_PHASES.running);
+    assert.equal(next.elapsedMs, advanced.elapsedMs + 500);
+  });
+
   it("builds local-only reward intents from unclaimed score", () => {
     const state = {
       ...createInitialTimeRunnerState({ now: 1000 }),
@@ -105,7 +145,7 @@ describe("timeRunnerRules", () => {
     assert.equal(intent.eventType, "clocktower-clear");
     assert.equal(intent.score, 600);
     assert.equal(intent.favorPreview, 9);
-    assert.equal(intent.items.some((item) => item.key === "clock-face-shard"), true);
+    assert.equal(intent.items.some((item) => item.key === "clock-brass" && item.label === "Clock Brass"), true);
     assert.equal(intent.achievementKeys.includes("clocktower-clear"), true);
     assert.equal(intent.duplicatePolicy, "none");
   });
