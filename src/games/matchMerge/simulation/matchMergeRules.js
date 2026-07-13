@@ -24,6 +24,7 @@ export function createInitialMatchMergeState({ grid = null, now = Date.now() } =
   return {
     grid: initialGrid,
     selectedIndex: null,
+    cursor: { row: 0, column: 0 },
     score: 0,
     claimedScore: 0,
     moves: 0,
@@ -33,6 +34,30 @@ export function createInitialMatchMergeState({ grid = null, now = Date.now() } =
     createdAt: new Date(now).toISOString(),
     updatedAt: new Date(now).toISOString(),
   };
+}
+
+export function moveMatchMergeSelection(state, deltaRow, deltaColumn) {
+  const cursor = state.cursor || { row: 0, column: 0 };
+  const row = Math.max(0, Math.min(MATCH_MERGE_GRID_SIZE - 1, cursor.row + deltaRow));
+  const column = Math.max(0, Math.min(MATCH_MERGE_GRID_SIZE - 1, cursor.column + deltaColumn));
+  return { ...state, cursor: { row, column } };
+}
+
+export function confirmMatchMergeSelection(state, now = Date.now(), randomValue = Math.random()) {
+  const cursor = state.cursor || { row: 0, column: 0 };
+  const index = cursor.row * MATCH_MERGE_GRID_SIZE + cursor.column;
+  return selectMatchMergeCell(state, index, now, randomValue);
+}
+
+export function shuffleMatchMergeGrid(state, random = Math.random) {
+  const tiles = state.grid.filter(Boolean);
+  for (let index = tiles.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [tiles[index], tiles[swapIndex]] = [tiles[swapIndex], tiles[index]];
+  }
+
+  const grid = Array.from({ length: MATCH_MERGE_CELL_COUNT }, (_, index) => tiles[index] || null);
+  return { ...state, grid, selectedIndex: null };
 }
 
 export function selectMatchMergeCell(state, index, now = Date.now(), randomValue = Math.random()) {

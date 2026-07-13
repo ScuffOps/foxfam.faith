@@ -2,11 +2,14 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildMatchMergeRewardIntent,
+  confirmMatchMergeSelection,
   createInitialMatchMergeState,
   createMatchMergeTile,
   isMatchMergeBoardLocked,
   markMatchMergeClaimed,
+  moveMatchMergeSelection,
   selectMatchMergeCell,
+  shuffleMatchMergeGrid,
 } from "./matchMergeRules.js";
 
 describe("matchMergeRules", () => {
@@ -43,6 +46,52 @@ describe("matchMergeRules", () => {
     assert.equal(next.grid[5].tier, 1);
     assert.equal(next.selectedIndex, 5);
     assert.equal(next.score, 0);
+  });
+
+  it("moves the keyboard cursor within the reliquary grid bounds", () => {
+    const state = createInitialMatchMergeState({ now: 1000 });
+    const upperLeft = moveMatchMergeSelection(state, -1, -1);
+    const lowerRight = moveMatchMergeSelection(
+      { ...state, cursor: { row: 3, column: 3 } },
+      1,
+      1,
+    );
+
+    assert.deepEqual(upperLeft.cursor, { row: 0, column: 0 });
+    assert.deepEqual(lowerRight.cursor, { row: 3, column: 3 });
+  });
+
+  it("confirms the keyboard cursor through the existing merge rules", () => {
+    const grid = Array.from({ length: 16 }, () => null);
+    grid[0] = createMatchMergeTile(1, "a");
+    grid[1] = createMatchMergeTile(1, "b");
+    const initial = createInitialMatchMergeState({ grid, now: 1000 });
+    const selected = confirmMatchMergeSelection(initial, 1000, 0);
+    const moved = moveMatchMergeSelection(selected, 0, 1);
+    const merged = confirmMatchMergeSelection(moved, 2000, 0.2);
+
+    assert.equal(selected.selectedIndex, 0);
+    assert.equal(merged.grid[0], null);
+    assert.equal(merged.grid[1].tier, 2);
+    assert.equal(merged.score, 55);
+  });
+
+  it("shuffles tiles without changing progress or reward state", () => {
+    const state = {
+      ...createInitialMatchMergeState({ now: 1000 }),
+      selectedIndex: 2,
+      score: 180,
+      claimedScore: 55,
+    };
+    const shuffled = shuffleMatchMergeGrid(state, () => 0);
+
+    assert.deepEqual(
+      shuffled.grid.filter(Boolean).map((tile) => tile.id).sort(),
+      state.grid.filter(Boolean).map((tile) => tile.id).sort(),
+    );
+    assert.equal(shuffled.score, 180);
+    assert.equal(shuffled.claimedScore, 55);
+    assert.equal(shuffled.selectedIndex, null);
   });
 
   it("builds a local material reward intent for unclaimed score", () => {
