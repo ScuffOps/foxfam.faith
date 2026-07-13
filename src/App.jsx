@@ -30,6 +30,7 @@ import BobaCafe from './pages/BobaCafe';
 import FindVezmir from './pages/FindVezmir';
 import TimeRunner from './pages/TimeRunner';
 import CommunityWordle from './pages/CommunityWordle';
+import WordGarden from './pages/WordGarden';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -86,6 +87,7 @@ const AuthenticatedApp = () => {
         <Route path="/find-vezmir" element={<FindVezmir />} />
         <Route path="/time-runner" element={<TimeRunner />} />
         <Route path="/community-wordle" element={<CommunityWordle />} />
+        <Route path="/word-garden" element={<WordGarden />} />
         <Route path="/relic-forge" element={<RelicForge />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/ops" element={<StaffOps />} />
