@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  applyStarfishingAction,
   applyQteAction,
   beginCast,
   buildCatchRewardIntent,
@@ -9,6 +10,7 @@ import {
   tickStarfishing,
   updateFishpedia,
 } from "./starfishingRules.js";
+import { GAME_ACTIONS } from "../../shared/input/actions.js";
 
 describe("starfishingRules", () => {
   it("moves from idle to waiting to qte", () => {
@@ -17,6 +19,35 @@ describe("starfishingRules", () => {
 
     const qte = tickStarfishing(started, started.biteAt);
     assert.equal(qte.phase, STARFISHING_PHASES.qte);
+  });
+
+  it("starts a cast from idle through the semantic primary action", () => {
+    const state = applyStarfishingAction(
+      createInitialStarfishingState(),
+      GAME_ACTIONS.primary,
+      {},
+      1000,
+      0,
+    );
+
+    assert.equal(state.phase, STARFISHING_PHASES.waiting);
+    assert.equal(state.castStartedAt, 1000);
+  });
+
+  it("advances a qte through semantic directional actions", () => {
+    const started = beginCast(createInitialStarfishingState(), 1000, 0);
+    const qte = tickStarfishing(started, started.biteAt);
+    const firstAction = {
+      "qte-left": GAME_ACTIONS.moveLeft,
+      "qte-up": GAME_ACTIONS.moveUp,
+      "qte-right": GAME_ACTIONS.moveRight,
+      "qte-down": GAME_ACTIONS.moveDown,
+    }[qte.qtePattern[0]];
+
+    const advanced = applyStarfishingAction(qte, firstAction, {}, started.biteAt + 50, 0.5);
+
+    assert.equal(advanced.qteIndex, 1);
+    assert.notEqual(advanced.phase, STARFISHING_PHASES.escaped);
   });
 
   it("catches a fish after matching the qte pattern", () => {
@@ -85,5 +116,23 @@ describe("starfishingRules", () => {
     assert.equal(intent.eventType, "duplicate-catch");
     assert.equal(intent.duplicatePolicy, "release");
     assert.equal(intent.favorPreview, 7);
+  });
+
+  it("creates exactly one reward intent for one duplicate choice", () => {
+    const caught = {
+      fishKey: "comet-koi",
+      label: "Comet Koi",
+      rarity: "rare",
+      size: 18,
+      duplicate: true,
+      caughtAt: "2026-07-08T00:00:00.000Z",
+    };
+
+    const first = buildCatchRewardIntent({ catchRecord: caught, duplicatePolicy: "convert", durationMs: 2400 });
+
+    assert.ok(first);
+    assert.equal(first.duplicatePolicy, "convert");
+    assert.equal(first.eventType, "duplicate-catch");
+    assert.equal(first.items.length, 1);
   });
 });

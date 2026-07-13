@@ -1,4 +1,5 @@
 import { buildRewardIntent, convertDuplicateCatch, DUPLICATE_POLICIES } from "../../../lib/gameRewards.js";
+import { GAME_ACTIONS } from "../../shared/input/actions.js";
 import { FISH_BY_KEY, pickFish, rollFishSize, STARFISHING_FISH } from "../content/fishCatalog.js";
 
 export const STARFISHING_PHASES = {
@@ -21,6 +22,13 @@ const QTE_WINDOW_MS = {
   rare: 1550,
   epic: 1250,
   mythic: 950,
+};
+
+const MOVEMENT_TO_QTE = {
+  [GAME_ACTIONS.moveLeft]: GAME_ACTIONS.qteLeft,
+  [GAME_ACTIONS.moveUp]: GAME_ACTIONS.qteUp,
+  [GAME_ACTIONS.moveRight]: GAME_ACTIONS.qteRight,
+  [GAME_ACTIONS.moveDown]: GAME_ACTIONS.qteDown,
 };
 
 export function createInitialStarfishingState() {
@@ -127,6 +135,28 @@ export function applyQteAction(state, action, fishpedia = {}, now = Date.now(), 
     streak: state.streak + 1,
     qteIndex: nextIndex,
   };
+}
+
+export function applyStarfishingAction(
+  state,
+  action,
+  fishpedia = {},
+  now = Date.now(),
+  randomValue = Math.random(),
+) {
+  if (
+    [GAME_ACTIONS.primary, GAME_ACTIONS.confirm, GAME_ACTIONS.cast].includes(action)
+    && [STARFISHING_PHASES.idle, STARFISHING_PHASES.escaped].includes(state.phase)
+  ) {
+    return beginCast(state, now, randomValue);
+  }
+
+  const qteAction = MOVEMENT_TO_QTE[action] || action;
+  if ([GAME_ACTIONS.qteLeft, GAME_ACTIONS.qteUp, GAME_ACTIONS.qteRight, GAME_ACTIONS.qteDown].includes(qteAction)) {
+    return applyQteAction(state, qteAction, fishpedia, now, randomValue);
+  }
+
+  return state;
 }
 
 export function updateFishpedia(fishpedia = {}, catchRecord) {
