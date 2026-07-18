@@ -216,6 +216,8 @@ function normalizeAchievementResults(value) {
 
 function normalizeCharmResults(value) {
   const seenIds = new Set();
+  const seenCharmKeys = new Set();
+  const seenSourceKeys = new Set();
   return requireArray(value, "Charms").map((rawCharm) => {
     const charm = requireObject(rawCharm, "Charm result");
     const source = requireObject(charm.source, "Charm source");
@@ -228,6 +230,11 @@ function normalizeCharmResults(value) {
     if (source.type !== "achievement" || source.key !== definition.achievementKey) {
       throw new TypeError("Achievement charm source does not match its canonical reward shape.");
     }
+    if (seenCharmKeys.has(charmKey) || seenSourceKeys.has(source.key)) {
+      throw new TypeError("Response contains a duplicate canonical charm source.");
+    }
+    seenCharmKeys.add(charmKey);
+    seenSourceKeys.add(source.key);
     if (
       charm.label !== definition.label
       || charm.rarity !== definition.rarity
@@ -325,9 +332,9 @@ export function normalizeCatchClaimResult(value) {
     firstCaughtAt: requireTimestamp(fishpedia.first_caught_at, "Fishpedia first catch"),
     lastCaughtAt: requireTimestamp(fishpedia.last_caught_at, "Fishpedia last catch"),
     discoveredCount: requireInteger(fishpedia.discovered_count, "Fishpedia discovered count", {
-      min: 1,
+      min: 0,
     }),
-    catalogCount: requireInteger(fishpedia.catalog_count, "Fishpedia catalog count", { min: 1 }),
+    catalogCount: requireInteger(fishpedia.catalog_count, "Fishpedia catalog count", { min: 0 }),
     completionPercent: requireInteger(
       fishpedia.completion_percent,
       "Fishpedia completion percent",

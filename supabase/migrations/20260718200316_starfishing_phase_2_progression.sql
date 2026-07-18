@@ -67,7 +67,7 @@ create table public.currency_accounts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   currency_key text not null check (currency_key ~ '^[a-z0-9-]+$'),
-  balance bigint not null default 0 check (balance >= 0),
+  balance bigint not null default 0 check (balance between 0 and 9007199254740991),
   updated_at timestamptz not null default now(),
   unique (user_id, currency_key)
 );
@@ -77,7 +77,7 @@ create table public.currency_ledger (
   user_id uuid not null references auth.users(id) on delete cascade,
   currency_key text not null check (currency_key ~ '^[a-z0-9-]+$'),
   amount bigint not null,
-  balance_after bigint not null check (balance_after >= 0),
+  balance_after bigint not null check (balance_after between 0 and 9007199254740991),
   source_type text not null,
   source_id uuid not null,
   idempotency_key uuid not null,
@@ -91,7 +91,7 @@ create table public.user_material_balances (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   material_key text not null check (material_key ~ '^[a-z0-9-]+$'),
-  balance bigint not null default 0 check (balance >= 0),
+  balance bigint not null default 0 check (balance between 0 and 9007199254740991),
   updated_at timestamptz not null default now(),
   unique (user_id, material_key)
 );
@@ -101,7 +101,7 @@ create table public.material_ledger (
   user_id uuid not null references auth.users(id) on delete cascade,
   material_key text not null check (material_key ~ '^[a-z0-9-]+$'),
   amount bigint not null check (amount <> 0),
-  balance_after bigint not null check (balance_after >= 0),
+  balance_after bigint not null check (balance_after between 0 and 9007199254740991),
   source_type text not null,
   source_id uuid not null,
   idempotency_key uuid not null,
@@ -521,6 +521,7 @@ security definer
 set search_path = ''
 as $$
 declare
+  transport_safe_max constant bigint := 9007199254740991;
   caller_id uuid := (select auth.uid());
   requested_idempotency_key uuid := claim_idempotency_key;
   locked_user_id uuid;
@@ -542,6 +543,7 @@ declare
   favor_delta bigint := 0;
   favor_balance bigint := 0;
   prior_favor_balance bigint := 0;
+  favor_account_exists boolean := false;
   favor_account_created boolean := false;
   legacy_opening_balance bigint := 0;
   legacy_opening_hash text;
@@ -777,57 +779,6 @@ begin
     for update;
   end if;
 
-  if legacy_user_level_data ->> 'points' ~ '^[0-9]{1,19}$' then
-    if (legacy_user_level_data ->> 'points')::numeric <= 9223372036854775807 then
-      legacy_opening_balance := (legacy_user_level_data ->> 'points')::bigint;
-    end if;
-  end if;
-
-  insert into public.currency_accounts (user_id, currency_key, balance, updated_at)
-  values (caller_id, 'favor', legacy_opening_balance, claim_created_at)
-  on conflict (user_id, currency_key) do nothing
-  returning true into favor_account_created;
-
-  if coalesce(favor_account_created, false) then
-    legacy_opening_hash := pg_catalog.md5(
-      'starfishing:favor:legacy-opening:' || caller_id::text
-    );
-    legacy_opening_id := (
-      pg_catalog.substr(legacy_opening_hash, 1, 8)
-      || '-' || pg_catalog.substr(legacy_opening_hash, 9, 4)
-      || '-' || pg_catalog.substr(legacy_opening_hash, 13, 4)
-      || '-' || pg_catalog.substr(legacy_opening_hash, 17, 4)
-      || '-' || pg_catalog.substr(legacy_opening_hash, 21, 12)
-    )::uuid;
-
-    insert into public.currency_ledger (
-      user_id,
-      currency_key,
-      amount,
-      balance_after,
-      source_type,
-      source_id,
-      idempotency_key,
-      metadata,
-      created_at
-    )
-    values (
-      caller_id,
-      'favor',
-      legacy_opening_balance,
-      legacy_opening_balance,
-      'legacy_opening_balance',
-      legacy_opening_id,
-      legacy_opening_id,
-      pg_catalog.jsonb_build_object(
-        'user_level_id', user_level_id,
-        'imported_points', legacy_opening_balance
-      ),
-      claim_created_at
-    )
-    on conflict (user_id, currency_key, idempotency_key) do nothing;
-  end if;
-
   select account.balance
   into prior_favor_balance
   from public.currency_accounts as account
@@ -835,6 +786,24 @@ begin
     and account.currency_key = 'favor'
   for update;
 
+  favor_account_exists := found;
+  if not favor_account_exists then
+    if legacy_user_level_data ->> 'points' ~ '^[0-9]+$' then
+      if (legacy_user_level_data ->> 'points')::numeric > transport_safe_max then
+        raise exception using
+          errcode = '22003',
+          message = 'Legacy Favor opening balance exceeds JavaScript safe integer range';
+      end if;
+      legacy_opening_balance := (legacy_user_level_data ->> 'points')::bigint;
+    end if;
+    prior_favor_balance := legacy_opening_balance;
+  end if;
+
+  if prior_favor_balance > transport_safe_max - favor_delta then
+    raise exception using
+      errcode = '22003',
+      message = 'Favor balance exceeds JavaScript safe integer range';
+  end if;
   favor_balance := prior_favor_balance + favor_delta;
 
   for material_reward in
@@ -852,15 +821,6 @@ begin
       material_reward.base_quantity::numeric * (10000 + material_multiplier_bps) / 10000
     )::bigint;
 
-    insert into public.user_material_balances (
-      user_id,
-      material_key,
-      balance,
-      updated_at
-    )
-    values (caller_id, material_reward.material_key, 0, claim_created_at)
-    on conflict (user_id, material_key) do nothing;
-
     select balance_row.balance
     into previous_material_balance
     from public.user_material_balances as balance_row
@@ -868,6 +828,14 @@ begin
       and balance_row.material_key = material_reward.material_key
     for update;
 
+    if not found then
+      previous_material_balance := 0;
+    end if;
+    if previous_material_balance > transport_safe_max - material_delta then
+      raise exception using
+        errcode = '22003',
+        message = 'Material balance exceeds JavaScript safe integer range';
+    end if;
     material_balance := previous_material_balance + material_delta;
     material_results := material_results || pg_catalog.jsonb_build_array(
       pg_catalog.jsonb_build_object(
@@ -878,6 +846,67 @@ begin
       )
     );
   end loop;
+
+  if not favor_account_exists then
+    insert into public.currency_accounts (user_id, currency_key, balance, updated_at)
+    values (caller_id, 'favor', legacy_opening_balance, claim_created_at)
+    on conflict (user_id, currency_key) do nothing
+    returning true into favor_account_created;
+
+    if coalesce(favor_account_created, false) then
+      legacy_opening_hash := pg_catalog.md5(
+        'starfishing:favor:legacy-opening:' || caller_id::text
+      );
+      legacy_opening_id := (
+        pg_catalog.substr(legacy_opening_hash, 1, 8)
+        || '-' || pg_catalog.substr(legacy_opening_hash, 9, 4)
+        || '-' || pg_catalog.substr(legacy_opening_hash, 13, 4)
+        || '-' || pg_catalog.substr(legacy_opening_hash, 17, 4)
+        || '-' || pg_catalog.substr(legacy_opening_hash, 21, 12)
+      )::uuid;
+
+      insert into public.currency_ledger (
+        user_id,
+        currency_key,
+        amount,
+        balance_after,
+        source_type,
+        source_id,
+        idempotency_key,
+        metadata,
+        created_at
+      )
+      values (
+        caller_id,
+        'favor',
+        legacy_opening_balance,
+        legacy_opening_balance,
+        'legacy_opening_balance',
+        legacy_opening_id,
+        legacy_opening_id,
+        pg_catalog.jsonb_build_object(
+          'user_level_id', user_level_id,
+          'imported_points', legacy_opening_balance
+        ),
+        claim_created_at
+      )
+      on conflict (user_id, currency_key, idempotency_key) do nothing;
+    else
+      select account.balance
+      into prior_favor_balance
+      from public.currency_accounts as account
+      where account.user_id = caller_id
+        and account.currency_key = 'favor'
+      for update;
+
+      if prior_favor_balance > transport_safe_max - favor_delta then
+        raise exception using
+          errcode = '22003',
+          message = 'Favor balance exceeds JavaScript safe integer range';
+      end if;
+      favor_balance := prior_favor_balance + favor_delta;
+    end if;
+  end if;
 
   if claim_duplicate then
     next_caught_count := existing_fishpedia.caught_count + 1;
@@ -909,7 +938,13 @@ begin
 
   completion_percent := case
     when catalog_count = 0 then 0
-    else pg_catalog.round(discovered_count::numeric * 100 / catalog_count)::integer
+    else least(
+      100,
+      greatest(
+        0,
+        pg_catalog.round(discovered_count::numeric * 100 / catalog_count)::integer
+      )
+    )
   end;
 
   select pg_catalog.count(*) + 1
@@ -1217,11 +1252,21 @@ begin
     select material.value
     from pg_catalog.jsonb_array_elements(material_results) as material(value)
   loop
-    update public.user_material_balances
-    set balance = (material_result ->> 'balance')::bigint,
-        updated_at = claim_created_at
-    where user_id = caller_id
-      and material_key = material_result ->> 'key';
+    insert into public.user_material_balances (
+      user_id,
+      material_key,
+      balance,
+      updated_at
+    )
+    values (
+      caller_id,
+      material_result ->> 'key',
+      (material_result ->> 'balance')::bigint,
+      claim_created_at
+    )
+    on conflict (user_id, material_key) do update
+    set balance = excluded.balance,
+        updated_at = excluded.updated_at;
 
     insert into public.material_ledger (
       user_id,

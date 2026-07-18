@@ -6,6 +6,8 @@ import {
   normalizeCatchClaimResult,
 } from "./starfishingRpcContract.js";
 
+const MAX_SAFE_INTEGER = 9007199254740991;
+
 function makeValidClaimResult() {
   return {
     catch: {
@@ -220,6 +222,77 @@ test("rejects negative balances, malformed achievements, and unknown claim effec
   );
 });
 
+test("accepts the full transport-safe reward bound and rejects values above it", () => {
+  const validResult = makeValidClaimResult();
+  const upperBoundResult = {
+    ...validResult,
+    favor: {
+      delta: MAX_SAFE_INTEGER,
+      balance: MAX_SAFE_INTEGER,
+    },
+    materials: [{
+      key: "star-glass",
+      label: "Star Glass",
+      delta: MAX_SAFE_INTEGER,
+      balance: MAX_SAFE_INTEGER,
+    }],
+  };
+
+  assert.deepEqual(normalizeCatchClaimResult(upperBoundResult).favor, {
+    delta: MAX_SAFE_INTEGER,
+    balance: MAX_SAFE_INTEGER,
+  });
+  assert.deepEqual(normalizeCatchClaimResult(upperBoundResult).materials[0], {
+    key: "star-glass",
+    label: "Star Glass",
+    delta: MAX_SAFE_INTEGER,
+    balance: MAX_SAFE_INTEGER,
+  });
+  assert.throws(
+    () => normalizeCatchClaimResult({
+      ...validResult,
+      favor: { delta: 1, balance: MAX_SAFE_INTEGER + 1 },
+    }),
+    /authoritative Favor balance/i,
+  );
+  assert.throws(
+    () => normalizeCatchClaimResult({
+      ...validResult,
+      materials: [{
+        key: "star-glass",
+        label: "Star Glass",
+        delta: 1,
+        balance: MAX_SAFE_INTEGER + 1,
+      }],
+    }),
+    /material balance/i,
+  );
+});
+
+test("normalizes a zero-count Fishpedia response", () => {
+  const validResult = makeValidClaimResult();
+
+  assert.deepEqual(normalizeCatchClaimResult({
+    ...validResult,
+    fishpedia: {
+      ...validResult.fishpedia,
+      discovered_count: 0,
+      catalog_count: 0,
+      completion_percent: 0,
+    },
+  }).fishpedia, {
+    fishKey: "ember-mote",
+    caughtCount: 1,
+    smallestSize: 3.5,
+    largestSize: 3.5,
+    firstCaughtAt: "2026-07-18T20:00:05.000Z",
+    lastCaughtAt: "2026-07-18T20:00:05.000Z",
+    discoveredCount: 0,
+    catalogCount: 0,
+    completionPercent: 0,
+  });
+});
+
 test("rejects non-ISO or impossible response timestamps", () => {
   const validTicket = {
     ticket_id: "11111111-1111-4111-8111-111111111111",
@@ -367,6 +440,19 @@ test("allow-lists achievement and charm reward shapes", () => {
       charms: [{ ...validCharm, effects: { mint_favor: 999 } }],
     }),
     /charm reward shape/i,
+  );
+  assert.throws(
+    () => normalizeCatchClaimResult({
+      ...validResult,
+      charms: [
+        validCharm,
+        {
+          ...validCharm,
+          id: "44444444-4444-4444-8444-444444444444",
+        },
+      ],
+    }),
+    /duplicate canonical charm source/i,
   );
 });
 
@@ -519,7 +605,7 @@ test("claim migration returns actual charm rows and imports one safe legacy open
   );
   assert.match(
     migration,
-    /if legacy_user_level_data ->> 'points' ~ '\^\[0-9\]\{1,19\}\$' then\s+if \(legacy_user_level_data ->> 'points'\)::numeric <= 9223372036854775807 then\s+legacy_opening_balance := \(legacy_user_level_data ->> 'points'\)::bigint;/,
+    /if legacy_user_level_data ->> 'points' ~ '\^\[0-9\]\+\$' then\s+if \(legacy_user_level_data ->> 'points'\)::numeric > transport_safe_max then\s+raise exception using\s+errcode = '22003',\s+message = 'Legacy Favor opening balance exceeds JavaScript safe integer range';\s+end if;\s+legacy_opening_balance := \(legacy_user_level_data ->> 'points'\)::bigint;/,
   );
   assert.match(migration, /source_type = 'legacy_opening_balance'/);
   assert.match(
@@ -533,4 +619,93 @@ test("claim migration returns actual charm rows and imports one safe legacy open
     "opening ledger must be conditional on creating the missing Favor account",
   );
   assert.ok(openingLedger >= 0 && openingLedger < catchLedger);
+});
+
+test("migration bounds persisted and returned balances to JavaScript safe integers", () => {
+  const migration = readFileSync(
+    new URL("../../../../supabase/migrations/20260718200316_starfishing_phase_2_progression.sql", import.meta.url),
+    "utf8",
+  );
+  const claimFunction = migration.slice(
+    migration.indexOf("create or replace function public.claim_starfishing_catch("),
+    migration.indexOf("revoke execute on function public.start_starfishing_cast()"),
+  );
+  const firstRewardMutation = claimFunction.indexOf("insert into public.currency_accounts");
+  const openingRangeError = claimFunction.indexOf(
+    "message = 'Legacy Favor opening balance exceeds JavaScript safe integer range'",
+  );
+  const favorRangeError = claimFunction.indexOf(
+    "message = 'Favor balance exceeds JavaScript safe integer range'",
+  );
+  const materialRangeError = claimFunction.indexOf(
+    "message = 'Material balance exceeds JavaScript safe integer range'",
+  );
+  const favorAccountLookup = claimFunction.indexOf(
+    "from public.currency_accounts as account",
+  );
+  const missingAccountGuard = claimFunction.indexOf(
+    "if not favor_account_exists then",
+  );
+  const openingImportParse = claimFunction.indexOf(
+    "if legacy_user_level_data ->> 'points' ~ '^[0-9]+$' then",
+  );
+
+  assert.match(
+    claimFunction,
+    /declare\s+transport_safe_max constant bigint := 9007199254740991;/,
+  );
+  assert.match(
+    migration,
+    /create table public\.currency_accounts \([\s\S]*balance bigint not null default 0 check \(balance between 0 and 9007199254740991\)/,
+  );
+  assert.match(
+    migration,
+    /create table public\.currency_ledger \([\s\S]*balance_after bigint not null check \(balance_after between 0 and 9007199254740991\)/,
+  );
+  assert.match(
+    migration,
+    /create table public\.user_material_balances \([\s\S]*balance bigint not null default 0 check \(balance between 0 and 9007199254740991\)/,
+  );
+  assert.match(
+    migration,
+    /create table public\.material_ledger \([\s\S]*balance_after bigint not null check \(balance_after between 0 and 9007199254740991\)/,
+  );
+  assert.ok(
+    openingRangeError >= 0 && openingRangeError < firstRewardMutation,
+    "opening balance must be rejected before reward mutation",
+  );
+  assert.ok(
+    favorRangeError >= 0 && favorRangeError < firstRewardMutation,
+    "post-credit Favor balance must be rejected before reward mutation",
+  );
+  assert.ok(
+    materialRangeError >= 0 && materialRangeError < firstRewardMutation,
+    "post-credit material balances must be rejected before reward mutation",
+  );
+  assert.match(
+    claimFunction,
+    /if prior_favor_balance > transport_safe_max - favor_delta then\s+raise exception using\s+errcode = '22003',\s+message = 'Favor balance exceeds JavaScript safe integer range';/,
+  );
+  assert.match(
+    claimFunction,
+    /if previous_material_balance > transport_safe_max - material_delta then\s+raise exception using\s+errcode = '22003',\s+message = 'Material balance exceeds JavaScript safe integer range';/,
+  );
+  assert.ok(
+    favorAccountLookup >= 0
+      && favorAccountLookup < missingAccountGuard
+      && missingAccountGuard < openingImportParse,
+    "legacy points must only be parsed for a missing Favor account",
+  );
+  assert.match(
+    claimFunction,
+    /when catalog_count = 0 then 0\s+else least\(\s*100,\s*greatest\(\s*0,\s*pg_catalog\.round\(discovered_count::numeric \* 100 \/ catalog_count\)::integer\s*\)\s*\)/,
+  );
+  assert.match(
+    claimFunction,
+    /'favor', pg_catalog\.jsonb_build_object\(\s*'delta', favor_delta,\s*'balance', favor_balance\s*\)/,
+  );
+  assert.match(
+    claimFunction,
+    /'balance', material_balance/,
+  );
 });
