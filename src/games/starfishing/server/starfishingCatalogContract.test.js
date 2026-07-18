@@ -31,6 +31,6 @@ test("migration enforces ticket and achievement-charm trust boundaries", () => {
   assert.match(migration, /drop policy if exists "Users delete own relic charms" on public\.user_relic_charms;/);
   assert.match(migration, /grant select on table public\.user_relic_charms to authenticated;/);
   assert.match(migration, /create unique index user_relic_charms_one_starfishing_achievement_per_user/);
-  assert.match(migration, /\(user_id, \(data ->> 'achievement_key'\)\)/);
-  assert.match(migration, /data ->> 'source' = 'starfishing_achievement'/);
+  assert.match(migration, /\(user_id, \(data #>> '\{source,key\}'\)\)/);
+  assert.match(migration, /data #>> '\{source,type\}' = 'achievement'/);
 });
