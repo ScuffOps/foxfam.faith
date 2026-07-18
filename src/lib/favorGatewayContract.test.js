@@ -268,7 +268,7 @@ test("portal Favor RPC owns reward values and accepts no client reward fields", 
   assert.doesNotMatch(migration, /revoke [^;]*on table public\.user_relics\b/);
 });
 
-test("historical snapshot backfills all seven Favor action identities once and is immutable", () => {
+test("historical snapshot exhaustively reserves all community posts once and is immutable", () => {
   assert.match(
     migration,
     /create table if not exists private\.favor_gateway_cutovers \(\s*cutover_key text primary key,\s*cutover_at timestamptz not null,\s*constraint favor_gateway_cutovers_singleton\s+check \(cutover_key = 'portal-actions-v1'\)\s*\)/,
@@ -308,7 +308,7 @@ test("historical snapshot backfills all seven Favor action identities once and i
   assert.equal((backfill.match(/::text as action_key/g) || []).length, 7);
   assert.match(
     backfill,
-    /select 'submit-post'::text as action_key, submitted_post\.id as source_id\s+from public\.community_posts as submitted_post[\s\S]*coalesce\(submitted_post\.data ->> 'type', ''\)\s+in \('idea', 'poll', 'feedback', 'update'\)/,
+    /select 'submit-post'::text as action_key, submitted_post\.id as source_id\s+from public\.community_posts as submitted_post\s+union all/,
   );
   assert.match(
     backfill,
@@ -328,11 +328,23 @@ test("historical snapshot backfills all seven Favor action identities once and i
   );
   assert.match(
     backfill,
-    /select 'praise-idea'::text as action_key, praised_post\.id as source_id\s+from public\.community_posts as praised_post[\s\S]*coalesce\(praised_post\.data ->> 'type', ''\)\s+in \('idea', 'feedback', 'update'\)/,
+    /select 'praise-idea'::text as action_key, praised_post\.id as source_id\s+from public\.community_posts as praised_post\s+union all/,
   );
   assert.match(
     backfill,
-    /select 'vote-poll'::text as action_key, poll_post\.id as source_id\s+from public\.community_posts as poll_post[\s\S]*coalesce\(poll_post\.data ->> 'type', ''\) = 'poll'/,
+    /select 'vote-poll'::text as action_key, poll_post\.id as source_id\s+from public\.community_posts as poll_post\s+\) as historical/,
+  );
+  assert.equal(
+    (
+      backfill.match(
+        /select '(?:submit-post|praise-idea|vote-poll)'::text as action_key, [a-z_]+\.id as source_id\s+from public\.community_posts as [a-z_]+/g,
+      ) || []
+    ).length,
+    3,
+  );
+  assert.doesNotMatch(
+    backfill,
+    /from public\.community_posts as [a-z_]+\s+where\b/i,
   );
   assert.match(
     backfill,

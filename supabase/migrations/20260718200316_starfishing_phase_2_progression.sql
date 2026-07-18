@@ -348,11 +348,6 @@ begin
     from (
       select 'submit-post'::text as action_key, submitted_post.id as source_id
       from public.community_posts as submitted_post
-      where coalesce(submitted_post.data ->> 'type', '')
-        in ('idea', 'poll', 'feedback', 'update')
-        and pg_catalog.length(
-          pg_catalog.btrim(coalesce(submitted_post.data ->> 'title', ''))
-        ) > 0
 
       union all
 
@@ -378,14 +373,11 @@ begin
 
       select 'praise-idea'::text as action_key, praised_post.id as source_id
       from public.community_posts as praised_post
-      where coalesce(praised_post.data ->> 'type', '')
-        in ('idea', 'feedback', 'update')
 
       union all
 
       select 'vote-poll'::text as action_key, poll_post.id as source_id
       from public.community_posts as poll_post
-      where coalesce(poll_post.data ->> 'type', '') = 'poll'
     ) as historical
     on conflict (action_key, source_id) do nothing;
   end if;
