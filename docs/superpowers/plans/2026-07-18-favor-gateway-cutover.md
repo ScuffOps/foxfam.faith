@@ -15,7 +15,7 @@
 - Boop milestones remain visual-only until the server can verify a durable event. They do not grant Favor during the cutover.
 - Existing legacy balances are trusted as the opening balance. No historical cap or reset is introduced.
 
-## Task 2A: Database Favor Primitives
+## Task 1: Database Favor Primitives
 
 **Files:**
 - Modify `supabase/migrations/20260718200316_starfishing_phase_2_progression.sql`
@@ -34,7 +34,7 @@ Implement:
 
 Do not revoke legacy write grants in this task.
 
-## Task 2B: Social Award Client Cutover
+## Task 2: Social Award Client Cutover
 
 **Files:**
 - Create `src/lib/favorService.js`
@@ -57,7 +57,7 @@ Implement:
 5. Remove arbitrary `awardPointAmount` writes.
 6. Keep Boop milestone animation and copy, but do not call a durable Favor mutation.
 
-## Task 2C: Forge, Admin, and Final Write Cutover
+## Task 3: Forge, Admin, and Final Write Cutover
 
 **Files:**
 - Modify `supabase/migrations/20260718200316_starfishing_phase_2_progression.sql`
