@@ -268,23 +268,18 @@ test("portal Favor RPC owns reward values and accepts no client reward fields", 
   assert.doesNotMatch(migration, /revoke [^;]*on table public\.user_relics\b/);
 });
 
-test("portal Favor cutover marker is immutable and suppresses every historical source", () => {
-  const actionFunction = getSqlFunction(
-    "public.perform_portal_favor_action(",
-    "create or replace function public.start_starfishing_cast()",
-  );
-
+test("historical snapshot backfills all seven Favor action identities once and is immutable", () => {
   assert.match(
     migration,
     /create table if not exists private\.favor_gateway_cutovers \(\s*cutover_key text primary key,\s*cutover_at timestamptz not null,\s*constraint favor_gateway_cutovers_singleton\s+check \(cutover_key = 'portal-actions-v1'\)\s*\)/,
   );
   assert.match(
     migration,
-    /insert into private\.favor_gateway_cutovers \(cutover_key, cutover_at\)\s+values \('portal-actions-v1', pg_catalog\.clock_timestamp\(\)\)\s+on conflict \(cutover_key\) do nothing;/,
+    /create table if not exists private\.favor_gateway_historical_sources \(\s*action_key text not null,\s*source_id uuid not null,\s*snapshotted_at timestamptz not null,\s*primary key \(action_key, source_id\),\s*constraint favor_gateway_historical_action_key\s+check \(action_key in \(\s*'submit-post',\s*'post-blessing',\s*'blessing-comment',\s*'reliquary-comment',\s*'praise-blessing',\s*'praise-idea',\s*'vote-poll'\s*\)\)\s*\)/,
   );
   assert.match(
     migration,
-    /create trigger favor_gateway_cutovers_are_immutable\s+before update or delete or truncate on private\.favor_gateway_cutovers\s+for each statement\s+execute function private\.reject_favor_gateway_cutover_mutation\(\);/,
+    /insert into private\.favor_gateway_cutovers \(cutover_key, cutover_at\)\s+values \('portal-actions-v1', snapshot_cutover_at\)\s+on conflict \(cutover_key\) do nothing\s+returning true into cutover_created;/,
   );
   assert.match(
     migration,
@@ -292,46 +287,105 @@ test("portal Favor cutover marker is immutable and suppresses every historical s
   );
   assert.match(
     migration,
-    /revoke all on function private\.reject_favor_gateway_cutover_mutation\(\)\s+from public, anon, authenticated;/,
+    /revoke all on table private\.favor_gateway_historical_sources from public, anon, authenticated;/,
   );
   assert.doesNotMatch(
     migration,
-    /grant [^;]+ on table private\.favor_gateway_cutovers to (public|anon|authenticated)/,
+    /grant [^;]+ on table private\.(?:favor_gateway_cutovers|favor_gateway_historical_sources) to (public|anon|authenticated)/,
+  );
+
+  const backfillStart = migration.indexOf("do $$\ndeclare\n  cutover_created");
+  const backfillEnd = migration.indexOf(
+    "create or replace function private.reject_favor_gateway_cutover_mutation()",
+  );
+  assert.ok(backfillStart >= 0 && backfillEnd > backfillStart);
+  const backfill = migration.slice(backfillStart, backfillEnd);
+
+  assert.match(
+    backfill,
+    /if coalesce\(cutover_created, false\) then\s+insert into private\.favor_gateway_historical_sources/,
+  );
+  assert.equal((backfill.match(/::text as action_key/g) || []).length, 7);
+  assert.match(
+    backfill,
+    /select 'submit-post'::text as action_key, submitted_post\.id as source_id\s+from public\.community_posts as submitted_post[\s\S]*coalesce\(submitted_post\.data ->> 'type', ''\)\s+in \('idea', 'poll', 'feedback', 'update'\)/,
+  );
+  assert.match(
+    backfill,
+    /select 'post-blessing'::text as action_key, posted_blessing\.id as source_id\s+from public\.blessings as posted_blessing/,
+  );
+  assert.match(
+    backfill,
+    /select 'blessing-comment'::text as action_key, blessing_comment\.id as source_id\s+from public\.blessing_comments as blessing_comment/,
+  );
+  assert.match(
+    backfill,
+    /select 'reliquary-comment'::text as action_key, reliquary_comment\.id as source_id\s+from public\.reliquary_comments as reliquary_comment/,
+  );
+  assert.match(
+    backfill,
+    /select 'praise-blessing'::text as action_key, praised_blessing\.id as source_id\s+from public\.blessings as praised_blessing/,
+  );
+  assert.match(
+    backfill,
+    /select 'praise-idea'::text as action_key, praised_post\.id as source_id\s+from public\.community_posts as praised_post[\s\S]*coalesce\(praised_post\.data ->> 'type', ''\)\s+in \('idea', 'feedback', 'update'\)/,
+  );
+  assert.match(
+    backfill,
+    /select 'vote-poll'::text as action_key, poll_post\.id as source_id\s+from public\.community_posts as poll_post[\s\S]*coalesce\(poll_post\.data ->> 'type', ''\) = 'poll'/,
+  );
+  assert.match(
+    backfill,
+    /on conflict \(action_key, source_id\) do nothing;/,
+  );
+  assert.doesNotMatch(backfill, /\.created_at/);
+
+  const snapshotTrigger = migration.indexOf(
+    "create trigger favor_gateway_historical_sources_are_immutable",
+  );
+  assert.ok(snapshotTrigger > backfillEnd);
+  assert.match(
+    migration,
+    /create trigger favor_gateway_historical_sources_are_immutable\s+before insert or update or delete or truncate\s+on private\.favor_gateway_historical_sources\s+for each statement\s+execute function private\.reject_favor_gateway_historical_source_mutation\(\);/,
+  );
+  assert.match(
+    migration,
+    /revoke all on function private\.reject_favor_gateway_historical_source_mutation\(\)\s+from public, anon, authenticated;/,
+  );
+});
+
+test("historical snapshot blocks forged future created_at and is checked before positive Favor", () => {
+  const actionFunction = getSqlFunction(
+    "public.perform_portal_favor_action(",
+    "create or replace function public.start_starfishing_cast()",
   );
 
   assert.match(
     actionFunction,
-    /from private\.favor_gateway_cutovers as cutover\s+where cutover\.cutover_key = 'portal-actions-v1'/,
-  );
-  assert.equal(
-    (actionFunction.match(
-      /select (?:post_row|blessing_row|comment_row)\.id,\s+(?:post_row|blessing_row|comment_row)\.user_id,\s+(?:post_row|blessing_row|comment_row)\.data,\s+(?:post_row|blessing_row|comment_row)\.created_at/g,
-    ) || []).length,
-    7,
+    /from private\.favor_gateway_historical_sources as historical\s+where historical\.action_key = requested_action\s+and historical\.source_id = requested_source_id/,
   );
   assert.match(
     actionFunction,
-    /if portal_row_created_at is null\s+or portal_row_created_at < portal_cutover_at then\s+should_award := false;\s+mark_source_without_award := true;\s+end if;/,
+    /if source_is_historical then\s+should_award := false;\s+mark_source_without_award := true;\s+end if;/,
   );
-  assert.doesNotMatch(actionFunction, /portal_row_created_at <= portal_cutover_at/);
+  assert.doesNotMatch(actionFunction, /portal_row_created_at|portal_cutover_at/);
+  assert.doesNotMatch(actionFunction, /favor_gateway_cutovers/);
+  assert.doesNotMatch(actionFunction, /created_at/i);
+  assert.match(
+    actionFunction,
+    /'legacy_source_marker', true,\s*'historical_source_snapshot', source_is_historical/,
+  );
   assert.match(actionFunction, /should_award boolean := true/);
-  assert.match(
-    actionFunction,
-    /'legacy_source_marker', true,\s*'cutover_suppressed',\s*portal_row_created_at is null\s+or portal_row_created_at < portal_cutover_at/,
-  );
   assert.match(
     actionFunction,
     /if should_award then\s+action_result := private\.post_favor_entry\(\s*caller_id,\s*portal_reward,/,
   );
 
-  const cutoverGuard = actionFunction.indexOf(
-    "if portal_row_created_at is null",
+  const snapshotLookup = actionFunction.indexOf(
+    "from private.favor_gateway_historical_sources as historical",
   );
-  const awardCall = actionFunction.indexOf(
-    "action_result := private.post_favor_entry(",
-    cutoverGuard,
-  );
-  assert.ok(cutoverGuard >= 0 && awardCall > cutoverGuard);
+  const positivePost = actionFunction.indexOf("if should_award then");
+  assert.ok(snapshotLookup >= 0 && positivePost > snapshotLookup);
 });
 
 test("portal Favor RPC validates exact row ownership and nested comment references", () => {

@@ -308,11 +308,89 @@ create table if not exists private.favor_gateway_cutovers (
     check (cutover_key = 'portal-actions-v1')
 );
 
-revoke all on table private.favor_gateway_cutovers from public, anon, authenticated;
+create table if not exists private.favor_gateway_historical_sources (
+  action_key text not null,
+  source_id uuid not null,
+  snapshotted_at timestamptz not null,
+  primary key (action_key, source_id),
+  constraint favor_gateway_historical_action_key
+    check (action_key in (
+      'submit-post',
+      'post-blessing',
+      'blessing-comment',
+      'reliquary-comment',
+      'praise-blessing',
+      'praise-idea',
+      'vote-poll'
+    ))
+);
 
-insert into private.favor_gateway_cutovers (cutover_key, cutover_at)
-values ('portal-actions-v1', pg_catalog.clock_timestamp())
-on conflict (cutover_key) do nothing;
+revoke all on table private.favor_gateway_cutovers from public, anon, authenticated;
+revoke all on table private.favor_gateway_historical_sources from public, anon, authenticated;
+
+do $$
+declare
+  cutover_created boolean := false;
+  snapshot_cutover_at timestamptz := pg_catalog.clock_timestamp();
+begin
+  insert into private.favor_gateway_cutovers (cutover_key, cutover_at)
+  values ('portal-actions-v1', snapshot_cutover_at)
+  on conflict (cutover_key) do nothing
+  returning true into cutover_created;
+
+  if coalesce(cutover_created, false) then
+    insert into private.favor_gateway_historical_sources (
+      action_key,
+      source_id,
+      snapshotted_at
+    )
+    select historical.action_key, historical.source_id, snapshot_cutover_at
+    from (
+      select 'submit-post'::text as action_key, submitted_post.id as source_id
+      from public.community_posts as submitted_post
+      where coalesce(submitted_post.data ->> 'type', '')
+        in ('idea', 'poll', 'feedback', 'update')
+        and pg_catalog.length(
+          pg_catalog.btrim(coalesce(submitted_post.data ->> 'title', ''))
+        ) > 0
+
+      union all
+
+      select 'post-blessing'::text as action_key, posted_blessing.id as source_id
+      from public.blessings as posted_blessing
+
+      union all
+
+      select 'blessing-comment'::text as action_key, blessing_comment.id as source_id
+      from public.blessing_comments as blessing_comment
+
+      union all
+
+      select 'reliquary-comment'::text as action_key, reliquary_comment.id as source_id
+      from public.reliquary_comments as reliquary_comment
+
+      union all
+
+      select 'praise-blessing'::text as action_key, praised_blessing.id as source_id
+      from public.blessings as praised_blessing
+
+      union all
+
+      select 'praise-idea'::text as action_key, praised_post.id as source_id
+      from public.community_posts as praised_post
+      where coalesce(praised_post.data ->> 'type', '')
+        in ('idea', 'feedback', 'update')
+
+      union all
+
+      select 'vote-poll'::text as action_key, poll_post.id as source_id
+      from public.community_posts as poll_post
+      where coalesce(poll_post.data ->> 'type', '') = 'poll'
+    ) as historical
+    on conflict (action_key, source_id) do nothing;
+  end if;
+end
+$$;
 
 create or replace function private.reject_favor_gateway_cutover_mutation()
 returns trigger
@@ -336,6 +414,30 @@ create trigger favor_gateway_cutovers_are_immutable
 before update or delete or truncate on private.favor_gateway_cutovers
 for each statement
 execute function private.reject_favor_gateway_cutover_mutation();
+
+create or replace function private.reject_favor_gateway_historical_source_mutation()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  raise exception using
+    errcode = '55000',
+    message = 'Favor gateway historical sources are immutable';
+  return null;
+end;
+$$;
+
+revoke all on function private.reject_favor_gateway_historical_source_mutation()
+from public, anon, authenticated;
+
+drop trigger if exists favor_gateway_historical_sources_are_immutable
+on private.favor_gateway_historical_sources;
+create trigger favor_gateway_historical_sources_are_immutable
+before insert or update or delete or truncate
+on private.favor_gateway_historical_sources
+for each statement
+execute function private.reject_favor_gateway_historical_source_mutation();
 
 create or replace function private.favor_rank(rank_balance bigint)
 returns jsonb
@@ -730,20 +832,20 @@ declare
   caller_id uuid := (select auth.uid());
   locked_user_id uuid;
   requested_action text := pg_catalog.lower(pg_catalog.btrim(action_key));
+  requested_source_id uuid := source_id;
   cleaned_option_key text := nullif(pg_catalog.btrim(option_key), '');
   actor_key text;
   portal_reward integer;
   portal_row_id uuid;
   portal_row_user_id uuid;
   portal_row_data jsonb;
-  portal_row_created_at timestamptz;
-  portal_cutover_at timestamptz;
   parent_id_text text;
   next_actor_values jsonb;
   next_poll_options jsonb;
   next_portal_data jsonb;
   matching_option_count integer := 0;
   actor_already_voted boolean := false;
+  source_is_historical boolean := false;
   should_award boolean := true;
   mark_source_without_award boolean := false;
   action_replayed boolean := false;
@@ -795,26 +897,14 @@ begin
     raise exception using errcode = '42501', message = 'Authentication required';
   end if;
 
-  select cutover.cutover_at
-  into portal_cutover_at
-  from private.favor_gateway_cutovers as cutover
-  where cutover.cutover_key = 'portal-actions-v1';
-
-  if portal_cutover_at is null then
-    raise exception using
-      errcode = '55000',
-      message = 'Favor gateway cutover marker is missing';
-  end if;
-
   actor_key := 'user:' || caller_id::text;
 
   if requested_action = 'submit-post' then
-    select post_row.id, post_row.user_id, post_row.data, post_row.created_at
+    select post_row.id, post_row.user_id, post_row.data
     into
       portal_row_id,
       portal_row_user_id,
-      portal_row_data,
-      portal_row_created_at
+      portal_row_data
     from public.community_posts as post_row
     where post_row.id = source_id
     for update;
@@ -832,12 +922,11 @@ begin
       raise exception using errcode = '22023', message = 'Invalid submitted post source';
     end if;
   elsif requested_action = 'post-blessing' then
-    select blessing_row.id, blessing_row.user_id, blessing_row.data, blessing_row.created_at
+    select blessing_row.id, blessing_row.user_id, blessing_row.data
     into
       portal_row_id,
       portal_row_user_id,
-      portal_row_data,
-      portal_row_created_at
+      portal_row_data
     from public.blessings as blessing_row
     where blessing_row.id = source_id
     for update;
@@ -853,12 +942,11 @@ begin
       raise exception using errcode = '22023', message = 'Invalid blessing source';
     end if;
   elsif requested_action = 'blessing-comment' then
-    select comment_row.id, comment_row.user_id, comment_row.data, comment_row.created_at
+    select comment_row.id, comment_row.user_id, comment_row.data
     into
       portal_row_id,
       portal_row_user_id,
-      portal_row_data,
-      portal_row_created_at
+      portal_row_data
     from public.blessing_comments as comment_row
     where comment_row.id = source_id
     for update;
@@ -889,12 +977,11 @@ begin
       raise exception using errcode = '22023', message = 'Invalid blessing comment source';
     end if;
   elsif requested_action = 'reliquary-comment' then
-    select comment_row.id, comment_row.user_id, comment_row.data, comment_row.created_at
+    select comment_row.id, comment_row.user_id, comment_row.data
     into
       portal_row_id,
       portal_row_user_id,
-      portal_row_data,
-      portal_row_created_at
+      portal_row_data
     from public.reliquary_comments as comment_row
     where comment_row.id = source_id
     for update;
@@ -926,22 +1013,20 @@ begin
     end if;
   elsif requested_action in ('praise-blessing', 'praise-idea') then
     if requested_action = 'praise-blessing' then
-      select blessing_row.id, blessing_row.user_id, blessing_row.data, blessing_row.created_at
+      select blessing_row.id, blessing_row.user_id, blessing_row.data
       into
         portal_row_id,
         portal_row_user_id,
-        portal_row_data,
-        portal_row_created_at
+        portal_row_data
       from public.blessings as blessing_row
       where blessing_row.id = source_id
       for update;
     else
-      select post_row.id, post_row.user_id, post_row.data, post_row.created_at
+      select post_row.id, post_row.user_id, post_row.data
       into
         portal_row_id,
         portal_row_user_id,
-        portal_row_data,
-        portal_row_created_at
+        portal_row_data
       from public.community_posts as post_row
       where post_row.id = source_id
       for update;
@@ -1012,12 +1097,11 @@ begin
       where id = source_id;
     end if;
   elsif requested_action = 'vote-poll' then
-    select post_row.id, post_row.user_id, post_row.data, post_row.created_at
+    select post_row.id, post_row.user_id, post_row.data
     into
       portal_row_id,
       portal_row_user_id,
-      portal_row_data,
-      portal_row_created_at
+      portal_row_data
     from public.community_posts as post_row
     where post_row.id = source_id
     for update;
@@ -1140,8 +1224,15 @@ begin
     end if;
   end if;
 
-  if portal_row_created_at is null
-    or portal_row_created_at < portal_cutover_at then
+  select exists (
+    select 1
+    from private.favor_gateway_historical_sources as historical
+    where historical.action_key = requested_action
+      and historical.source_id = requested_source_id
+  )
+  into source_is_historical;
+
+  if source_is_historical then
     should_award := false;
     mark_source_without_award := true;
   end if;
@@ -1181,11 +1272,7 @@ begin
       portal_idempotency_key,
       pg_catalog.jsonb_build_object(
         'legacy_source_marker', true,
-        'cutover_suppressed',
-        portal_row_created_at is null
-          or portal_row_created_at < portal_cutover_at,
-        'source_created_at', portal_row_created_at,
-        'cutover_at', portal_cutover_at,
+        'historical_source_snapshot', source_is_historical,
         'action_key', requested_action,
         'option_key', cleaned_option_key
       )
