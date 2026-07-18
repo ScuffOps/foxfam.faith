@@ -84,8 +84,15 @@ create table public.currency_ledger (
   metadata jsonb not null default '{}'::jsonb check (jsonb_typeof(metadata) = 'object'),
   created_at timestamptz not null default now(),
   unique (user_id, currency_key, idempotency_key),
-  check (amount <> 0 or source_type = 'legacy_opening_balance')
+  check (
+    amount <> 0
+    or source_type = 'legacy_opening_balance'
+    or coalesce(metadata ->> 'legacy_source_marker', 'false') = 'true'
+  )
 );
+
+create unique index currency_ledger_one_source_identity
+on public.currency_ledger (user_id, currency_key, source_type, source_id);
 
 create table public.user_material_balances (
   id uuid primary key default gen_random_uuid(),
@@ -293,6 +300,784 @@ create policy "Authenticated read active achievement catalog"
 on public.achievement_catalog for select
 to authenticated
 using (active);
+
+create or replace function private.favor_rank(rank_balance bigint)
+returns jsonb
+language sql
+immutable
+set search_path = ''
+as $$
+  select case
+    when rank_balance >= 300 then
+      pg_catalog.jsonb_build_object('name', 'Forblessed', 'min', 300)
+    when rank_balance >= 150 then
+      pg_catalog.jsonb_build_object('name', 'Timescorned', 'min', 150)
+    when rank_balance >= 75 then
+      pg_catalog.jsonb_build_object('name', 'Purified', 'min', 75)
+    when rank_balance >= 30 then
+      pg_catalog.jsonb_build_object('name', 'Faithful', 'min', 30)
+    when rank_balance >= 10 then
+      pg_catalog.jsonb_build_object('name', 'Seeker', 'min', 10)
+    else
+      pg_catalog.jsonb_build_object('name', 'Forsaken', 'min', 0)
+  end
+$$;
+
+create or replace function private.sync_favor_mirror(
+  mirror_user_id uuid,
+  mirror_balance bigint
+)
+returns uuid
+language plpgsql
+set search_path = ''
+as $$
+declare
+  mirror_level_id uuid;
+  mirror_level_data jsonb;
+  mirror_updated_at timestamptz := pg_catalog.clock_timestamp();
+begin
+  if mirror_user_id is null then
+    raise exception using errcode = '22023', message = 'Favor mirror user is required';
+  end if;
+  if mirror_balance is null or mirror_balance < 0 or mirror_balance > 9007199254740991 then
+    raise exception using errcode = '22003', message = 'Invalid Favor mirror balance';
+  end if;
+
+  select level_row.id, level_row.data
+  into mirror_level_id, mirror_level_data
+  from public.user_levels as level_row
+  where level_row.user_id = mirror_user_id
+  order by level_row.created_at, level_row.id
+  limit 1
+  for update;
+
+  if mirror_level_id is null then
+    select level_row.id, level_row.data
+    into mirror_level_id, mirror_level_data
+    from public.user_levels as level_row
+    where level_row.data ->> 'user_key' = 'user:' || mirror_user_id::text
+      and (level_row.user_id is null or level_row.user_id = mirror_user_id)
+    order by level_row.created_at, level_row.id
+    limit 1
+    for update;
+  end if;
+
+  if mirror_level_data is not null
+    and pg_catalog.jsonb_typeof(mirror_level_data) <> 'object' then
+    raise exception using
+      errcode = '22023',
+      message = 'Favor mirror data must be an object';
+  end if;
+
+  if mirror_level_id is null then
+    insert into public.user_levels (
+      user_id,
+      created_by,
+      data,
+      created_at,
+      updated_at
+    )
+    values (
+      mirror_user_id,
+      null,
+      pg_catalog.jsonb_build_object(
+        'user_key', 'user:' || mirror_user_id::text,
+        'points', mirror_balance
+      ),
+      mirror_updated_at,
+      mirror_updated_at
+    )
+    returning id into mirror_level_id;
+  else
+    update public.user_levels
+    set user_id = coalesce(user_id, mirror_user_id),
+        data = pg_catalog.jsonb_set(
+          pg_catalog.jsonb_set(
+            coalesce(data, '{}'::jsonb),
+            '{user_key}',
+            pg_catalog.to_jsonb('user:' || mirror_user_id::text),
+            true
+          ),
+          '{points}',
+          pg_catalog.to_jsonb(mirror_balance),
+          true
+        ),
+        updated_at = mirror_updated_at
+    where id = mirror_level_id;
+  end if;
+
+  return mirror_level_id;
+end;
+$$;
+
+create or replace function private.ensure_favor_account(
+  account_user_id uuid
+)
+returns bigint
+language plpgsql
+set search_path = ''
+as $$
+declare
+  locked_user_id uuid;
+  account_balance bigint;
+  account_created boolean := false;
+  account_created_at timestamptz := pg_catalog.clock_timestamp();
+  legacy_opening_balance bigint := 0;
+  legacy_opening_hash text;
+  legacy_opening_id uuid;
+  legacy_user_level_id uuid;
+  legacy_user_level_data jsonb;
+begin
+  if account_user_id is null then
+    raise exception using errcode = '22023', message = 'Favor account user is required';
+  end if;
+
+  select id
+  into locked_user_id
+  from auth.users
+  where id = account_user_id
+  for update;
+
+  if locked_user_id is null then
+    raise exception using errcode = '22023', message = 'Favor account user not found';
+  end if;
+
+  select account.balance
+  into account_balance
+  from public.currency_accounts as account
+  where account.user_id = account_user_id
+    and account.currency_key = 'favor'
+  for update;
+
+  if found then
+    perform private.sync_favor_mirror(account_user_id, account_balance);
+    return account_balance;
+  end if;
+
+  select level_row.id, level_row.data
+  into legacy_user_level_id, legacy_user_level_data
+  from public.user_levels as level_row
+  where level_row.user_id = account_user_id
+  order by level_row.created_at, level_row.id
+  limit 1
+  for update;
+
+  if legacy_user_level_id is null then
+    select level_row.id, level_row.data
+    into legacy_user_level_id, legacy_user_level_data
+    from public.user_levels as level_row
+    where level_row.data ->> 'user_key' = 'user:' || account_user_id::text
+      and (level_row.user_id is null or level_row.user_id = account_user_id)
+    order by level_row.created_at, level_row.id
+    limit 1
+    for update;
+  end if;
+
+  if legacy_user_level_data ->> 'points' ~ '^[0-9]+$' then
+    if (legacy_user_level_data ->> 'points')::numeric > 9007199254740991 then
+      raise exception using
+        errcode = '22003',
+        message = 'Legacy Favor opening balance exceeds JavaScript safe integer range';
+    end if;
+    legacy_opening_balance := (legacy_user_level_data ->> 'points')::bigint;
+  end if;
+
+  insert into public.currency_accounts (
+    user_id,
+    currency_key,
+    balance,
+    updated_at
+  )
+  values (
+    account_user_id,
+    'favor',
+    legacy_opening_balance,
+    account_created_at
+  )
+  on conflict (user_id, currency_key) do nothing
+  returning true into account_created;
+
+  if coalesce(account_created, false) then
+    legacy_opening_hash := pg_catalog.md5(
+      'starfishing:favor:legacy-opening:' || account_user_id::text
+    );
+    legacy_opening_id := (
+      pg_catalog.substr(legacy_opening_hash, 1, 8)
+      || '-' || pg_catalog.substr(legacy_opening_hash, 9, 4)
+      || '-' || pg_catalog.substr(legacy_opening_hash, 13, 4)
+      || '-' || pg_catalog.substr(legacy_opening_hash, 17, 4)
+      || '-' || pg_catalog.substr(legacy_opening_hash, 21, 12)
+    )::uuid;
+
+    insert into public.currency_ledger (
+      user_id,
+      currency_key,
+      amount,
+      balance_after,
+      source_type,
+      source_id,
+      idempotency_key,
+      metadata,
+      created_at
+    )
+    values (
+      account_user_id,
+      'favor',
+      legacy_opening_balance,
+      legacy_opening_balance,
+      'legacy_opening_balance',
+      legacy_opening_id,
+      legacy_opening_id,
+      pg_catalog.jsonb_build_object(
+        'user_level_id', legacy_user_level_id,
+        'imported_points', legacy_opening_balance
+      ),
+      account_created_at
+    )
+    on conflict (user_id, currency_key, idempotency_key) do nothing;
+  end if;
+
+  select account.balance
+  into account_balance
+  from public.currency_accounts as account
+  where account.user_id = account_user_id
+    and account.currency_key = 'favor'
+  for update;
+
+  if account_balance is null then
+    raise exception using errcode = 'P0001', message = 'Favor account could not be created';
+  end if;
+
+  perform private.sync_favor_mirror(account_user_id, account_balance);
+  return account_balance;
+end;
+$$;
+
+create or replace function private.post_favor_entry(
+  entry_user_id uuid,
+  entry_amount bigint,
+  entry_source_type text,
+  entry_source_id uuid,
+  entry_idempotency_key uuid,
+  entry_metadata jsonb
+)
+returns jsonb
+language plpgsql
+set search_path = ''
+as $$
+declare
+  account_balance bigint;
+  next_balance bigint;
+  next_balance_numeric numeric;
+  entry_created_at timestamptz := pg_catalog.clock_timestamp();
+  existing_source_id uuid;
+  existing_idempotency_source_id uuid;
+  existing_idempotency_source_type text;
+begin
+  if entry_user_id is null
+    or entry_amount is null
+    or entry_source_id is null
+    or entry_idempotency_key is null
+    or entry_source_type is null
+    or entry_source_type !~ '^[a-z0-9_-]+$' then
+    raise exception using errcode = '22023', message = 'Invalid Favor ledger entry';
+  end if;
+  if entry_metadata is null or pg_catalog.jsonb_typeof(entry_metadata) <> 'object' then
+    raise exception using errcode = '22023', message = 'Favor metadata must be an object';
+  end if;
+  if entry_amount = 0
+    and coalesce(entry_metadata ->> 'legacy_source_marker', 'false') <> 'true' then
+    raise exception using errcode = '22023', message = 'Zero Favor entries require a source marker';
+  end if;
+  if entry_amount <> 0
+    and coalesce(entry_metadata ->> 'legacy_source_marker', 'false') = 'true' then
+    raise exception using errcode = '22023', message = 'Favor source markers must have zero amount';
+  end if;
+
+  account_balance := private.ensure_favor_account(entry_user_id);
+
+  select ledger.source_id
+  into existing_source_id
+  from public.currency_ledger as ledger
+  where ledger.user_id = entry_user_id
+    and ledger.currency_key = 'favor'
+    and ledger.source_type = entry_source_type
+    and ledger.source_id = entry_source_id;
+
+  if existing_source_id is not null then
+    return pg_catalog.jsonb_build_object(
+      'replayed', true,
+      'favor', pg_catalog.jsonb_build_object(
+        'delta', 0,
+        'balance', account_balance
+      )
+    );
+  end if;
+
+  select ledger.source_id, ledger.source_type
+  into existing_idempotency_source_id, existing_idempotency_source_type
+  from public.currency_ledger as ledger
+  where ledger.user_id = entry_user_id
+    and ledger.currency_key = 'favor'
+    and ledger.idempotency_key = entry_idempotency_key;
+
+  if existing_idempotency_source_id is not null then
+    raise exception using
+      errcode = '23505',
+      message = 'Favor idempotency key is already used by another source',
+      detail = existing_idempotency_source_type || ':' || existing_idempotency_source_id::text;
+  end if;
+
+  next_balance_numeric := account_balance::numeric + entry_amount::numeric;
+  if next_balance_numeric < 0 then
+    raise exception using errcode = '22003', message = 'Insufficient Favor balance';
+  end if;
+  if next_balance_numeric > 9007199254740991 then
+    raise exception using
+      errcode = '22003',
+      message = 'Favor balance exceeds JavaScript safe integer range';
+  end if;
+  next_balance := next_balance_numeric::bigint;
+
+  insert into public.currency_ledger (
+    user_id,
+    currency_key,
+    amount,
+    balance_after,
+    source_type,
+    source_id,
+    idempotency_key,
+    metadata,
+    created_at
+  )
+  values (
+    entry_user_id,
+    'favor',
+    entry_amount,
+    next_balance,
+    entry_source_type,
+    entry_source_id,
+    entry_idempotency_key,
+    entry_metadata,
+    entry_created_at
+  );
+
+  update public.currency_accounts
+  set balance = next_balance,
+      updated_at = entry_created_at
+  where user_id = entry_user_id
+    and currency_key = 'favor';
+
+  perform private.sync_favor_mirror(entry_user_id, next_balance);
+
+  return pg_catalog.jsonb_build_object(
+    'replayed', false,
+    'favor', pg_catalog.jsonb_build_object(
+      'delta', entry_amount,
+      'balance', next_balance
+    )
+  );
+end;
+$$;
+
+create or replace function public.perform_portal_favor_action(
+  action_key text,
+  source_id uuid,
+  option_key text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  caller_id uuid := (select auth.uid());
+  locked_user_id uuid;
+  requested_action text := pg_catalog.lower(pg_catalog.btrim(action_key));
+  cleaned_option_key text := nullif(pg_catalog.btrim(option_key), '');
+  actor_key text;
+  portal_reward integer;
+  portal_row_id uuid;
+  portal_row_user_id uuid;
+  portal_row_data jsonb;
+  parent_id_text text;
+  next_actor_values jsonb;
+  next_poll_options jsonb;
+  next_portal_data jsonb;
+  matching_option_count integer := 0;
+  actor_already_voted boolean := false;
+  should_award boolean := true;
+  mark_source_without_award boolean := false;
+  action_replayed boolean := false;
+  portal_idempotency_hash text;
+  portal_idempotency_key uuid;
+  action_result jsonb;
+  result_delta bigint;
+  result_balance bigint;
+  previous_balance bigint;
+  previous_rank jsonb;
+  current_rank jsonb;
+begin
+  if (select auth.uid()) is null then
+    raise exception using errcode = '42501', message = 'Authentication required';
+  end if;
+  if source_id is null then
+    raise exception using errcode = '22023', message = 'Favor action source is required';
+  end if;
+
+  portal_reward := case requested_action
+    when 'submit-post' then 5
+    when 'post-blessing' then 8
+    when 'blessing-comment' then 3
+    when 'reliquary-comment' then 3
+    when 'praise-blessing' then 1
+    when 'praise-idea' then 1
+    when 'vote-poll' then 2
+    else null
+  end;
+
+  if portal_reward is null then
+    raise exception using errcode = '22023', message = 'Unknown Favor action';
+  end if;
+  if requested_action = 'vote-poll' then
+    if cleaned_option_key is null or pg_catalog.length(cleaned_option_key) > 128 then
+      raise exception using errcode = '22023', message = 'Poll option is required';
+    end if;
+  elsif cleaned_option_key is not null then
+    raise exception using errcode = '22023', message = 'Option is not valid for this Favor action';
+  end if;
+
+  select id
+  into locked_user_id
+  from auth.users
+  where id = caller_id
+  for update;
+
+  if locked_user_id is null then
+    raise exception using errcode = '42501', message = 'Authentication required';
+  end if;
+
+  actor_key := 'user:' || caller_id::text;
+
+  if requested_action = 'submit-post' then
+    select post_row.id, post_row.user_id, post_row.data
+    into portal_row_id, portal_row_user_id, portal_row_data
+    from public.community_posts as post_row
+    where post_row.id = source_id
+    for update;
+
+    if portal_row_id is null
+      or portal_row_user_id is distinct from caller_id
+      or pg_catalog.jsonb_typeof(portal_row_data) <> 'object'
+      or pg_catalog.length(pg_catalog.btrim(coalesce(portal_row_data ->> 'title', ''))) = 0
+      or coalesce(portal_row_data ->> 'type', '')
+        not in ('idea', 'poll', 'feedback', 'update') then
+      raise exception using errcode = '22023', message = 'Invalid submitted post source';
+    end if;
+  elsif requested_action = 'post-blessing' then
+    select blessing_row.id, blessing_row.user_id, blessing_row.data
+    into portal_row_id, portal_row_user_id, portal_row_data
+    from public.blessings as blessing_row
+    where blessing_row.id = source_id
+    for update;
+
+    if portal_row_id is null
+      or portal_row_user_id is distinct from caller_id
+      or pg_catalog.jsonb_typeof(portal_row_data) <> 'object'
+      or pg_catalog.length(pg_catalog.btrim(coalesce(portal_row_data ->> 'title', ''))) = 0 then
+      raise exception using errcode = '22023', message = 'Invalid blessing source';
+    end if;
+  elsif requested_action = 'blessing-comment' then
+    select comment_row.id, comment_row.user_id, comment_row.data
+    into portal_row_id, portal_row_user_id, portal_row_data
+    from public.blessing_comments as comment_row
+    where comment_row.id = source_id
+    for update;
+
+    parent_id_text := portal_row_data ->> 'blessing_id';
+    if portal_row_id is null
+      or portal_row_user_id is distinct from caller_id
+      or pg_catalog.jsonb_typeof(portal_row_data) <> 'object'
+      or pg_catalog.length(pg_catalog.btrim(coalesce(portal_row_data ->> 'message', ''))) = 0
+      or parent_id_text is null
+      or parent_id_text !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+      or not exists (
+        select 1
+        from public.blessings as parent_blessing
+        where parent_blessing.id = parent_id_text::uuid
+      ) then
+      raise exception using errcode = '22023', message = 'Invalid blessing comment source';
+    end if;
+  elsif requested_action = 'reliquary-comment' then
+    select comment_row.id, comment_row.user_id, comment_row.data
+    into portal_row_id, portal_row_user_id, portal_row_data
+    from public.reliquary_comments as comment_row
+    where comment_row.id = source_id
+    for update;
+
+    parent_id_text := portal_row_data ->> 'entry_id';
+    if portal_row_id is null
+      or portal_row_user_id is distinct from caller_id
+      or pg_catalog.jsonb_typeof(portal_row_data) <> 'object'
+      or pg_catalog.length(pg_catalog.btrim(coalesce(portal_row_data ->> 'message', ''))) = 0
+      or parent_id_text is null
+      or parent_id_text !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+      or not exists (
+        select 1
+        from public.reliquary_entries as parent_entry
+        where parent_entry.id = parent_id_text::uuid
+      ) then
+      raise exception using errcode = '22023', message = 'Invalid reliquary comment source';
+    end if;
+  elsif requested_action in ('praise-blessing', 'praise-idea') then
+    if requested_action = 'praise-blessing' then
+      select blessing_row.id, blessing_row.user_id, blessing_row.data
+      into portal_row_id, portal_row_user_id, portal_row_data
+      from public.blessings as blessing_row
+      where blessing_row.id = source_id
+      for update;
+    else
+      select post_row.id, post_row.user_id, post_row.data
+      into portal_row_id, portal_row_user_id, portal_row_data
+      from public.community_posts as post_row
+      where post_row.id = source_id
+      for update;
+    end if;
+
+    if portal_row_id is null
+      or pg_catalog.jsonb_typeof(portal_row_data) <> 'object'
+      or (
+        requested_action = 'praise-idea'
+        and coalesce(portal_row_data ->> 'type', '')
+          not in ('idea', 'feedback', 'update')
+      )
+      or coalesce(pg_catalog.jsonb_typeof(portal_row_data -> 'upvoted_by'), 'null') <> 'array'
+      or case
+        when pg_catalog.jsonb_typeof(portal_row_data -> 'upvoted_by') = 'array'
+          then exists (
+            select 1
+            from pg_catalog.jsonb_array_elements(
+              portal_row_data -> 'upvoted_by'
+            ) as voter(value)
+            where pg_catalog.jsonb_typeof(voter.value) <> 'string'
+          )
+        else true
+      end then
+      raise exception using errcode = '22023', message = 'Invalid praise source';
+    end if;
+
+    if portal_row_data -> 'upvoted_by' ? actor_key then
+      select coalesce(
+        pg_catalog.jsonb_agg(pg_catalog.to_jsonb(voter.value) order by voter.ordinality),
+        '[]'::jsonb
+      )
+      into next_actor_values
+      from pg_catalog.jsonb_array_elements_text(
+        portal_row_data -> 'upvoted_by'
+      ) with ordinality as voter(value, ordinality)
+      where voter.value <> actor_key;
+      should_award := false;
+      mark_source_without_award := true;
+    else
+      next_actor_values := (
+        portal_row_data -> 'upvoted_by'
+      ) || pg_catalog.to_jsonb(actor_key);
+    end if;
+
+    next_portal_data := pg_catalog.jsonb_set(
+      pg_catalog.jsonb_set(
+        portal_row_data,
+        '{upvoted_by}',
+        next_actor_values,
+        true
+      ),
+      '{upvotes}',
+      pg_catalog.to_jsonb(pg_catalog.jsonb_array_length(next_actor_values)),
+      true
+    );
+
+    if requested_action = 'praise-blessing' then
+      update public.blessings
+      set data = next_portal_data
+      where id = source_id;
+    else
+      update public.community_posts
+      set data = next_portal_data
+      where id = source_id;
+    end if;
+  elsif requested_action = 'vote-poll' then
+    select post_row.id, post_row.user_id, post_row.data
+    into portal_row_id, portal_row_user_id, portal_row_data
+    from public.community_posts as post_row
+    where post_row.id = source_id
+    for update;
+
+    if portal_row_id is null
+      or pg_catalog.jsonb_typeof(portal_row_data) <> 'object'
+      or coalesce(portal_row_data ->> 'type', '') <> 'poll'
+      or coalesce(pg_catalog.jsonb_typeof(portal_row_data -> 'poll_options'), 'null') <> 'array'
+      or pg_catalog.jsonb_array_length(portal_row_data -> 'poll_options') = 0
+      or exists (
+        select 1
+        from pg_catalog.jsonb_array_elements(portal_row_data -> 'poll_options') as option(value)
+        where pg_catalog.jsonb_typeof(option.value) <> 'object'
+          or pg_catalog.length(pg_catalog.btrim(coalesce(option.value ->> 'id', ''))) = 0
+          or coalesce(option.value ->> 'votes', '') !~ '^[0-9]+$'
+          or coalesce(pg_catalog.jsonb_typeof(option.value -> 'voted_by'), 'null') <> 'array'
+          or case
+            when pg_catalog.jsonb_typeof(option.value -> 'voted_by') = 'array'
+              then exists (
+                select 1
+                from pg_catalog.jsonb_array_elements(
+                  option.value -> 'voted_by'
+                ) as voter(value)
+                where pg_catalog.jsonb_typeof(voter.value) <> 'string'
+              )
+            else true
+          end
+      ) then
+      raise exception using errcode = '22023', message = 'Invalid poll source';
+    end if;
+
+    select pg_catalog.count(*)::integer
+    into matching_option_count
+    from pg_catalog.jsonb_array_elements(portal_row_data -> 'poll_options') as option(value)
+    where option.value ->> 'id' = cleaned_option_key;
+
+    if matching_option_count <> 1 then
+      raise exception using errcode = '22023', message = 'Poll option not found';
+    end if;
+
+    select exists (
+      select 1
+      from pg_catalog.jsonb_array_elements(portal_row_data -> 'poll_options') as option(value)
+      cross join lateral pg_catalog.jsonb_array_elements_text(
+        option.value -> 'voted_by'
+      ) as voter(value)
+      where voter.value = actor_key
+    )
+    into actor_already_voted;
+
+    if actor_already_voted then
+      should_award := false;
+      mark_source_without_award := true;
+      action_replayed := true;
+    else
+      select pg_catalog.jsonb_agg(
+        case
+          when option.value ->> 'id' = cleaned_option_key then
+            pg_catalog.jsonb_set(
+              pg_catalog.jsonb_set(
+                option.value,
+                '{voted_by}',
+                (option.value -> 'voted_by') || pg_catalog.to_jsonb(actor_key),
+                true
+              ),
+              '{votes}',
+              pg_catalog.to_jsonb(
+                pg_catalog.jsonb_array_length(
+                  (option.value -> 'voted_by') || pg_catalog.to_jsonb(actor_key)
+                )
+              ),
+              true
+            )
+          else option.value
+        end
+        order by option.ordinality
+      )
+      into next_poll_options
+      from pg_catalog.jsonb_array_elements(
+        portal_row_data -> 'poll_options'
+      ) with ordinality as option(value, ordinality);
+
+      next_portal_data := pg_catalog.jsonb_set(
+        portal_row_data,
+        '{poll_options}',
+        next_poll_options,
+        true
+      );
+
+      update public.community_posts
+      set data = next_portal_data
+      where id = source_id;
+    end if;
+  end if;
+
+  portal_idempotency_hash := pg_catalog.md5(
+    'portal-favor:'
+    || caller_id::text
+    || ':' || requested_action
+    || ':' || source_id::text
+  );
+  portal_idempotency_key := (
+    pg_catalog.substr(portal_idempotency_hash, 1, 8)
+    || '-' || pg_catalog.substr(portal_idempotency_hash, 9, 4)
+    || '-' || pg_catalog.substr(portal_idempotency_hash, 13, 4)
+    || '-' || pg_catalog.substr(portal_idempotency_hash, 17, 4)
+    || '-' || pg_catalog.substr(portal_idempotency_hash, 21, 12)
+  )::uuid;
+
+  if should_award then
+    action_result := private.post_favor_entry(
+      caller_id,
+      portal_reward,
+      requested_action,
+      source_id,
+      portal_idempotency_key,
+      pg_catalog.jsonb_build_object(
+        'action_key', requested_action,
+        'option_key', cleaned_option_key
+      )
+    );
+  elsif mark_source_without_award then
+    action_result := private.post_favor_entry(
+      caller_id,
+      0,
+      requested_action,
+      source_id,
+      portal_idempotency_key,
+      pg_catalog.jsonb_build_object(
+        'legacy_source_marker', true,
+        'action_key', requested_action,
+        'option_key', cleaned_option_key
+      )
+    );
+    if action_replayed then
+      action_result := pg_catalog.jsonb_set(
+        action_result,
+        '{replayed}',
+        'true'::jsonb,
+        false
+      );
+    end if;
+  else
+    result_balance := private.ensure_favor_account(caller_id);
+    action_result := pg_catalog.jsonb_build_object(
+      'replayed', action_replayed,
+      'favor', pg_catalog.jsonb_build_object(
+        'delta', 0,
+        'balance', result_balance
+      )
+    );
+  end if;
+
+  result_delta := (action_result #>> '{favor,delta}')::bigint;
+  result_balance := (action_result #>> '{favor,balance}')::bigint;
+  previous_balance := result_balance - result_delta;
+  previous_rank := private.favor_rank(previous_balance);
+  current_rank := private.favor_rank(result_balance);
+
+  return action_result || pg_catalog.jsonb_build_object(
+    'rank',
+    pg_catalog.jsonb_build_object(
+      'previous', previous_rank,
+      'current', current_rank,
+      'leveled_up',
+      (current_rank ->> 'min')::integer > (previous_rank ->> 'min')::integer
+    )
+  );
+end;
+$$;
 
 create or replace function public.start_starfishing_cast()
 returns jsonb
@@ -543,12 +1328,7 @@ declare
   favor_delta bigint := 0;
   favor_balance bigint := 0;
   prior_favor_balance bigint := 0;
-  favor_account_exists boolean := false;
-  favor_account_created boolean := false;
-  legacy_opening_balance bigint := 0;
-  legacy_opening_hash text;
-  legacy_opening_id uuid;
-  legacy_user_level_data jsonb;
+  favor_entry_result jsonb;
   base_material_drops jsonb := '[]'::jsonb;
   material_results jsonb := '[]'::jsonb;
   material_reward record;
@@ -573,7 +1353,6 @@ declare
   achievement_result jsonb;
   charm_reward jsonb;
   charm_insert_result jsonb;
-  user_level_id uuid;
 begin
   if (select auth.uid()) is null then
     raise exception using errcode = '42501', message = 'Authentication required';
@@ -760,52 +1539,6 @@ begin
     base_favor_delta::numeric * (10000 + favor_multiplier_bps) / 10000
   )::bigint;
 
-  select level_row.id, level_row.data
-  into user_level_id, legacy_user_level_data
-  from public.user_levels as level_row
-  where level_row.user_id = caller_id
-  order by level_row.created_at, level_row.id
-  limit 1
-  for update;
-
-  if user_level_id is null then
-    select level_row.id, level_row.data
-    into user_level_id, legacy_user_level_data
-    from public.user_levels as level_row
-    where level_row.data ->> 'user_key' = 'user:' || caller_id::text
-      and (level_row.user_id is null or level_row.user_id = caller_id)
-    order by level_row.created_at, level_row.id
-    limit 1
-    for update;
-  end if;
-
-  select account.balance
-  into prior_favor_balance
-  from public.currency_accounts as account
-  where account.user_id = caller_id
-    and account.currency_key = 'favor'
-  for update;
-
-  favor_account_exists := found;
-  if not favor_account_exists then
-    if legacy_user_level_data ->> 'points' ~ '^[0-9]+$' then
-      if (legacy_user_level_data ->> 'points')::numeric > transport_safe_max then
-        raise exception using
-          errcode = '22003',
-          message = 'Legacy Favor opening balance exceeds JavaScript safe integer range';
-      end if;
-      legacy_opening_balance := (legacy_user_level_data ->> 'points')::bigint;
-    end if;
-    prior_favor_balance := legacy_opening_balance;
-  end if;
-
-  if prior_favor_balance > transport_safe_max - favor_delta then
-    raise exception using
-      errcode = '22003',
-      message = 'Favor balance exceeds JavaScript safe integer range';
-  end if;
-  favor_balance := prior_favor_balance + favor_delta;
-
   for material_reward in
     select
       material.value ->> 'key' as material_key,
@@ -847,65 +1580,21 @@ begin
     );
   end loop;
 
-  if not favor_account_exists then
-    insert into public.currency_accounts (user_id, currency_key, balance, updated_at)
-    values (caller_id, 'favor', legacy_opening_balance, claim_created_at)
-    on conflict (user_id, currency_key) do nothing
-    returning true into favor_account_created;
-
-    if coalesce(favor_account_created, false) then
-      legacy_opening_hash := pg_catalog.md5(
-        'starfishing:favor:legacy-opening:' || caller_id::text
-      );
-      legacy_opening_id := (
-        pg_catalog.substr(legacy_opening_hash, 1, 8)
-        || '-' || pg_catalog.substr(legacy_opening_hash, 9, 4)
-        || '-' || pg_catalog.substr(legacy_opening_hash, 13, 4)
-        || '-' || pg_catalog.substr(legacy_opening_hash, 17, 4)
-        || '-' || pg_catalog.substr(legacy_opening_hash, 21, 12)
-      )::uuid;
-
-      insert into public.currency_ledger (
-        user_id,
-        currency_key,
-        amount,
-        balance_after,
-        source_type,
-        source_id,
-        idempotency_key,
-        metadata,
-        created_at
+  prior_favor_balance := private.ensure_favor_account(caller_id);
+  favor_balance := prior_favor_balance;
+  if favor_delta > 0 then
+    favor_entry_result := private.post_favor_entry(
+      caller_id,
+      favor_delta,
+      'starfishing_catch',
+      claim_catch_id,
+      requested_idempotency_key,
+      pg_catalog.jsonb_build_object(
+        'fish_key', claim_fish.fish_key,
+        'duplicate_policy', effective_duplicate_policy
       )
-      values (
-        caller_id,
-        'favor',
-        legacy_opening_balance,
-        legacy_opening_balance,
-        'legacy_opening_balance',
-        legacy_opening_id,
-        legacy_opening_id,
-        pg_catalog.jsonb_build_object(
-          'user_level_id', user_level_id,
-          'imported_points', legacy_opening_balance
-        ),
-        claim_created_at
-      )
-      on conflict (user_id, currency_key, idempotency_key) do nothing;
-    else
-      select account.balance
-      into prior_favor_balance
-      from public.currency_accounts as account
-      where account.user_id = caller_id
-        and account.currency_key = 'favor'
-      for update;
-
-      if prior_favor_balance > transport_safe_max - favor_delta then
-        raise exception using
-          errcode = '22003',
-          message = 'Favor balance exceeds JavaScript safe integer range';
-      end if;
-      favor_balance := prior_favor_balance + favor_delta;
-    end if;
+    );
+    favor_balance := (favor_entry_result #>> '{favor,balance}')::bigint;
   end if;
 
   if claim_duplicate then
@@ -1214,40 +1903,6 @@ begin
     first_caught_at = excluded.first_caught_at,
     last_caught_at = excluded.last_caught_at;
 
-  update public.currency_accounts
-  set balance = favor_balance,
-      updated_at = claim_created_at
-  where user_id = caller_id
-    and currency_key = 'favor';
-
-  if favor_delta > 0 then
-    insert into public.currency_ledger (
-      user_id,
-      currency_key,
-      amount,
-      balance_after,
-      source_type,
-      source_id,
-      idempotency_key,
-      metadata,
-      created_at
-    )
-    values (
-      caller_id,
-      'favor',
-      favor_delta,
-      favor_balance,
-      'starfishing_catch',
-      claim_catch_id,
-      requested_idempotency_key,
-      pg_catalog.jsonb_build_object(
-        'fish_key', claim_fish.fish_key,
-        'duplicate_policy', effective_duplicate_policy
-      ),
-      claim_created_at
-    );
-  end if;
-
   for material_result in
     select material.value
     from pg_catalog.jsonb_array_elements(material_results) as material(value)
@@ -1351,37 +2006,6 @@ begin
     )
   on conflict (user_id, trophy_key) do nothing;
 
-  if user_level_id is null then
-    insert into public.user_levels (user_id, created_by, data, created_at, updated_at)
-    values (
-      caller_id,
-      null,
-      pg_catalog.jsonb_build_object(
-        'user_key', 'user:' || caller_id::text,
-        'points', favor_balance
-      ),
-      claim_created_at,
-      claim_created_at
-    )
-    returning id into user_level_id;
-  else
-    update public.user_levels
-    set user_id = coalesce(user_id, caller_id),
-        data = pg_catalog.jsonb_set(
-          pg_catalog.jsonb_set(
-            coalesce(data, '{}'::jsonb),
-            '{user_key}',
-            pg_catalog.to_jsonb('user:' || caller_id::text),
-            true
-          ),
-          '{points}',
-          pg_catalog.to_jsonb(favor_balance),
-          true
-        ),
-        updated_at = claim_created_at
-    where id = user_level_id;
-  end if;
-
   update public.game_cast_tickets
   set consumed_at = claim_created_at,
       claim_id = claim_catch_id
@@ -1390,6 +2014,17 @@ begin
   return claim_result_snapshot;
 end;
 $$;
+
+revoke all on function private.favor_rank(bigint) from public, anon, authenticated;
+revoke all on function private.sync_favor_mirror(uuid, bigint) from public, anon, authenticated;
+revoke all on function private.ensure_favor_account(uuid) from public, anon, authenticated;
+revoke all on function private.post_favor_entry(uuid, bigint, text, uuid, uuid, jsonb)
+from public, anon, authenticated;
+
+revoke execute on function public.perform_portal_favor_action(text, uuid, text)
+from public, anon;
+grant execute on function public.perform_portal_favor_action(text, uuid, text)
+to authenticated;
 
 revoke execute on function public.start_starfishing_cast() from public, anon;
 grant execute on function public.start_starfishing_cast() to authenticated;

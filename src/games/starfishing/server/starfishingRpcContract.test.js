@@ -456,7 +456,7 @@ test("allow-lists achievement and charm reward shapes", () => {
   );
 });
 
-test("migration defines locked security-definer cast and claim transactions", () => {
+test("migration defines locked security-definer game and Favor transactions", () => {
   const migration = readFileSync(
     new URL("../../../../supabase/migrations/20260718200316_starfishing_phase_2_progression.sql", import.meta.url),
     "utf8",
@@ -467,11 +467,11 @@ test("migration defines locked security-definer cast and claim transactions", ()
     migration,
     /create or replace function public\.claim_starfishing_catch\(\s*claim_ticket_id uuid,\s*claim_idempotency_key uuid,\s*claim_duplicate_policy text,\s*claim_qte_action_count integer,\s*claim_miss_count integer,\s*claim_duration_ms integer\s*\)/,
   );
-  assert.equal((migration.match(/security definer\s+set search_path = ''/g) || []).length, 2);
-  assert.equal((migration.match(/if \(select auth\.uid\(\)\) is null then/g) || []).length, 2);
+  assert.equal((migration.match(/security definer\s+set search_path = ''/g) || []).length, 3);
+  assert.equal((migration.match(/if \(select auth\.uid\(\)\) is null then/g) || []).length, 3);
   assert.equal(
     (migration.match(/select id\s+into locked_user_id\s+from auth\.users\s+where id = caller_id\s+for update/g) || []).length,
-    2,
+    3,
   );
   assert.match(migration, /update public\.game_cast_tickets\s+set consumed_at = cast_created_at\s+where user_id = caller_id\s+and consumed_at is null/);
   assert.match(migration, /from public\.user_relic_charms\s+where user_id = caller_id\s+and data ->> 'equipped' = 'true'\s+and data ->> 'slot' = 'fishing'/);
@@ -544,10 +544,7 @@ test("claim migration validates inputs, snapshots before insert, and locks execu
     migration,
     /owned_charm\.data #>> '\{source,type\}' = 'achievement'\s+and owned_charm\.data #>> '\{source,key\}' = achievement\.achievement_key/,
   );
-  assert.match(
-    migration,
-    /from public\.user_levels as level_row\s+where level_row\.user_id = caller_id\s+order by level_row\.created_at, level_row\.id\s+limit 1\s+for update/,
-  );
+  assert.match(migration, /private\.ensure_favor_account\(caller_id\)/);
   assert.match(
     migration,
     /pg_catalog\.jsonb_set\(\s*pg_catalog\.jsonb_set\(\s*coalesce\(data, '\{\}'::jsonb\),\s*'\{user_key\}'/,
@@ -570,8 +567,9 @@ test("claim migration uses active Fishpedia completion and preserves canonical l
   );
   assert.match(
     migration,
-    /pg_catalog\.jsonb_set\(\s*pg_catalog\.jsonb_set\(\s*coalesce\(data, '\{\}'::jsonb\),\s*'\{user_key\}',\s*pg_catalog\.to_jsonb\('user:' \|\| caller_id::text\),\s*true\s*\),\s*'\{points\}'/,
+    /create or replace function private\.sync_favor_mirror\([\s\S]*pg_catalog\.jsonb_set\(\s*pg_catalog\.jsonb_set\(\s*coalesce\(data, '\{\}'::jsonb\),\s*'\{user_key\}',\s*pg_catalog\.to_jsonb\('user:' \|\| mirror_user_id::text\),\s*true\s*\),\s*'\{points\}'/,
   );
+  assert.match(migration, /private\.post_favor_entry\(\s*caller_id,\s*favor_delta/);
 });
 
 test("claim migration returns actual charm rows and imports one safe legacy opening balance", () => {
@@ -581,8 +579,8 @@ test("claim migration returns actual charm rows and imports one safe legacy open
   );
   const snapshotAssignment = migration.indexOf("claim_result_snapshot := pg_catalog.jsonb_build_object(");
   const charmInsert = migration.indexOf("insert into public.user_relic_charms as inserted_charm");
-  const accountCreated = migration.indexOf("returning true into favor_account_created;");
-  const openingGuard = migration.indexOf("if coalesce(favor_account_created, false) then");
+  const accountCreated = migration.indexOf("returning true into account_created;");
+  const openingGuard = migration.indexOf("if coalesce(account_created, false) then");
   const openingLedger = migration.indexOf("insert into public.currency_ledger", openingGuard);
   const catchLedger = migration.indexOf("'starfishing_catch'", openingLedger);
 
@@ -597,17 +595,17 @@ test("claim migration returns actual charm rows and imports one safe legacy open
   );
   assert.match(
     migration,
-    /where level_row\.user_id = caller_id[\s\S]*where level_row\.data ->> 'user_key' = 'user:' \|\| caller_id::text\s+and \(level_row\.user_id is null or level_row\.user_id = caller_id\)/,
+    /where level_row\.user_id = account_user_id[\s\S]*where level_row\.data ->> 'user_key' = 'user:' \|\| account_user_id::text\s+and \(level_row\.user_id is null or level_row\.user_id = account_user_id\)/,
   );
   assert.match(
     migration,
-    /pg_catalog\.md5\(\s*'starfishing:favor:legacy-opening:' \|\| caller_id::text\s*\)/,
+    /pg_catalog\.md5\(\s*'starfishing:favor:legacy-opening:' \|\| account_user_id::text\s*\)/,
   );
   assert.match(
     migration,
-    /if legacy_user_level_data ->> 'points' ~ '\^\[0-9\]\+\$' then\s+if \(legacy_user_level_data ->> 'points'\)::numeric > transport_safe_max then\s+raise exception using\s+errcode = '22003',\s+message = 'Legacy Favor opening balance exceeds JavaScript safe integer range';\s+end if;\s+legacy_opening_balance := \(legacy_user_level_data ->> 'points'\)::bigint;/,
+    /if legacy_user_level_data ->> 'points' ~ '\^\[0-9\]\+\$' then\s+if \(legacy_user_level_data ->> 'points'\)::numeric > 9007199254740991 then\s+raise exception using\s+errcode = '22003',\s+message = 'Legacy Favor opening balance exceeds JavaScript safe integer range';\s+end if;\s+legacy_opening_balance := \(legacy_user_level_data ->> 'points'\)::bigint;/,
   );
-  assert.match(migration, /source_type = 'legacy_opening_balance'/);
+  assert.match(migration, /'legacy_opening_balance'/);
   assert.match(
     migration,
     /insert into public\.currency_ledger[\s\S]*'legacy_opening_balance'[\s\S]*on conflict \(user_id, currency_key, idempotency_key\) do nothing/,
@@ -630,25 +628,32 @@ test("migration bounds persisted and returned balances to JavaScript safe intege
     migration.indexOf("create or replace function public.claim_starfishing_catch("),
     migration.indexOf("revoke execute on function public.start_starfishing_cast()"),
   );
-  const firstRewardMutation = claimFunction.indexOf("insert into public.currency_accounts");
-  const openingRangeError = claimFunction.indexOf(
+  const ensureFunction = migration.slice(
+    migration.indexOf("create or replace function private.ensure_favor_account("),
+    migration.indexOf("create or replace function private.post_favor_entry("),
+  );
+  const postFunction = migration.slice(
+    migration.indexOf("create or replace function private.post_favor_entry("),
+    migration.indexOf("create or replace function public.perform_portal_favor_action("),
+  );
+  const openingRangeError = ensureFunction.indexOf(
     "message = 'Legacy Favor opening balance exceeds JavaScript safe integer range'",
   );
-  const favorRangeError = claimFunction.indexOf(
+  const favorRangeError = postFunction.indexOf(
     "message = 'Favor balance exceeds JavaScript safe integer range'",
   );
   const materialRangeError = claimFunction.indexOf(
     "message = 'Material balance exceeds JavaScript safe integer range'",
   );
-  const favorAccountLookup = claimFunction.indexOf(
+  const favorAccountLookup = ensureFunction.indexOf(
     "from public.currency_accounts as account",
   );
-  const missingAccountGuard = claimFunction.indexOf(
-    "if not favor_account_exists then",
-  );
-  const openingImportParse = claimFunction.indexOf(
+  const openingImportParse = ensureFunction.indexOf(
     "if legacy_user_level_data ->> 'points' ~ '^[0-9]+$' then",
   );
+  const accountInsert = ensureFunction.indexOf("insert into public.currency_accounts");
+  const favorLedgerInsert = postFunction.indexOf("insert into public.currency_ledger");
+  const claimFavorMutation = claimFunction.indexOf("private.post_favor_entry(");
 
   assert.match(
     claimFunction,
@@ -671,20 +676,20 @@ test("migration bounds persisted and returned balances to JavaScript safe intege
     /create table public\.material_ledger \([\s\S]*balance_after bigint not null check \(balance_after between 0 and 9007199254740991\)/,
   );
   assert.ok(
-    openingRangeError >= 0 && openingRangeError < firstRewardMutation,
+    openingRangeError >= 0 && openingRangeError < accountInsert,
     "opening balance must be rejected before reward mutation",
   );
   assert.ok(
-    favorRangeError >= 0 && favorRangeError < firstRewardMutation,
+    favorRangeError >= 0 && favorRangeError < favorLedgerInsert,
     "post-credit Favor balance must be rejected before reward mutation",
   );
   assert.ok(
-    materialRangeError >= 0 && materialRangeError < firstRewardMutation,
+    materialRangeError >= 0 && materialRangeError < claimFavorMutation,
     "post-credit material balances must be rejected before reward mutation",
   );
   assert.match(
-    claimFunction,
-    /if prior_favor_balance > transport_safe_max - favor_delta then\s+raise exception using\s+errcode = '22003',\s+message = 'Favor balance exceeds JavaScript safe integer range';/,
+    postFunction,
+    /next_balance_numeric > 9007199254740991[\s\S]*message = 'Favor balance exceeds JavaScript safe integer range'/,
   );
   assert.match(
     claimFunction,
@@ -692,10 +697,11 @@ test("migration bounds persisted and returned balances to JavaScript safe intege
   );
   assert.ok(
     favorAccountLookup >= 0
-      && favorAccountLookup < missingAccountGuard
-      && missingAccountGuard < openingImportParse,
+      && favorAccountLookup < openingImportParse,
     "legacy points must only be parsed for a missing Favor account",
   );
+  assert.match(claimFunction, /private\.ensure_favor_account\(caller_id\)/);
+  assert.match(claimFunction, /private\.post_favor_entry\(/);
   assert.match(
     claimFunction,
     /when catalog_count = 0 then 0\s+else least\(\s*100,\s*greatest\(\s*0,\s*pg_catalog\.round\(discovered_count::numeric \* 100 \/ catalog_count\)::integer\s*\)\s*\)/,
