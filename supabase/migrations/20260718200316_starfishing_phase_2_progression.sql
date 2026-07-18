@@ -76,14 +76,15 @@ create table public.currency_ledger (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   currency_key text not null check (currency_key ~ '^[a-z0-9-]+$'),
-  amount bigint not null check (amount <> 0),
+  amount bigint not null,
   balance_after bigint not null check (balance_after >= 0),
   source_type text not null,
   source_id uuid not null,
   idempotency_key uuid not null,
   metadata jsonb not null default '{}'::jsonb check (jsonb_typeof(metadata) = 'object'),
   created_at timestamptz not null default now(),
-  unique (user_id, currency_key, idempotency_key)
+  unique (user_id, currency_key, idempotency_key),
+  check (amount <> 0 or source_type = 'legacy_opening_balance')
 );
 
 create table public.user_material_balances (
@@ -302,7 +303,7 @@ as $$
 declare
   caller_id uuid := (select auth.uid());
   locked_user_id uuid;
-  cast_created_at timestamptz := pg_catalog.clock_timestamp();
+  cast_created_at timestamptz;
   cast_ticket_id uuid := pg_catalog.gen_random_uuid();
   cast_not_before timestamptz;
   cast_expires_at timestamptz;
@@ -328,6 +329,14 @@ begin
   if locked_user_id is null then
     raise exception using errcode = '42501', message = 'Authentication required';
   end if;
+
+  perform 1
+  from public.game_cast_tickets as prior_ticket
+  where prior_ticket.user_id = caller_id
+    and prior_ticket.consumed_at is null
+  for update;
+
+  cast_created_at := pg_catalog.clock_timestamp();
 
   update public.game_cast_tickets
   set consumed_at = cast_created_at
@@ -378,7 +387,10 @@ begin
       pg_catalog.jsonb_build_object(
         'key', 'rare_bite_bonus_bps',
         'value', rare_bite_bonus_bps,
-        'label', '+' || (rare_bite_bonus_bps::numeric / 100)::text || '% rare bite chance'
+        'label', pg_catalog.to_char(
+          rare_bite_bonus_bps::numeric / 100,
+          'FM999990.##'
+        ) || '% non-mythic rarity weighting'
       )
     );
   end if;
@@ -399,11 +411,11 @@ begin
       fish.rarity_weight::numeric
         * (
           10000
-          + rare_bite_bonus_bps * case fish.rarity
-            when 'common' then 0
-            when 'uncommon' then 1
-            when 'rare' then 2
-            when 'epic' then 3
+          + case fish.rarity
+            when 'common' then -rare_bite_bonus_bps
+            when 'uncommon' then rare_bite_bonus_bps / 4
+            when 'rare' then rare_bite_bonus_bps / 2
+            when 'epic' then rare_bite_bonus_bps
             when 'mythic' then 0
           end
         )
@@ -512,7 +524,7 @@ declare
   caller_id uuid := (select auth.uid());
   requested_idempotency_key uuid := claim_idempotency_key;
   locked_user_id uuid;
-  claim_created_at timestamptz := pg_catalog.clock_timestamp();
+  claim_created_at timestamptz;
   claim_catch_id uuid := pg_catalog.gen_random_uuid();
   existing_result_snapshot jsonb;
   claim_result_snapshot jsonb;
@@ -530,6 +542,11 @@ declare
   favor_delta bigint := 0;
   favor_balance bigint := 0;
   prior_favor_balance bigint := 0;
+  favor_account_created boolean := false;
+  legacy_opening_balance bigint := 0;
+  legacy_opening_hash text;
+  legacy_opening_id uuid;
+  legacy_user_level_data jsonb;
   base_material_drops jsonb := '[]'::jsonb;
   material_results jsonb := '[]'::jsonb;
   material_reward record;
@@ -549,9 +566,11 @@ declare
   has_lowest_five_percent boolean;
   has_mythic_catch boolean;
   achievement_results jsonb := '[]'::jsonb;
+  pending_charm_rewards jsonb := '[]'::jsonb;
   charm_results jsonb := '[]'::jsonb;
   achievement_result jsonb;
-  charm_result jsonb;
+  charm_reward jsonb;
+  charm_insert_result jsonb;
   user_level_id uuid;
 begin
   if (select auth.uid()) is null then
@@ -606,6 +625,8 @@ begin
   from public.game_cast_tickets as ticket_row
   where ticket_row.id = claim_ticket_id
   for update;
+
+  claim_created_at := pg_catalog.clock_timestamp();
 
   if claim_ticket.id is null then
     raise exception using errcode = '22023', message = 'Cast ticket not found';
@@ -737,9 +758,75 @@ begin
     base_favor_delta::numeric * (10000 + favor_multiplier_bps) / 10000
   )::bigint;
 
+  select level_row.id, level_row.data
+  into user_level_id, legacy_user_level_data
+  from public.user_levels as level_row
+  where level_row.user_id = caller_id
+  order by level_row.created_at, level_row.id
+  limit 1
+  for update;
+
+  if user_level_id is null then
+    select level_row.id, level_row.data
+    into user_level_id, legacy_user_level_data
+    from public.user_levels as level_row
+    where level_row.data ->> 'user_key' = 'user:' || caller_id::text
+      and (level_row.user_id is null or level_row.user_id = caller_id)
+    order by level_row.created_at, level_row.id
+    limit 1
+    for update;
+  end if;
+
+  if legacy_user_level_data ->> 'points' ~ '^[0-9]{1,19}$' then
+    if (legacy_user_level_data ->> 'points')::numeric <= 9223372036854775807 then
+      legacy_opening_balance := (legacy_user_level_data ->> 'points')::bigint;
+    end if;
+  end if;
+
   insert into public.currency_accounts (user_id, currency_key, balance, updated_at)
-  values (caller_id, 'favor', 0, claim_created_at)
-  on conflict (user_id, currency_key) do nothing;
+  values (caller_id, 'favor', legacy_opening_balance, claim_created_at)
+  on conflict (user_id, currency_key) do nothing
+  returning true into favor_account_created;
+
+  if coalesce(favor_account_created, false) then
+    legacy_opening_hash := pg_catalog.md5(
+      'starfishing:favor:legacy-opening:' || caller_id::text
+    );
+    legacy_opening_id := (
+      pg_catalog.substr(legacy_opening_hash, 1, 8)
+      || '-' || pg_catalog.substr(legacy_opening_hash, 9, 4)
+      || '-' || pg_catalog.substr(legacy_opening_hash, 13, 4)
+      || '-' || pg_catalog.substr(legacy_opening_hash, 17, 4)
+      || '-' || pg_catalog.substr(legacy_opening_hash, 21, 12)
+    )::uuid;
+
+    insert into public.currency_ledger (
+      user_id,
+      currency_key,
+      amount,
+      balance_after,
+      source_type,
+      source_id,
+      idempotency_key,
+      metadata,
+      created_at
+    )
+    values (
+      caller_id,
+      'favor',
+      legacy_opening_balance,
+      legacy_opening_balance,
+      'legacy_opening_balance',
+      legacy_opening_id,
+      legacy_opening_id,
+      pg_catalog.jsonb_build_object(
+        'user_level_id', user_level_id,
+        'imported_points', legacy_opening_balance
+      ),
+      claim_created_at
+    )
+    on conflict (user_id, currency_key, idempotency_key) do nothing;
+  end if;
 
   select account.balance
   into prior_favor_balance
@@ -807,8 +894,11 @@ begin
   select pg_catalog.count(*)::integer
   into discovered_count
   from public.user_fishpedia as fishpedia_row
+  join public.game_fish_catalog as active_fish
+    on active_fish.fish_key = fishpedia_row.fish_key
+    and active_fish.active
   where fishpedia_row.user_id = caller_id;
-  if not claim_duplicate then
+  if not claim_duplicate and claim_fish.active then
     discovered_count := discovered_count + 1;
   end if;
 
@@ -888,26 +978,18 @@ begin
   select coalesce(
     pg_catalog.jsonb_agg(
       pg_catalog.jsonb_build_object(
-        'id', pg_catalog.gen_random_uuid(),
+        'achievement_key', achievement.achievement_key,
         'charm_key', achievement.reward ->> 'charm_key',
         'label', achievement.reward ->> 'label',
         'rarity', achievement.reward ->> 'rarity',
         'slot', achievement.reward ->> 'slot',
-        'effects', coalesce(achievement.reward -> 'effects', '{}'::jsonb),
-        'equipped', false,
-        'acquired_at', claim_created_at,
-        'source', pg_catalog.jsonb_build_object(
-          'type',
-          'achievement',
-          'key',
-          achievement.achievement_key
-        )
+        'effects', coalesce(achievement.reward -> 'effects', '{}'::jsonb)
       )
       order by achievement.achievement_key
     ),
     '[]'::jsonb
   )
-  into charm_results
+  into pending_charm_rewards
   from public.achievement_catalog as achievement
   where achievement.reward ->> 'kind' = 'charm'
     and (
@@ -929,6 +1011,83 @@ begin
         and owned_charm.data #>> '{source,type}' = 'achievement'
         and owned_charm.data #>> '{source,key}' = achievement.achievement_key
     );
+
+  for charm_reward in
+    select reward.value
+    from pg_catalog.jsonb_array_elements(pending_charm_rewards) as reward(value)
+  loop
+    charm_insert_result := null;
+
+    insert into public.user_relic_charms as inserted_charm (
+      id,
+      user_id,
+      created_by,
+      data,
+      created_at,
+      updated_at
+    )
+    values (
+      pg_catalog.gen_random_uuid(),
+      caller_id,
+      'starfishing',
+      pg_catalog.jsonb_build_object(
+        'charm_key', charm_reward ->> 'charm_key',
+        'name', charm_reward ->> 'label',
+        'label', charm_reward ->> 'label',
+        'rarity', charm_reward ->> 'rarity',
+        'slot', charm_reward ->> 'slot',
+        'effects', charm_reward -> 'effects',
+        'equipped', false,
+        'acquired_at', claim_created_at,
+        'source', pg_catalog.jsonb_build_object(
+          'type',
+          'achievement',
+          'key',
+          charm_reward ->> 'achievement_key'
+        )
+      ),
+      claim_created_at,
+      claim_created_at
+    )
+    on conflict do nothing
+    returning pg_catalog.jsonb_build_object(
+      'id', inserted_charm.id,
+      'charm_key', inserted_charm.data ->> 'charm_key',
+      'label', inserted_charm.data ->> 'label',
+      'rarity', inserted_charm.data ->> 'rarity',
+      'slot', inserted_charm.data ->> 'slot',
+      'effects', inserted_charm.data -> 'effects',
+      'equipped', (inserted_charm.data ->> 'equipped')::boolean,
+      'acquired_at', inserted_charm.created_at,
+      'source', inserted_charm.data -> 'source'
+    )
+    into charm_insert_result;
+
+    if charm_insert_result is null then
+      select pg_catalog.jsonb_build_object(
+        'id', owned_charm.id,
+        'charm_key', owned_charm.data ->> 'charm_key',
+        'label', owned_charm.data ->> 'label',
+        'rarity', owned_charm.data ->> 'rarity',
+        'slot', owned_charm.data ->> 'slot',
+        'effects', owned_charm.data -> 'effects',
+        'equipped', (owned_charm.data ->> 'equipped')::boolean,
+        'acquired_at', owned_charm.created_at,
+        'source', owned_charm.data -> 'source'
+      )
+      into charm_insert_result
+      from public.user_relic_charms as owned_charm
+      where owned_charm.user_id = caller_id
+        and owned_charm.data #>> '{source,type}' = 'achievement'
+        and owned_charm.data #>> '{source,key}' = charm_reward ->> 'achievement_key'
+      order by owned_charm.created_at, owned_charm.id
+      limit 1;
+    end if;
+
+    if charm_insert_result is not null then
+      charm_results := charm_results || pg_catalog.jsonb_build_array(charm_insert_result);
+    end if;
+  end loop;
 
   claim_result_snapshot := pg_catalog.jsonb_build_object(
     'catch', pg_catalog.jsonb_build_object(
@@ -1110,39 +1269,6 @@ begin
     on conflict (user_id, achievement_key) do nothing;
   end loop;
 
-  for charm_result in
-    select charm.value
-    from pg_catalog.jsonb_array_elements(charm_results) as charm(value)
-  loop
-    insert into public.user_relic_charms (
-      id,
-      user_id,
-      created_by,
-      data,
-      created_at,
-      updated_at
-    )
-    values (
-      (charm_result ->> 'id')::uuid,
-      caller_id,
-      'starfishing',
-      pg_catalog.jsonb_build_object(
-        'charm_key', charm_result ->> 'charm_key',
-        'name', charm_result ->> 'label',
-        'label', charm_result ->> 'label',
-        'rarity', charm_result ->> 'rarity',
-        'slot', charm_result ->> 'slot',
-        'effects', charm_result -> 'effects',
-        'equipped', false,
-        'acquired_at', charm_result -> 'acquired_at',
-        'source', charm_result -> 'source'
-      ),
-      claim_created_at,
-      claim_created_at
-    )
-    on conflict do nothing;
-  end loop;
-
   insert into public.user_trophies (
     user_id,
     trophy_key,
@@ -1180,25 +1306,6 @@ begin
     )
   on conflict (user_id, trophy_key) do nothing;
 
-  select level_row.id
-  into user_level_id
-  from public.user_levels as level_row
-  where level_row.user_id = caller_id
-  order by level_row.created_at, level_row.id
-  limit 1
-  for update;
-
-  if user_level_id is null then
-    select level_row.id
-    into user_level_id
-    from public.user_levels as level_row
-    where level_row.data ->> 'user_key' = 'user:' || caller_id::text
-      and (level_row.user_id is null or level_row.user_id = caller_id)
-    order by level_row.created_at, level_row.id
-    limit 1
-    for update;
-  end if;
-
   if user_level_id is null then
     insert into public.user_levels (user_id, created_by, data, created_at, updated_at)
     values (
@@ -1215,7 +1322,17 @@ begin
   else
     update public.user_levels
     set user_id = coalesce(user_id, caller_id),
-        data = pg_catalog.jsonb_set(data, '{points}', pg_catalog.to_jsonb(favor_balance), true),
+        data = pg_catalog.jsonb_set(
+          pg_catalog.jsonb_set(
+            coalesce(data, '{}'::jsonb),
+            '{user_key}',
+            pg_catalog.to_jsonb('user:' || caller_id::text),
+            true
+          ),
+          '{points}',
+          pg_catalog.to_jsonb(favor_balance),
+          true
+        ),
         updated_at = claim_created_at
     where id = user_level_id;
   end if;

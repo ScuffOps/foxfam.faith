@@ -6,6 +6,38 @@ import {
   normalizeCatchClaimResult,
 } from "./starfishingRpcContract.js";
 
+function makeValidClaimResult() {
+  return {
+    catch: {
+      id: "22222222-2222-4222-8222-222222222222",
+      fish_key: "ember-mote",
+      label: "Ember Mote",
+      rarity: "common",
+      size: 3.5,
+      duplicate: false,
+      duplicate_policy: "none",
+      caught_at: "2026-07-18T20:00:05.000Z",
+    },
+    fishpedia: {
+      fish_key: "ember-mote",
+      caught_count: 1,
+      smallest_size: 3.5,
+      largest_size: 3.5,
+      first_caught_at: "2026-07-18T20:00:05.000Z",
+      last_caught_at: "2026-07-18T20:00:05.000Z",
+      discovered_count: 1,
+      catalog_count: 6,
+      completion_percent: 17,
+    },
+    favor: { delta: 3, balance: 3 },
+    materials: [],
+    achievements: [],
+    charms: [],
+    applied_effects: [],
+    replayed: false,
+  };
+}
+
 test("normalizes a cast ticket without accepting client reward fields", () => {
   assert.deepEqual(normalizeCastTicket({
     ticket_id: "11111111-1111-4111-8111-111111111111",
@@ -35,7 +67,7 @@ test("normalizes complete cast metadata and allow-listed passive effects", () =>
     applied_effects: [{
       key: "rare_bite_bonus_bps",
       value: 300,
-      label: "+3% rare bite chance",
+      label: "3% non-mythic rarity weighting",
     }],
     not_before: "2026-07-18T20:00:02.100Z",
     expires_at: "2026-07-18T20:10:00.000Z",
@@ -47,7 +79,7 @@ test("normalizes complete cast metadata and allow-listed passive effects", () =>
     appliedEffects: [{
       key: "rare_bite_bonus_bps",
       value: 300,
-      label: "+3% rare bite chance",
+      label: "3% non-mythic rarity weighting",
     }],
     notBefore: "2026-07-18T20:00:02.100Z",
     expiresAt: "2026-07-18T20:10:00.000Z",
@@ -166,35 +198,7 @@ test("normalizes a complete authoritative claim result", () => {
 });
 
 test("rejects negative balances, malformed achievements, and unknown claim effects", () => {
-  const validResult = {
-    catch: {
-      id: "22222222-2222-4222-8222-222222222222",
-      fish_key: "ember-mote",
-      label: "Ember Mote",
-      rarity: "common",
-      size: 3.5,
-      duplicate: false,
-      duplicate_policy: "none",
-      caught_at: "2026-07-18T20:00:05.000Z",
-    },
-    fishpedia: {
-      fish_key: "ember-mote",
-      caught_count: 1,
-      smallest_size: 3.5,
-      largest_size: 3.5,
-      first_caught_at: "2026-07-18T20:00:05.000Z",
-      last_caught_at: "2026-07-18T20:00:05.000Z",
-      discovered_count: 1,
-      catalog_count: 6,
-      completion_percent: 17,
-    },
-    favor: { delta: 3, balance: 3 },
-    materials: [],
-    achievements: [],
-    charms: [],
-    applied_effects: [],
-    replayed: false,
-  };
+  const validResult = makeValidClaimResult();
 
   assert.throws(
     () => normalizeCatchClaimResult({
@@ -213,6 +217,156 @@ test("rejects negative balances, malformed achievements, and unknown claim effec
       applied_effects: [{ key: "mint_favor", value: 1, label: "Nope" }],
     }),
     /unknown passive effect key/i,
+  );
+});
+
+test("rejects non-ISO or impossible response timestamps", () => {
+  const validTicket = {
+    ticket_id: "11111111-1111-4111-8111-111111111111",
+    fish_key: "ember-mote",
+    qte_length: 1,
+    expires_at: "2026-07-18T20:10:00.000Z",
+  };
+  const validResult = makeValidClaimResult();
+
+  assert.throws(
+    () => normalizeCastTicket({ ...validTicket, expires_at: "July 18, 2026 8:10 PM" }),
+    /ISO timestamp/i,
+  );
+  assert.throws(
+    () => normalizeCastTicket({ ...validTicket, expires_at: "2026-02-30T20:10:00Z" }),
+    /ISO timestamp/i,
+  );
+  assert.throws(
+    () => normalizeCatchClaimResult({
+      ...validResult,
+      catch: { ...validResult.catch, caught_at: "2026-07-18 20:00:05" },
+    }),
+    /ISO timestamp/i,
+  );
+});
+
+test("rejects contradictory duplicate policies and mismatched Fishpedia state", () => {
+  const validResult = makeValidClaimResult();
+
+  assert.throws(
+    () => normalizeCatchClaimResult({
+      ...validResult,
+      catch: {
+        ...validResult.catch,
+        duplicate: false,
+        duplicate_policy: "release",
+      },
+    }),
+    /duplicate policy/i,
+  );
+  assert.throws(
+    () => normalizeCatchClaimResult({
+      ...validResult,
+      catch: {
+        ...validResult.catch,
+        duplicate: true,
+        duplicate_policy: "none",
+      },
+    }),
+    /duplicate policy/i,
+  );
+  assert.throws(
+    () => normalizeCatchClaimResult({
+      ...validResult,
+      fishpedia: { ...validResult.fishpedia, fish_key: "comet-koi" },
+    }),
+    /fish keys must agree/i,
+  );
+  assert.throws(
+    () => normalizeCatchClaimResult({
+      ...validResult,
+      fishpedia: {
+        ...validResult.fishpedia,
+        smallest_size: 4.5,
+        largest_size: 3.5,
+      },
+    }),
+    /size range/i,
+  );
+});
+
+test("allow-lists achievement and charm reward shapes", () => {
+  const validResult = makeValidClaimResult();
+  const validCharm = {
+    id: "33333333-3333-4333-8333-333333333333",
+    charm_key: "starlit-bobber",
+    label: "Starlit Bobber",
+    rarity: "uncommon",
+    slot: "fishing",
+    effects: { favor_multiplier_bps: 500 },
+    equipped: false,
+    acquired_at: "2026-07-18T20:00:05.000Z",
+    source: { type: "achievement", key: "first-light" },
+  };
+
+  assert.doesNotThrow(() => normalizeCatchClaimResult({
+    ...validResult,
+    achievements: [{
+      achievement_key: "first-light",
+      title: "First Light",
+      description: "Make your first successful Starfishing catch.",
+    }],
+    charms: [validCharm],
+  }));
+  assert.throws(
+    () => normalizeCatchClaimResult({
+      ...validResult,
+      achievements: [{
+        achievement_key: "client-achievement",
+        title: "Invented",
+        description: "Not canonical.",
+      }],
+    }),
+    /unknown achievement key/i,
+  );
+  assert.throws(
+    () => normalizeCatchClaimResult({
+      ...validResult,
+      achievements: [{
+        achievement_key: "first-light",
+        title: "Invented title",
+        description: "Make your first successful Starfishing catch.",
+      }],
+    }),
+    /canonical reward shape/i,
+  );
+  assert.throws(
+    () => normalizeCatchClaimResult({
+      ...validResult,
+      achievements: [
+        {
+          achievement_key: "first-light",
+          title: "First Light",
+          description: "Make your first successful Starfishing catch.",
+        },
+        {
+          achievement_key: "first-light",
+          title: "First Light",
+          description: "Make your first successful Starfishing catch.",
+        },
+      ],
+    }),
+    /duplicate achievement key/i,
+  );
+  assert.throws(
+    () => normalizeCatchClaimResult({
+      ...validResult,
+      charms: [{ ...validCharm, charm_key: "client-charm" }],
+    }),
+    /unknown achievement charm/i,
+  );
+  assert.throws(
+    () => normalizeCatchClaimResult({
+      ...validResult,
+      charms: [{ ...validCharm, effects: { mint_favor: 999 } }],
+    }),
+    /charm reward shape/i,
   );
 });
 
@@ -239,6 +393,37 @@ test("migration defines locked security-definer cast and claim transactions", ()
   assert.match(migration, /least\(500/);
   assert.match(migration, /least\(1000/);
   assert.match(migration, /when 'mythic' then 0/);
+});
+
+test("migration captures authoritative clocks after locks and bounds rarity weighting", () => {
+  const migration = readFileSync(
+    new URL("../../../../supabase/migrations/20260718200316_starfishing_phase_2_progression.sql", import.meta.url),
+    "utf8",
+  );
+  const startFunction = migration.slice(
+    migration.indexOf("create or replace function public.start_starfishing_cast()"),
+    migration.indexOf("create or replace function public.claim_starfishing_catch("),
+  );
+  const claimFunction = migration.slice(
+    migration.indexOf("create or replace function public.claim_starfishing_catch("),
+    migration.indexOf("revoke execute on function public.start_starfishing_cast()"),
+  );
+
+  assert.ok(
+    startFunction.indexOf("cast_created_at := pg_catalog.clock_timestamp();")
+      > startFunction.indexOf("from public.game_cast_tickets as prior_ticket"),
+    "cast time must be captured after prior ticket locks",
+  );
+  assert.ok(
+    claimFunction.indexOf("claim_created_at := pg_catalog.clock_timestamp();")
+      > claimFunction.indexOf("from public.game_cast_tickets as ticket_row"),
+    "claim time must be captured after the ticket lock",
+  );
+  assert.doesNotMatch(startFunction, /rare_bite_bonus_bps \* case fish\.rarity/);
+  assert.match(startFunction, /when 'common' then -rare_bite_bonus_bps/);
+  assert.match(startFunction, /when 'epic' then rare_bite_bonus_bps/);
+  assert.match(startFunction, /when 'mythic' then 0/);
+  assert.match(startFunction, /% non-mythic rarity weighting/);
 });
 
 test("claim migration validates inputs, snapshots before insert, and locks execution down", () => {
@@ -277,9 +462,75 @@ test("claim migration validates inputs, snapshots before insert, and locks execu
     migration,
     /from public\.user_levels as level_row\s+where level_row\.user_id = caller_id\s+order by level_row\.created_at, level_row\.id\s+limit 1\s+for update/,
   );
-  assert.match(migration, /pg_catalog\.jsonb_set\(data, '\{points\}'/);
+  assert.match(
+    migration,
+    /pg_catalog\.jsonb_set\(\s*pg_catalog\.jsonb_set\(\s*coalesce\(data, '\{\}'::jsonb\),\s*'\{user_key\}'/,
+  );
   assert.match(migration, /revoke execute on function public\.start_starfishing_cast\(\) from public, anon;/);
   assert.match(migration, /grant execute on function public\.start_starfishing_cast\(\) to authenticated;/);
   assert.match(migration, /revoke execute on function public\.claim_starfishing_catch\(uuid, uuid, text, integer, integer, integer\)\s+from public, anon;/);
   assert.match(migration, /grant execute on function public\.claim_starfishing_catch\(uuid, uuid, text, integer, integer, integer\)\s+to authenticated;/);
+});
+
+test("claim migration uses active Fishpedia completion and preserves canonical level ownership", () => {
+  const migration = readFileSync(
+    new URL("../../../../supabase/migrations/20260718200316_starfishing_phase_2_progression.sql", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    migration,
+    /from public\.user_fishpedia as fishpedia_row\s+join public\.game_fish_catalog as active_fish\s+on active_fish\.fish_key = fishpedia_row\.fish_key\s+and active_fish\.active\s+where fishpedia_row\.user_id = caller_id/,
+  );
+  assert.match(
+    migration,
+    /pg_catalog\.jsonb_set\(\s*pg_catalog\.jsonb_set\(\s*coalesce\(data, '\{\}'::jsonb\),\s*'\{user_key\}',\s*pg_catalog\.to_jsonb\('user:' \|\| caller_id::text\),\s*true\s*\),\s*'\{points\}'/,
+  );
+});
+
+test("claim migration returns actual charm rows and imports one safe legacy opening balance", () => {
+  const migration = readFileSync(
+    new URL("../../../../supabase/migrations/20260718200316_starfishing_phase_2_progression.sql", import.meta.url),
+    "utf8",
+  );
+  const snapshotAssignment = migration.indexOf("claim_result_snapshot := pg_catalog.jsonb_build_object(");
+  const charmInsert = migration.indexOf("insert into public.user_relic_charms as inserted_charm");
+  const accountCreated = migration.indexOf("returning true into favor_account_created;");
+  const openingGuard = migration.indexOf("if coalesce(favor_account_created, false) then");
+  const openingLedger = migration.indexOf("insert into public.currency_ledger", openingGuard);
+  const catchLedger = migration.indexOf("'starfishing_catch'", openingLedger);
+
+  assert.ok(charmInsert >= 0 && charmInsert < snapshotAssignment);
+  assert.match(
+    migration,
+    /insert into public\.user_relic_charms as inserted_charm[\s\S]*on conflict do nothing\s+returning pg_catalog\.jsonb_build_object\(/,
+  );
+  assert.match(
+    migration,
+    /from public\.user_relic_charms as owned_charm\s+where owned_charm\.user_id = caller_id\s+and owned_charm\.data #>> '\{source,type\}' = 'achievement'/,
+  );
+  assert.match(
+    migration,
+    /where level_row\.user_id = caller_id[\s\S]*where level_row\.data ->> 'user_key' = 'user:' \|\| caller_id::text\s+and \(level_row\.user_id is null or level_row\.user_id = caller_id\)/,
+  );
+  assert.match(
+    migration,
+    /pg_catalog\.md5\(\s*'starfishing:favor:legacy-opening:' \|\| caller_id::text\s*\)/,
+  );
+  assert.match(
+    migration,
+    /if legacy_user_level_data ->> 'points' ~ '\^\[0-9\]\{1,19\}\$' then\s+if \(legacy_user_level_data ->> 'points'\)::numeric <= 9223372036854775807 then\s+legacy_opening_balance := \(legacy_user_level_data ->> 'points'\)::bigint;/,
+  );
+  assert.match(migration, /source_type = 'legacy_opening_balance'/);
+  assert.match(
+    migration,
+    /insert into public\.currency_ledger[\s\S]*'legacy_opening_balance'[\s\S]*on conflict \(user_id, currency_key, idempotency_key\) do nothing/,
+  );
+  assert.ok(
+    accountCreated >= 0
+      && accountCreated < openingGuard
+      && openingGuard < openingLedger,
+    "opening ledger must be conditional on creating the missing Favor account",
+  );
+  assert.ok(openingLedger >= 0 && openingLedger < catchLedger);
 });

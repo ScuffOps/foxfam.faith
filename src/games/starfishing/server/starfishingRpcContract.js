@@ -8,13 +8,66 @@ const STARFISHING_FISH_KEYS = new Set([
 ]);
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ISO_TIMESTAMP_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,6})?(Z|[+-]\d{2}:\d{2})$/;
 const RARITIES = new Set(["common", "uncommon", "rare", "epic", "mythic"]);
 const DUPLICATE_POLICIES = new Set(["none", "keep", "release", "convert"]);
+const STARFISHING_ACHIEVEMENT_DEFINITIONS = {
+  "first-light": {
+    title: "First Light",
+    description: "Make your first successful Starfishing catch.",
+  },
+  "gentle-return": {
+    title: "Gentle Return",
+    description: "Release your first duplicate catch for Favor.",
+  },
+  "pocket-constellation": {
+    title: "Pocket Constellation",
+    description: "Catch a fish within the lowest 5% of its canonical size span.",
+  },
+  "myth-in-moonwater": {
+    title: "Myth in Moonwater",
+    description: "Make your first mythic catch.",
+  },
+  "celestial-archivist": {
+    title: "Celestial Archivist",
+    description: "Catch every active fish in the current catalog.",
+  },
+  "hundred-lights": {
+    title: "Hundred Lights",
+    description: "Record 100 successful catches.",
+  },
+};
 const PASSIVE_EFFECT_CAPS = {
   favor_multiplier_bps: 2500,
   material_multiplier_bps: 2500,
   rare_bite_bonus_bps: 500,
   size_floor_bps: 1000,
+};
+const ACHIEVEMENT_CHARM_DEFINITIONS = {
+  "starlit-bobber": {
+    achievementKey: "first-light",
+    label: "Starlit Bobber",
+    rarity: "uncommon",
+    slot: "fishing",
+    effectKey: "favor_multiplier_bps",
+    effectValue: 500,
+  },
+  "glassfin-comet": {
+    achievementKey: "myth-in-moonwater",
+    label: "Glassfin Comet",
+    rarity: "mythic",
+    slot: "fishing",
+    effectKey: "rare_bite_bonus_bps",
+    effectValue: 300,
+  },
+  "century-chain": {
+    achievementKey: "hundred-lights",
+    label: "Century Chain",
+    rarity: "epic",
+    slot: "fishing",
+    effectKey: "material_multiplier_bps",
+    effectValue: 750,
+  },
 };
 
 function requireObject(value, label) {
@@ -67,7 +120,34 @@ function requireArray(value, label) {
 }
 
 function requireTimestamp(value, label) {
-  if (typeof value !== "string" || !Number.isFinite(Date.parse(value))) {
+  const match = typeof value === "string" ? ISO_TIMESTAMP_PATTERN.exec(value) : null;
+  if (!match) {
+    throw new TypeError(`${label} must be an ISO timestamp.`);
+  }
+
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText, zone] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  const zoneHour = zone === "Z" ? 0 : Number(zone.slice(1, 3));
+  const zoneMinute = zone === "Z" ? 0 : Number(zone.slice(4, 6));
+  const daysInMonth = month >= 1 && month <= 12
+    ? new Date(Date.UTC(year, month, 0)).getUTCDate()
+    : 0;
+
+  if (
+    day < 1
+    || day > daysInMonth
+    || hour > 23
+    || minute > 59
+    || second > 59
+    || zoneHour > 23
+    || zoneMinute > 59
+    || !Number.isFinite(Date.parse(value))
+  ) {
     throw new TypeError(`${label} must be an ISO timestamp.`);
   }
   return value;
@@ -104,6 +184,92 @@ function normalizeAppliedEffects(value) {
   });
 }
 
+function normalizeAchievementResults(value) {
+  const seenKeys = new Set();
+  return requireArray(value, "Achievements").map((rawAchievement) => {
+    const achievement = requireObject(rawAchievement, "Achievement result");
+    const achievementKey = requireString(achievement.achievement_key, "Achievement key");
+    const definition = STARFISHING_ACHIEVEMENT_DEFINITIONS[achievementKey];
+
+    if (!definition) {
+      throw new TypeError("Response contains an unknown achievement key.");
+    }
+    if (seenKeys.has(achievementKey)) {
+      throw new TypeError("Response contains a duplicate achievement key.");
+    }
+    seenKeys.add(achievementKey);
+
+    if (
+      achievement.title !== definition.title
+      || achievement.description !== definition.description
+    ) {
+      throw new TypeError("Achievement result does not match its canonical reward shape.");
+    }
+
+    return {
+      achievementKey,
+      title: definition.title,
+      description: definition.description,
+    };
+  });
+}
+
+function normalizeCharmResults(value) {
+  const seenIds = new Set();
+  return requireArray(value, "Charms").map((rawCharm) => {
+    const charm = requireObject(rawCharm, "Charm result");
+    const source = requireObject(charm.source, "Charm source");
+    const charmKey = requireString(charm.charm_key, "Charm key");
+    const definition = ACHIEVEMENT_CHARM_DEFINITIONS[charmKey];
+
+    if (!definition) {
+      throw new TypeError("Response contains an unknown achievement charm.");
+    }
+    if (source.type !== "achievement" || source.key !== definition.achievementKey) {
+      throw new TypeError("Achievement charm source does not match its canonical reward shape.");
+    }
+    if (
+      charm.label !== definition.label
+      || charm.rarity !== definition.rarity
+      || charm.slot !== definition.slot
+    ) {
+      throw new TypeError("Achievement charm does not match its canonical reward shape.");
+    }
+
+    const effects = requireObject(charm.effects, "Charm effects");
+    const effectKeys = Object.keys(effects);
+    if (
+      effectKeys.length !== 1
+      || effectKeys[0] !== definition.effectKey
+      || effects[definition.effectKey] !== definition.effectValue
+      || PASSIVE_EFFECT_CAPS[definition.effectKey] === undefined
+    ) {
+      throw new TypeError("Achievement charm reward shape contains invalid passive effects.");
+    }
+
+    const id = requireUuid(charm.id, "Charm ID");
+    if (seenIds.has(id)) {
+      throw new TypeError("Response contains a duplicate charm ID.");
+    }
+    seenIds.add(id);
+
+    return {
+      id,
+      charmKey,
+      label: definition.label,
+      rarity: definition.rarity,
+      slot: definition.slot,
+      effects: { [definition.effectKey]: definition.effectValue },
+      equipped: requireBoolean(charm.equipped, "Charm equipped status"),
+      acquiredAt: requireTimestamp(charm.acquired_at, "Charm acquisition timestamp"),
+      source: {
+        type: "achievement",
+        key: definition.achievementKey,
+      },
+    };
+  });
+}
+
 export function normalizeCastTicket(value) {
   const ticket = requireObject(value, "Cast ticket");
   const normalized = {
@@ -133,43 +299,64 @@ export function normalizeCatchClaimResult(value) {
 
   const catchResult = requireObject(result.catch, "Catch result");
   const fishpedia = requireObject(result.fishpedia, "Fishpedia result");
+  const normalizedCatch = {
+    id: requireUuid(catchResult.id, "Catch ID"),
+    fishKey: requireKnownFishKey(catchResult.fish_key),
+    label: requireString(catchResult.label, "Catch label"),
+    rarity: requireEnum(catchResult.rarity, RARITIES, "Catch rarity"),
+    size: requireNumber(catchResult.size, "Catch size", { min: Number.MIN_VALUE }),
+    duplicate: requireBoolean(catchResult.duplicate, "Catch duplicate status"),
+    duplicatePolicy: requireEnum(
+      catchResult.duplicate_policy,
+      DUPLICATE_POLICIES,
+      "Catch duplicate policy",
+    ),
+    caughtAt: requireTimestamp(catchResult.caught_at, "Catch timestamp"),
+  };
+  const normalizedFishpedia = {
+    fishKey: requireKnownFishKey(fishpedia.fish_key),
+    caughtCount: requireInteger(fishpedia.caught_count, "Fishpedia caught count", { min: 1 }),
+    smallestSize: requireNumber(fishpedia.smallest_size, "Fishpedia smallest size", {
+      min: Number.MIN_VALUE,
+    }),
+    largestSize: requireNumber(fishpedia.largest_size, "Fishpedia largest size", {
+      min: Number.MIN_VALUE,
+    }),
+    firstCaughtAt: requireTimestamp(fishpedia.first_caught_at, "Fishpedia first catch"),
+    lastCaughtAt: requireTimestamp(fishpedia.last_caught_at, "Fishpedia last catch"),
+    discoveredCount: requireInteger(fishpedia.discovered_count, "Fishpedia discovered count", {
+      min: 1,
+    }),
+    catalogCount: requireInteger(fishpedia.catalog_count, "Fishpedia catalog count", { min: 1 }),
+    completionPercent: requireInteger(
+      fishpedia.completion_percent,
+      "Fishpedia completion percent",
+      { min: 0, max: 100 },
+    ),
+  };
+
+  if (
+    (normalizedCatch.duplicate && normalizedCatch.duplicatePolicy === "none")
+    || (!normalizedCatch.duplicate && normalizedCatch.duplicatePolicy !== "none")
+  ) {
+    throw new TypeError("Catch duplicate policy contradicts its duplicate status.");
+  }
+  if (normalizedCatch.fishKey !== normalizedFishpedia.fishKey) {
+    throw new TypeError("Catch and Fishpedia fish keys must agree.");
+  }
+  if (normalizedFishpedia.smallestSize > normalizedFishpedia.largestSize) {
+    throw new TypeError("Fishpedia size range is inverted.");
+  }
+  if (
+    normalizedCatch.size < normalizedFishpedia.smallestSize
+    || normalizedCatch.size > normalizedFishpedia.largestSize
+  ) {
+    throw new TypeError("Catch size falls outside the authoritative Fishpedia size range.");
+  }
 
   return {
-    catch: {
-      id: requireUuid(catchResult.id, "Catch ID"),
-      fishKey: requireKnownFishKey(catchResult.fish_key),
-      label: requireString(catchResult.label, "Catch label"),
-      rarity: requireEnum(catchResult.rarity, RARITIES, "Catch rarity"),
-      size: requireNumber(catchResult.size, "Catch size", { min: Number.MIN_VALUE }),
-      duplicate: requireBoolean(catchResult.duplicate, "Catch duplicate status"),
-      duplicatePolicy: requireEnum(
-        catchResult.duplicate_policy,
-        DUPLICATE_POLICIES,
-        "Catch duplicate policy",
-      ),
-      caughtAt: requireTimestamp(catchResult.caught_at, "Catch timestamp"),
-    },
-    fishpedia: {
-      fishKey: requireKnownFishKey(fishpedia.fish_key),
-      caughtCount: requireInteger(fishpedia.caught_count, "Fishpedia caught count", { min: 1 }),
-      smallestSize: requireNumber(fishpedia.smallest_size, "Fishpedia smallest size", {
-        min: Number.MIN_VALUE,
-      }),
-      largestSize: requireNumber(fishpedia.largest_size, "Fishpedia largest size", {
-        min: Number.MIN_VALUE,
-      }),
-      firstCaughtAt: requireTimestamp(fishpedia.first_caught_at, "Fishpedia first catch"),
-      lastCaughtAt: requireTimestamp(fishpedia.last_caught_at, "Fishpedia last catch"),
-      discoveredCount: requireInteger(fishpedia.discovered_count, "Fishpedia discovered count", {
-        min: 1,
-      }),
-      catalogCount: requireInteger(fishpedia.catalog_count, "Fishpedia catalog count", { min: 1 }),
-      completionPercent: requireInteger(
-        fishpedia.completion_percent,
-        "Fishpedia completion percent",
-        { min: 0, max: 100 },
-      ),
-    },
+    catch: normalizedCatch,
+    fishpedia: normalizedFishpedia,
     favor: {
       delta: requireInteger(favor.delta, "Favor delta", { min: 0 }),
       balance: favor.balance,
@@ -183,35 +370,8 @@ export function normalizeCatchClaimResult(value) {
         balance: requireInteger(material.balance, "Material balance", { min: 0 }),
       };
     }),
-    achievements: requireArray(result.achievements, "Achievements").map((rawAchievement) => {
-      const achievement = requireObject(rawAchievement, "Achievement result");
-      return {
-        achievementKey: requireString(achievement.achievement_key, "Achievement key"),
-        title: requireString(achievement.title, "Achievement title"),
-        description: requireString(achievement.description, "Achievement description"),
-      };
-    }),
-    charms: requireArray(result.charms, "Charms").map((rawCharm) => {
-      const charm = requireObject(rawCharm, "Charm result");
-      const source = requireObject(charm.source, "Charm source");
-      if (source.type !== "achievement") {
-        throw new TypeError("Charm source type is unknown.");
-      }
-      return {
-        id: requireUuid(charm.id, "Charm ID"),
-        charmKey: requireString(charm.charm_key, "Charm key"),
-        label: requireString(charm.label, "Charm label"),
-        rarity: requireEnum(charm.rarity, RARITIES, "Charm rarity"),
-        slot: requireString(charm.slot, "Charm slot"),
-        effects: requireObject(charm.effects, "Charm effects"),
-        equipped: requireBoolean(charm.equipped, "Charm equipped status"),
-        acquiredAt: requireTimestamp(charm.acquired_at, "Charm acquisition timestamp"),
-        source: {
-          type: "achievement",
-          key: requireString(source.key, "Charm achievement source key"),
-        },
-      };
-    }),
+    achievements: normalizeAchievementResults(result.achievements),
+    charms: normalizeCharmResults(result.charms),
     appliedEffects: normalizeAppliedEffects(result.applied_effects),
     replayed: requireBoolean(result.replayed, "Claim replay status"),
   };
