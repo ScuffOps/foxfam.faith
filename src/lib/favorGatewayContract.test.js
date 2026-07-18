@@ -268,6 +268,72 @@ test("portal Favor RPC owns reward values and accepts no client reward fields", 
   assert.doesNotMatch(migration, /revoke [^;]*on table public\.user_relics\b/);
 });
 
+test("portal Favor cutover marker is immutable and suppresses every historical source", () => {
+  const actionFunction = getSqlFunction(
+    "public.perform_portal_favor_action(",
+    "create or replace function public.start_starfishing_cast()",
+  );
+
+  assert.match(
+    migration,
+    /create table if not exists private\.favor_gateway_cutovers \(\s*cutover_key text primary key,\s*cutover_at timestamptz not null,\s*constraint favor_gateway_cutovers_singleton\s+check \(cutover_key = 'portal-actions-v1'\)\s*\)/,
+  );
+  assert.match(
+    migration,
+    /insert into private\.favor_gateway_cutovers \(cutover_key, cutover_at\)\s+values \('portal-actions-v1', pg_catalog\.clock_timestamp\(\)\)\s+on conflict \(cutover_key\) do nothing;/,
+  );
+  assert.match(
+    migration,
+    /create trigger favor_gateway_cutovers_are_immutable\s+before update or delete or truncate on private\.favor_gateway_cutovers\s+for each statement\s+execute function private\.reject_favor_gateway_cutover_mutation\(\);/,
+  );
+  assert.match(
+    migration,
+    /revoke all on table private\.favor_gateway_cutovers from public, anon, authenticated;/,
+  );
+  assert.match(
+    migration,
+    /revoke all on function private\.reject_favor_gateway_cutover_mutation\(\)\s+from public, anon, authenticated;/,
+  );
+  assert.doesNotMatch(
+    migration,
+    /grant [^;]+ on table private\.favor_gateway_cutovers to (public|anon|authenticated)/,
+  );
+
+  assert.match(
+    actionFunction,
+    /from private\.favor_gateway_cutovers as cutover\s+where cutover\.cutover_key = 'portal-actions-v1'/,
+  );
+  assert.equal(
+    (actionFunction.match(
+      /select (?:post_row|blessing_row|comment_row)\.id,\s+(?:post_row|blessing_row|comment_row)\.user_id,\s+(?:post_row|blessing_row|comment_row)\.data,\s+(?:post_row|blessing_row|comment_row)\.created_at/g,
+    ) || []).length,
+    7,
+  );
+  assert.match(
+    actionFunction,
+    /if portal_row_created_at is null\s+or portal_row_created_at < portal_cutover_at then\s+should_award := false;\s+mark_source_without_award := true;\s+end if;/,
+  );
+  assert.doesNotMatch(actionFunction, /portal_row_created_at <= portal_cutover_at/);
+  assert.match(actionFunction, /should_award boolean := true/);
+  assert.match(
+    actionFunction,
+    /'legacy_source_marker', true,\s*'cutover_suppressed',\s*portal_row_created_at is null\s+or portal_row_created_at < portal_cutover_at/,
+  );
+  assert.match(
+    actionFunction,
+    /if should_award then\s+action_result := private\.post_favor_entry\(\s*caller_id,\s*portal_reward,/,
+  );
+
+  const cutoverGuard = actionFunction.indexOf(
+    "if portal_row_created_at is null",
+  );
+  const awardCall = actionFunction.indexOf(
+    "action_result := private.post_favor_entry(",
+    cutoverGuard,
+  );
+  assert.ok(cutoverGuard >= 0 && awardCall > cutoverGuard);
+});
+
 test("portal Favor RPC validates exact row ownership and nested comment references", () => {
   const actionFunction = getSqlFunction(
     "public.perform_portal_favor_action(",
@@ -307,6 +373,46 @@ test("portal Favor RPC validates exact row ownership and nested comment referenc
   assert.match(actionFunction, /from public\.reliquary_entries as parent_entry/);
 });
 
+test("portal Favor validation separates unsafe casts and JSON expansion guards", () => {
+  const actionFunction = getSqlFunction(
+    "public.perform_portal_favor_action(",
+    "create or replace function public.start_starfishing_cast()",
+  );
+
+  assert.match(
+    actionFunction,
+    /if parent_id_text is null\s+or parent_id_text !~\* '[^']+' then\s+raise exception using errcode = '22023', message = 'Invalid blessing comment source';\s+end if;\s+if not exists \(\s+select 1\s+from public\.blessings as parent_blessing\s+where parent_blessing\.id = parent_id_text::uuid\s+\) then/,
+  );
+  assert.match(
+    actionFunction,
+    /if parent_id_text is null\s+or parent_id_text !~\* '[^']+' then\s+raise exception using errcode = '22023', message = 'Invalid reliquary comment source';\s+end if;\s+if not exists \(\s+select 1\s+from public\.reliquary_entries as parent_entry\s+where parent_entry\.id = parent_id_text::uuid\s+\) then/,
+  );
+  assert.match(
+    actionFunction,
+    /if coalesce\(pg_catalog\.jsonb_typeof\(portal_row_data -> 'upvoted_by'\), 'null'\)\s+<> 'array' then[\s\S]*?end if;\s+if exists \(\s+select 1\s+from pg_catalog\.jsonb_array_elements\(\s*portal_row_data -> 'upvoted_by'/,
+  );
+  assert.match(
+    actionFunction,
+    /if coalesce\(pg_catalog\.jsonb_typeof\(portal_row_data -> 'poll_options'\), 'null'\)\s+<> 'array' then[\s\S]*?end if;\s+if pg_catalog\.jsonb_array_length\(portal_row_data -> 'poll_options'\) = 0 then/,
+  );
+  assert.match(
+    actionFunction,
+    /if exists \(\s+select 1\s+from pg_catalog\.jsonb_array_elements\(\s*portal_row_data -> 'poll_options'\s*\) as option\(value\)\s+where pg_catalog\.jsonb_typeof\(option\.value\) <> 'object'\s+\) then[\s\S]*?end if;\s+if exists \(/,
+  );
+  assert.match(
+    actionFunction,
+    /if exists \(\s+select 1\s+from pg_catalog\.jsonb_array_elements\(\s*portal_row_data -> 'poll_options'\s*\) as option\(value\)\s+cross join lateral pg_catalog\.jsonb_array_elements\(\s*option\.value -> 'voted_by'/,
+  );
+  assert.doesNotMatch(
+    actionFunction,
+    /or pg_catalog\.jsonb_array_length\(portal_row_data -> 'poll_options'\)/,
+  );
+  assert.doesNotMatch(
+    actionFunction,
+    /or not exists \(\s+select 1\s+from public\.(?:blessings|reliquary_entries)[\s\S]*?parent_id_text::uuid/,
+  );
+});
+
 test("praise and poll branches lock and mutate canonical JSON arrays inside the RPC", () => {
   const actionFunction = getSqlFunction(
     "public.perform_portal_favor_action(",
@@ -316,11 +422,11 @@ test("praise and poll branches lock and mutate canonical JSON arrays inside the 
   assert.match(actionFunction, /actor_key := 'user:' \|\| caller_id::text/);
   assert.match(
     actionFunction,
-    /coalesce\(pg_catalog\.jsonb_typeof\(portal_row_data -> 'upvoted_by'\), 'null'\) <> 'array'/,
+    /coalesce\(pg_catalog\.jsonb_typeof\(portal_row_data -> 'upvoted_by'\), 'null'\)\s+<> 'array'/,
   );
   assert.match(
     actionFunction,
-    /or case\s+when pg_catalog\.jsonb_typeof\(portal_row_data -> 'upvoted_by'\) = 'array'\s+then exists \(/,
+    /if exists \(\s+select 1\s+from pg_catalog\.jsonb_array_elements\(\s*portal_row_data -> 'upvoted_by'/,
   );
   assert.match(
     actionFunction,
@@ -332,11 +438,11 @@ test("praise and poll branches lock and mutate canonical JSON arrays inside the 
   );
   assert.match(
     actionFunction,
-    /coalesce\(pg_catalog\.jsonb_typeof\(portal_row_data -> 'poll_options'\), 'null'\) <> 'array'/,
+    /coalesce\(pg_catalog\.jsonb_typeof\(portal_row_data -> 'poll_options'\), 'null'\)\s+<> 'array'/,
   );
   assert.match(
     actionFunction,
-    /or case\s+when pg_catalog\.jsonb_typeof\(option\.value -> 'voted_by'\) = 'array'\s+then exists \(/,
+    /cross join lateral pg_catalog\.jsonb_array_elements\(\s*option\.value -> 'voted_by'/,
   );
   assert.match(actionFunction, /option\.value ->> 'id' = cleaned_option_key/);
   assert.match(actionFunction, /option\.value -> 'voted_by'/);
