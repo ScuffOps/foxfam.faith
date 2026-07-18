@@ -28,7 +28,8 @@ create table public.game_cast_tickets (
   consumed_at timestamptz,
   claim_id uuid,
   created_at timestamptz not null default now(),
-  check (expires_at > not_before)
+  check (expires_at > not_before),
+  check (expires_at = created_at + interval '10 minutes')
 );
 
 create unique index game_cast_tickets_one_active_per_user
@@ -228,6 +229,14 @@ set
   reward = excluded.reward,
   active = true;
 
+-- Achievement charms use data.source = 'starfishing_achievement' and
+-- data.achievement_key = achievement_catalog.achievement_key. Task 2 inserts
+-- this stable tuple with ON CONFLICT DO NOTHING to make claim retries safe.
+create unique index user_relic_charms_one_starfishing_achievement_per_user
+on public.user_relic_charms (user_id, (data ->> 'achievement_key'))
+where data ->> 'source' = 'starfishing_achievement'
+  and nullif(data ->> 'achievement_key', '') is not null;
+
 do $$
 declare
   relation_name text;
@@ -259,6 +268,13 @@ $$;
 alter table public.game_cast_tickets enable row level security;
 alter table public.game_cast_tickets force row level security;
 revoke all on table public.game_cast_tickets from anon, authenticated;
+
+revoke all on table public.user_relic_charms from anon;
+revoke insert, update, delete on table public.user_relic_charms from authenticated;
+grant select on table public.user_relic_charms to authenticated;
+drop policy if exists "Users create own relic charms" on public.user_relic_charms;
+drop policy if exists "Users update own relic charms" on public.user_relic_charms;
+drop policy if exists "Users delete own relic charms" on public.user_relic_charms;
 
 alter table public.game_fish_catalog enable row level security;
 alter table public.game_fish_catalog force row level security;
