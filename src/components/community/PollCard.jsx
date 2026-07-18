@@ -56,15 +56,8 @@ export default function PollCard({ post, isAdmin, user, onRefresh }) {
   const handleVote = async (optionId) => {
     if (voting || userVotedOption) return;
     setVoting(true);
-    const updated = options.map((o) => {
-      if (o.id === optionId) {
-        return { ...o, votes: (o.votes || 0) + 1, voted_by: [...(o.voted_by || []), actorKey] };
-      }
-      return o;
-    });
     try {
-      await communityClient.entities.CommunityPost.update(post.id, { poll_options: updated });
-      communityClient.auth.me().then((u) => awardPoints(u, "vote_poll").then(checkLevelUp)).catch(() => {});
+      checkLevelUp(await awardPoints(user, "vote-poll", post.id, optionId));
       onRefresh();
     } catch {
       toast({

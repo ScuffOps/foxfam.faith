@@ -29,9 +29,10 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
     setSaving(true);
     try {
       let submitterName = "Guest";
+      let currentUser = null;
       try {
-        const user = await communityClient.auth.me();
-        submitterName = getPublicDisplayName(user, "Guest");
+        currentUser = await communityClient.auth.me();
+        submitterName = getPublicDisplayName(currentUser, "Guest");
       } catch {
         if (profile.name) submitterName = profile.name + (profile.discordId ? ` (${profile.discordId})` : "");
       }
@@ -56,8 +57,10 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
           }));
       }
 
-      await communityClient.entities.CommunityPost.create(data);
-      try { const u = await communityClient.auth.me(); awardPoints(u, "submit_post").then(checkLevelUp); } catch {}
+      const createdPost = await communityClient.entities.CommunityPost.create(data);
+      try {
+        checkLevelUp(await awardPoints(currentUser, "submit-post", createdPost.id));
+      } catch {}
       setForm({ title: "", description: "", type: "idea" });
       setPollOptions(["", ""]);
       onCreated?.();

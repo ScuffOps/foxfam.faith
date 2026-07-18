@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { communityClient } from "@/api/communityClient";
 import { BookOpen, ChevronDown, ChevronUp, Download, ExternalLink, Maximize2, MessageCircle, Send, Sparkles, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import RichTextContent from "../RichTextContent";
 import PraiseBurst from "../PraiseBurst";
 import { getPublicDisplayName } from "@/lib/userIdentity";
-import { getCommunityActorKey, isGuestActor } from "@/lib/communityActor";
+import { getCommunityActorKey } from "@/lib/communityActor";
 import { PRAISE_BURST_DURATION_MS, PRAISE_REFRESH_DELAY_MS } from "@/lib/praiseEffects";
 
 function downloadNameFor(title) {
@@ -25,50 +25,22 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
   const [submitting, setSubmitting] = useState(false);
   const [showFullImage, setShowFullImage] = useState(false);
   const [praiseBurst, setPraiseBurst] = useState(0);
-  const [localPraise, setLocalPraise] = useState({
-    upvotes: blessing.upvotes || 0,
-    upvotedBy: blessing.upvoted_by || [],
-  });
-
-  useEffect(() => {
-    setLocalPraise({
-      upvotes: blessing.upvotes || 0,
-      upvotedBy: blessing.upvoted_by || [],
-    });
-  }, [blessing.id, blessing.upvotes, blessing.upvoted_by]);
-
   const actorKey = getCommunityActorKey(user);
-  const hasPraised = localPraise.upvotedBy.includes(actorKey);
+  const hasPraised = (blessing.upvoted_by || []).includes(actorKey);
 
   const handlePraise = async (event) => {
     event.preventDefault();
     event.stopPropagation();
 
-    const previousPraise = localPraise;
-    const nextPraise = {
-      upvotes: hasPraised ? Math.max(localPraise.upvotes - 1, 0) : localPraise.upvotes + 1,
-      upvotedBy: hasPraised
-        ? localPraise.upvotedBy.filter((e) => e !== actorKey)
-        : [...localPraise.upvotedBy, actorKey],
-    };
-
-    setLocalPraise(nextPraise);
-    if (!hasPraised) {
-      setPraiseBurst((value) => value + 1);
-      window.setTimeout(() => setPraiseBurst(0), PRAISE_BURST_DURATION_MS);
-    }
-
     try {
-      await communityClient.entities.Blessing.update(blessing.id, {
-        upvotes: nextPraise.upvotes,
-        upvoted_by: nextPraise.upvotedBy,
-      });
-      if (!hasPraised && user?.email && !isGuestActor(actorKey)) {
-        awardPoints(user, "upvote_blessing").then(checkLevelUp);
+      const award = await awardPoints(user, "praise-blessing", blessing.id);
+      if (!hasPraised) {
+        setPraiseBurst((value) => value + 1);
+        window.setTimeout(() => setPraiseBurst(0), PRAISE_BURST_DURATION_MS);
       }
+      checkLevelUp(award);
       window.setTimeout(() => onRefresh?.({ silent: true }), PRAISE_REFRESH_DELAY_MS);
     } catch {
-      setLocalPraise(previousPraise);
       onRefresh?.({ silent: true });
     }
   };
@@ -90,7 +62,7 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
     if (!commentText.trim()) return;
     setSubmitting(true);
     const actorName = getPublicDisplayName(user, "Guest");
-    await communityClient.entities.BlessingComment.create({
+    const createdComment = await communityClient.entities.BlessingComment.create({
       blessing_id: blessing.id,
       message: commentText.trim(),
       author_name: actorName,
@@ -98,7 +70,9 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
     await communityClient.entities.Blessing.update(blessing.id, {
       comment_count: (blessing.comment_count || 0) + 1,
     });
-    if (user?.email) awardPoints(user, "post_blessing_comment").then(checkLevelUp);
+    try {
+      checkLevelUp(await awardPoints(user, "blessing-comment", createdComment.id));
+    } catch {}
     setCommentText("");
     setSubmitting(false);
     loadComments();
@@ -188,7 +162,7 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
             <PraiseBurst key={praiseBurst} active={praiseBurst > 0} />
             <Sparkles className="h-3.5 w-3.5" />
             <span>{hasPraised ? "Praised" : "Give Praise"}</span>
-            <span className="font-bold">{localPraise.upvotes}</span>
+            <span className="font-bold">{blessing.upvotes || 0}</span>
           </button>
 
           <button

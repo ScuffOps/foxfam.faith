@@ -1,7 +1,5 @@
 import { useState } from "react";
-import { communityClient } from "@/api/communityClient";
 import { toast } from "@/components/ui/use-toast";
-import { awardPointAmount } from "@/hooks/usePoints";
 import { getBoopReward } from "@/lib/boopRewards";
 
 const BOOP_REACTIONS = [
@@ -28,29 +26,12 @@ export default function BoopTheFox() {
   const [bouncing, setBouncing] = useState(false);
   const [spinTail, setSpinTail] = useState(false);
   const [eyeOpen, setEyeOpen] = useState(true);
-  const [claimedRewards, setClaimedRewards] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("commhub_boop_rewards_claimed") || "[]");
-    } catch {
-      return [];
-    }
-  });
-
-  const claimReward = (reward) => {
-    const nextClaimed = [...claimedRewards, reward.count];
-    setClaimedRewards(nextClaimed);
-    localStorage.setItem("commhub_boop_rewards_claimed", JSON.stringify(nextClaimed));
-
-    communityClient.auth.me()
-      .then((user) => awardPointAmount(user, reward.points, "points_from_comments"))
-      .then(() => {
-        toast({
-          title: `${reward.label}: +${reward.points} Favor`,
-          description: "Odd boops are blessed boops.",
-          duration: 3000,
-        });
-      })
-      .catch(() => {});
+  const celebrateMilestone = (reward) => {
+    toast({
+      title: `${reward.label}: blessed boop`,
+      description: "Odd boops are blessed boops. No Favor changes hands.",
+      duration: 3000,
+    });
   };
 
   const handleBoop = () => {
@@ -70,7 +51,7 @@ export default function BoopTheFox() {
     if (newCount === 25) toast({ title: "TRUE FOX FRIENDSHIP: 25 boops", duration: 3000 });
 
     const reward = getBoopReward(newCount);
-    if (reward && !claimedRewards.includes(reward.count)) claimReward(reward);
+    if (reward) celebrateMilestone(reward);
   };
 
   const handleTailClick = () => {

@@ -47,7 +47,7 @@ export default function BlessingForm({ open, onOpenChange, user, onCreated }) {
       const { file_url } = await communityClient.integrations.Core.UploadFile({ file: mediaFile });
       media_url = file_url;
     }
-    await communityClient.entities.Blessing.create({
+    const createdBlessing = await communityClient.entities.Blessing.create({
       ...form,
       media_url,
       author_name: getPublicDisplayName(user, "Guest"),
@@ -58,7 +58,9 @@ export default function BlessingForm({ open, onOpenChange, user, onCreated }) {
       codex_entry_title: selectedCodex?.title || "",
       codex_entry_emoji: selectedCodex?.cover_emoji || "",
     });
-    if (user) awardPoints(user, "post_blessing").then(checkLevelUp);
+    try {
+      checkLevelUp(await awardPoints(user, "post-blessing", createdBlessing.id));
+    } catch {}
     setSaving(false);
     clearDraft(INITIAL_BLESSING_FORM);
     setMediaFile(null);

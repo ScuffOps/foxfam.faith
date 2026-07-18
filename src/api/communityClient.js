@@ -1,8 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const environment = import.meta.env || {};
+const supabaseUrl = environment.VITE_SUPABASE_URL;
 const supabaseKey =
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
+  environment.VITE_SUPABASE_PUBLISHABLE_KEY || environment.VITE_SUPABASE_ANON_KEY;
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseKey);
 
@@ -16,7 +17,7 @@ export const supabase = isSupabaseConfigured
     })
   : null;
 
-const UPLOAD_BUCKET = import.meta.env.VITE_SUPABASE_UPLOAD_BUCKET || "community-uploads";
+const UPLOAD_BUCKET = environment.VITE_SUPABASE_UPLOAD_BUCKET || "community-uploads";
 const DEFAULT_AUTH_REDIRECT_PATH = "/settings";
 export const LOGIN_EVENT_NAME = "foxfam:open-login";
 const PUBLIC_ROW_SELECT = "id,data,created_at,updated_at";

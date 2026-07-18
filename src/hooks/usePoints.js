@@ -1,18 +1,7 @@
-import { communityClient } from "@/api/communityClient";
 import { createUserNotification } from "@/lib/notifications";
 import { getPrivateUserKey } from "@/lib/communityActor";
-import { getPublicAvatar, getPublicDisplayName } from "@/lib/userIdentity";
-
-// Points awarded per action
-export const POINT_VALUES = {
-  post_blessing_comment: 3,  // commenting on a blessing
-  post_reliquary_comment: 3, // commenting on a reliquary entry
-  upvote_blessing: 1,        // giving praise to a blessing
-  upvote_idea: 1,            // giving praise to a community idea/feedback
-  vote_poll: 2,              // voting in a poll
-  submit_post: 5,            // submitting a community idea/feedback
-  post_blessing: 8,          // posting a blessing (mods/admins)
-};
+import { getPublicDisplayName } from "@/lib/userIdentity";
+import { favorService, getFavorAwardOutcome } from "@/lib/favorService";
 
 export const FAVORED_DEFAULT_TITLE = "ҒᎪᏙᏫᎡᎬᎠ";
 export const FAVORED_BADGE = {
@@ -30,28 +19,28 @@ export const PROGRESSION_ACTIONS = [
     description: "Start a community post so others can vote on it.",
     href: "/community",
     cta: "New post",
-    points: POINT_VALUES.submit_post,
+    points: 5,
   },
   {
     label: "Give Praise to an idea",
     description: "Send praise to feedback you want the mod team to notice.",
     href: "/community",
     cta: "Vote on ideas",
-    points: POINT_VALUES.upvote_idea,
+    points: 1,
   },
   {
     label: "Vote in a poll",
     description: "Help steer what the community does next.",
     href: "/community",
     cta: "Find polls",
-    points: POINT_VALUES.vote_poll,
+    points: 2,
   },
   {
     label: "Give Praise to blessings",
     description: "Give Praise or comment on a blessing when one speaks to you.",
     href: "/blessings",
     cta: "Visit blessings",
-    points: POINT_VALUES.post_blessing_comment,
+    points: 3,
   },
 ];
 
@@ -110,72 +99,28 @@ export function getRankProgress(points) {
 }
 
 /**
- * Award points to the current user for a specific action.
- * Creates a UserLevel record if one doesn't exist yet.
+ * Award Favor for a server-owned action and source row.
  * Returns { leveledUp: boolean, newRank: RankObject } so callers can fire a toast.
  */
-export async function awardPoints(user, action) {
-  if (!getPrivateUserKey(user)) return { leveledUp: false, newRank: null };
-  const pts = POINT_VALUES[action];
-  if (!pts) return { leveledUp: false, newRank: null };
-
-  const field = {
-    post_blessing_comment: "points_from_comments",
-    post_reliquary_comment: "points_from_comments",
-    upvote_blessing: "points_from_upvotes",
-    upvote_idea: "points_from_upvotes",
-    vote_poll: "points_from_polls",
-    submit_post: "points_from_posts",
-    post_blessing: "points_from_blessings",
-  }[action];
-
-  return awardPointAmount(user, pts, field);
-}
-
-export async function awardPointAmount(user, points, field = "points_from_comments") {
+export async function awardPoints(user, actionKey, sourceId, optionKey = null) {
+  const result = await favorService.performAction(actionKey, sourceId, optionKey);
+  const outcome = getFavorAwardOutcome(result);
+  const newRank = outcome.leveledUp ? getRank(outcome.balance) : null;
   const userKey = getPrivateUserKey(user);
-  if (!userKey) return;
-  const pts = Math.max(0, Number(points) || 0);
-  if (!pts) return;
 
-  const existing = await communityClient.entities.UserLevel.filter({ user_key: userKey });
-
-  let oldPoints = 0;
-  if (existing.length > 0) {
-    const record = existing[0];
-    oldPoints = record.points || 0;
-    await communityClient.entities.UserLevel.update(record.id, {
-      points: oldPoints + pts,
-      [field]: (record[field] || 0) + pts,
-      display_name: getPublicDisplayName(user, record.display_name || "Guest"),
-      avatar_url: getPublicAvatar(user) || record.avatar_url,
-      user_key: userKey,
-    });
-  } else {
-    await communityClient.entities.UserLevel.create({
-      user_key: userKey,
-      display_name: getPublicDisplayName(user, "Guest"),
-      avatar_url: getPublicAvatar(user),
-      points: pts,
-      [field]: pts,
+  if (outcome.shouldNotify && user?.id && userKey) {
+    void createUserNotification({
+      recipientUserId: user.id,
+      actorKey: userKey,
+      actorName: getPublicDisplayName(user, "You"),
+      type: "favor_gain",
+      title: `+${outcome.delta} Favor`,
+      message: outcome.leveledUp ? `You reached ${newRank.name}.` : "Favor added to your progress.",
+      favorPoints: outcome.delta,
+      sourceType: actionKey,
+      sourceId,
     });
   }
 
-  const newPoints = oldPoints + pts;
-  const oldRank = getRank(oldPoints);
-  const newRank = getRank(newPoints);
-  const leveledUp = newRank.name !== oldRank.name;
-
-  createUserNotification({
-    recipientUserId: user.id,
-    actorKey: userKey,
-    actorName: getPublicDisplayName(user, "You"),
-    type: "favor_gain",
-    title: `+${pts} Favor`,
-    message: leveledUp ? `You reached ${newRank.name}.` : "Favor added to your progress.",
-    favorPoints: pts,
-    sourceType: field,
-  });
-
-  return { leveledUp, newRank: leveledUp ? newRank : null };
+  return { leveledUp: outcome.leveledUp, newRank };
 }

@@ -53,24 +53,13 @@ export default function IdeaCard({ post, isAdmin, user, onRefresh }) {
   const handleUpvote = async () => {
     if (upvoting) return;
     setUpvoting(true);
-    const upvotedBy = post.upvoted_by || [];
     try {
-      if (hasUpvoted) {
-        await communityClient.entities.CommunityPost.update(post.id, {
-          upvotes: Math.max((post.upvotes || 0) - 1, 0),
-          upvoted_by: upvotedBy.filter((e) => e !== actorKey),
-        });
-      } else {
-        await communityClient.entities.CommunityPost.update(post.id, {
-          upvotes: (post.upvotes || 0) + 1,
-          upvoted_by: [...upvotedBy, actorKey],
-        });
+      const award = await awardPoints(user, "praise-idea", post.id);
+      if (!hasUpvoted) {
         setVoteBurst((value) => value + 1);
         window.setTimeout(() => setVoteBurst(0), PRAISE_BURST_DURATION_MS);
-        communityClient.auth.me().then((u) => {
-          awardPoints(u, "upvote_idea").then(checkLevelUp);
-        }).catch(() => {});
       }
+      checkLevelUp(award);
       if (onRefresh) window.setTimeout(onRefresh, hasUpvoted ? 0 : PRAISE_REFRESH_DELAY_MS);
     } catch {
       toast({

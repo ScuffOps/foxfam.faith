@@ -96,7 +96,7 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, featured = fa
     if (!commentText.trim()) return;
     setSubmitting(true);
     const actorName = getPublicDisplayName(user, "Guest");
-    await communityClient.entities.ReliquaryComment.create({
+    const createdComment = await communityClient.entities.ReliquaryComment.create({
       entry_id: entry.id,
       message: commentText.trim(),
       author_name: actorName,
@@ -105,7 +105,9 @@ export default function ReliquaryEntryCard({ entry, user, isAdmin, featured = fa
     await communityClient.entities.ReliquaryEntry.update(entry.id, {
       comment_count: (entry.comment_count || 0) + 1,
     });
-    if (user?.email) awardPoints(user, "post_reliquary_comment").then(checkLevelUp);
+    try {
+      checkLevelUp(await awardPoints(user, "reliquary-comment", createdComment.id));
+    } catch {}
     setCommentText("");
     setSubmitting(false);
     loadComments();
