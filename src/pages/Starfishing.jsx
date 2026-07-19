@@ -26,15 +26,19 @@ import {
   failServerCast,
   failServerClaim,
   FISHPEDIA_STORAGE_KEY,
+  getOwnerPendingClaimEnvelope,
   getSignedInClaimPolicy,
   isClaimContextCurrent,
+  planStarfishingSessionTransition,
   readLocalJson,
   receiveServerClaim,
   receiveServerTicket,
+  removeOwnerPendingClaimEnvelope,
   REWARD_LOG_STORAGE_KEY,
   restorePendingClaimSnapshot,
   STARFISHING_PHASES,
   tickStarfishing,
+  upsertOwnerPendingClaimEnvelope,
   updateFishpedia,
   writeLocalJson,
 } from "@/games/starfishing/simulation/starfishingRules";
@@ -59,7 +63,7 @@ const AUTH_MODES = {
   signedIn: "signed-in",
 };
 
-function readPendingClaimSnapshot() {
+function readPendingClaimStore() {
   try {
     const value = window.sessionStorage.getItem(PENDING_CLAIM_STORAGE_KEY);
     return value ? JSON.parse(value) : null;
@@ -68,18 +72,29 @@ function readPendingClaimSnapshot() {
   }
 }
 
+function readPendingClaimSnapshot(ownerId) {
+  return getOwnerPendingClaimEnvelope(readPendingClaimStore(), ownerId);
+}
+
 function writePendingClaimSnapshot(snapshot) {
   if (!snapshot) return;
   try {
-    window.sessionStorage.setItem(PENDING_CLAIM_STORAGE_KEY, JSON.stringify(snapshot));
+    const store = upsertOwnerPendingClaimEnvelope(readPendingClaimStore(), snapshot);
+    window.sessionStorage.setItem(PENDING_CLAIM_STORAGE_KEY, JSON.stringify(store));
   } catch {
     // The in-memory claim remains available when tab storage is unavailable.
   }
 }
 
-function clearPendingClaimSnapshot() {
+function clearPendingClaimSnapshot(ownerId) {
+  if (!ownerId) return;
   try {
-    window.sessionStorage.removeItem(PENDING_CLAIM_STORAGE_KEY);
+    const store = removeOwnerPendingClaimEnvelope(readPendingClaimStore(), ownerId);
+    if (!store || Object.keys(store.owners || {}).length === 0) {
+      window.sessionStorage.removeItem(PENDING_CLAIM_STORAGE_KEY);
+      return;
+    }
+    window.sessionStorage.setItem(PENDING_CLAIM_STORAGE_KEY, JSON.stringify(store));
   } catch {
     // No recovery state exists when tab storage is unavailable.
   }
@@ -178,12 +193,14 @@ export default function Starfishing() {
   const [progression, setProgression] = useState(null);
   const [isProgressionLoading, setIsProgressionLoading] = useState(true);
   const [progressionError, setProgressionError] = useState("");
+  const [authRevision, setAuthRevision] = useState(0);
   const stateRef = useRef(state);
   const fishpediaRef = useRef(localFishpedia);
   const mountedRef = useRef(true);
   const sessionEpochRef = useRef(0);
   const sessionOwnerIdRef = useRef("");
   const claimDelayRef = useRef(null);
+  const authLoadGenerationRef = useRef(0);
 
   const cancelClaimDelay = useCallback(() => {
     claimDelayRef.current?.cancel();
@@ -231,11 +248,44 @@ export default function Starfishing() {
     })
   ), [isCurrentClaimContext]);
 
+  const applySessionTransition = useCallback((nextOwnerId, { scheduleReload = false } = {}) => {
+    const transition = planStarfishingSessionTransition({
+      currentOwnerId: sessionOwnerIdRef.current,
+      nextOwnerId,
+      currentEpoch: sessionEpochRef.current,
+    });
+    if (!transition.changed) return transition;
+
+    sessionEpochRef.current = transition.nextEpoch;
+    sessionOwnerIdRef.current = nextOwnerId;
+    if (transition.shouldCancelPendingWork) cancelClaimDelay();
+
+    if (transition.shouldResetServerState) {
+      const initial = createInitialStarfishingState();
+      stateRef.current = initial;
+      setState(initial);
+      setProgression(null);
+      setProgressionError("");
+    }
+
+    if (nextOwnerId) {
+      setAuthMode(AUTH_MODES.checking);
+      setIsProgressionLoading(true);
+      if (scheduleReload) setAuthRevision((revision) => revision + 1);
+    } else {
+      setAuthMode(AUTH_MODES.guest);
+      setIsProgressionLoading(false);
+    }
+
+    return transition;
+  }, [cancelClaimDelay]);
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       sessionEpochRef.current += 1;
+      authLoadGenerationRef.current += 1;
       cancelClaimDelay();
     };
   }, [cancelClaimDelay]);
@@ -245,23 +295,13 @@ export default function Starfishing() {
     if (!supabase?.auth?.onAuthStateChange) return undefined;
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
-      const currentOwnerId = sessionOwnerIdRef.current;
       const nextOwnerId = session?.user?.id || "";
-      if (!currentOwnerId || currentOwnerId === nextOwnerId) return;
-
-      sessionEpochRef.current += 1;
-      cancelClaimDelay();
-      sessionOwnerIdRef.current = nextOwnerId;
-      const initial = createInitialStarfishingState();
-      stateRef.current = initial;
-      setState(initial);
-      setProgression(null);
-      setProgressionError(nextOwnerId ? "Your session changed. Reload Starfishing to continue." : "");
-      setIsProgressionLoading(false);
-      setAuthMode(nextOwnerId ? AUTH_MODES.checking : AUTH_MODES.guest);
+      if (sessionOwnerIdRef.current === nextOwnerId) return;
+      authLoadGenerationRef.current += 1;
+      applySessionTransition(nextOwnerId, { scheduleReload: Boolean(nextOwnerId) });
     });
     return () => data?.subscription?.unsubscribe();
-  }, [cancelClaimDelay]);
+  }, [applySessionTransition]);
   useEffect(() => {
     if (authMode !== AUTH_MODES.guest) return;
     fishpediaRef.current = localFishpedia;
@@ -279,30 +319,31 @@ export default function Starfishing() {
   }, [authMode, rewardLog]);
 
   useEffect(() => {
-    const sessionEpoch = sessionEpochRef.current + 1;
-    sessionEpochRef.current = sessionEpoch;
+    const loadGeneration = authLoadGenerationRef.current + 1;
+    authLoadGenerationRef.current = loadGeneration;
     async function loadSessionProgression() {
       let profile;
       try {
         profile = await communityClient.auth.me();
       } catch {
-        if (!isCurrentClaimContext(sessionEpoch)) return;
-        setAuthMode(AUTH_MODES.guest);
-        setIsProgressionLoading(false);
+        if (!mountedRef.current || authLoadGenerationRef.current !== loadGeneration) return;
+        applySessionTransition("", { scheduleReload: false });
+        if (!sessionOwnerIdRef.current) {
+          setAuthMode(AUTH_MODES.guest);
+          setIsProgressionLoading(false);
+        }
         return;
       }
 
+      if (!mountedRef.current || authLoadGenerationRef.current !== loadGeneration) return;
+      applySessionTransition(profile.id, { scheduleReload: false });
+      const sessionEpoch = sessionEpochRef.current;
       if (!isCurrentClaimContext(sessionEpoch)) return;
-      sessionOwnerIdRef.current = profile.id;
       setAuthMode(AUTH_MODES.signedIn);
       const initial = stateRef.current;
-      const storedSnapshot = readPendingClaimSnapshot();
-      if (storedSnapshot?.ownerId && storedSnapshot.ownerId !== profile.id) {
-        clearPendingClaimSnapshot();
-      }
       const restored = restorePendingClaimSnapshot(
         initial,
-        storedSnapshot,
+        readPendingClaimSnapshot(profile.id),
         profile.id,
       );
       if (restored !== initial) {
@@ -311,17 +352,30 @@ export default function Starfishing() {
       }
       try {
         const nextProgression = await loadStarfishingProgression();
-        if (isCurrentClaimContext(sessionEpoch)) setProgression(nextProgression);
+        if (
+          authLoadGenerationRef.current === loadGeneration
+          && isCurrentClaimContext(sessionEpoch)
+        ) {
+          setProgression(nextProgression);
+        }
       } catch (error) {
-        if (isCurrentClaimContext(sessionEpoch)) {
+        if (
+          authLoadGenerationRef.current === loadGeneration
+          && isCurrentClaimContext(sessionEpoch)
+        ) {
           setProgressionError(error?.message || "Your portal Fishpedia could not be loaded.");
         }
       } finally {
-        if (isCurrentClaimContext(sessionEpoch)) setIsProgressionLoading(false);
+        if (
+          authLoadGenerationRef.current === loadGeneration
+          && isCurrentClaimContext(sessionEpoch)
+        ) {
+          setIsProgressionLoading(false);
+        }
       }
     }
     loadSessionProgression();
-  }, [isCurrentClaimContext]);
+  }, [applySessionTransition, authRevision, isCurrentClaimContext]);
 
   const commitState = useCallback((nextState) => {
     if (!mountedRef.current) return;
@@ -390,7 +444,7 @@ export default function Starfishing() {
 
   const applyAuthoritativeClaim = useCallback((result, sessionEpoch) => {
     if (!isCurrentClaimContext(sessionEpoch)) return;
-    clearPendingClaimSnapshot();
+    clearPendingClaimSnapshot(sessionOwnerIdRef.current);
     setProgression((current) => mergeClaimProgression(current, result));
     commitState(receiveServerClaim(stateRef.current, result));
   }, [commitState, isCurrentClaimContext]);
@@ -497,7 +551,7 @@ export default function Starfishing() {
   const handleReturnWithoutReward = useCallback(() => {
     const abandoned = abandonServerClaim(stateRef.current);
     if (abandoned === stateRef.current) return;
-    clearPendingClaimSnapshot();
+    clearPendingClaimSnapshot(sessionOwnerIdRef.current);
     commitState(abandoned);
   }, [commitState]);
 

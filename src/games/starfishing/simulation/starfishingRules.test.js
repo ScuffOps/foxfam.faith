@@ -12,13 +12,17 @@ import {
   createInitialStarfishingState,
   failServerCast,
   failServerClaim,
+  getOwnerPendingClaimEnvelope,
   getSignedInClaimPolicy,
   isClaimContextCurrent,
+  planStarfishingSessionTransition,
   receiveServerClaim,
   receiveServerTicket,
+  removeOwnerPendingClaimEnvelope,
   restorePendingClaimSnapshot,
   STARFISHING_PHASES,
   tickStarfishing,
+  upsertOwnerPendingClaimEnvelope,
   updateFishpedia,
 } from "./starfishingRules.js";
 import { GAME_ACTIONS } from "../../shared/input/actions.js";
@@ -333,6 +337,74 @@ describe("starfishingRules", () => {
       restorePendingClaimSnapshot(initial, snapshot, "other-owner"),
       initial,
     );
+  });
+
+  it("stores unresolved envelopes independently for each owner", () => {
+    const ownerA = "123e4567-e89b-42d3-a456-426614174000";
+    const ownerB = "223e4567-e89b-42d3-a456-426614174000";
+    const envelopeA = {
+      ownerId: ownerA,
+      serverTicket: { ticketId: "523e4567-e89b-42d3-a456-426614174000" },
+      pendingClaim: { idempotencyKey: "323e4567-e89b-42d3-a456-426614174000" },
+    };
+    const envelopeB = {
+      ownerId: ownerB,
+      serverTicket: { ticketId: "623e4567-e89b-42d3-a456-426614174000" },
+      pendingClaim: { idempotencyKey: "423e4567-e89b-42d3-a456-426614174000" },
+    };
+
+    const withA = upsertOwnerPendingClaimEnvelope(null, envelopeA);
+    const withBoth = upsertOwnerPendingClaimEnvelope(withA, envelopeB);
+    const migratedLegacy = upsertOwnerPendingClaimEnvelope(envelopeA, envelopeB);
+    const withoutB = removeOwnerPendingClaimEnvelope(withBoth, ownerB);
+
+    assert.equal(getOwnerPendingClaimEnvelope(withA, ownerB), null);
+    assert.equal(
+      getOwnerPendingClaimEnvelope(withBoth, ownerA).pendingClaim.idempotencyKey,
+      envelopeA.pendingClaim.idempotencyKey,
+    );
+    assert.equal(
+      getOwnerPendingClaimEnvelope(withBoth, ownerB).pendingClaim.idempotencyKey,
+      envelopeB.pendingClaim.idempotencyKey,
+    );
+    assert.equal(getOwnerPendingClaimEnvelope(withoutB, ownerB), null);
+    assert.equal(
+      getOwnerPendingClaimEnvelope(withoutB, ownerA).pendingClaim.idempotencyKey,
+      envelopeA.pendingClaim.idempotencyKey,
+    );
+    assert.equal(
+      getOwnerPendingClaimEnvelope(migratedLegacy, ownerA).pendingClaim.idempotencyKey,
+      envelopeA.pendingClaim.idempotencyKey,
+    );
+    assert.doesNotMatch(JSON.stringify(withBoth), /access_token|refresh_token|credential/i);
+  });
+
+  it("plans reactive guest, owner-switch, and signed-out transitions", () => {
+    const guestToA = planStarfishingSessionTransition({
+      currentOwnerId: "",
+      nextOwnerId: "owner-a",
+      currentEpoch: 2,
+    });
+    const aToB = planStarfishingSessionTransition({
+      currentOwnerId: "owner-a",
+      nextOwnerId: "owner-b",
+      currentEpoch: guestToA.nextEpoch,
+    });
+    const bToGuest = planStarfishingSessionTransition({
+      currentOwnerId: "owner-b",
+      nextOwnerId: "",
+      currentEpoch: aToB.nextEpoch,
+    });
+
+    assert.equal(guestToA.shouldReloadProgression, true);
+    assert.equal(guestToA.shouldRestoreEnvelope, true);
+    assert.equal(guestToA.authMode, "signed-in");
+    assert.equal(aToB.shouldReloadProgression, true);
+    assert.equal(aToB.shouldResetServerState, true);
+    assert.equal(aToB.nextEpoch, 4);
+    assert.equal(bToGuest.authMode, "guest");
+    assert.equal(bToGuest.shouldReloadProgression, false);
+    assert.equal(bToGuest.shouldResetServerState, true);
   });
 
   it("returns a failed cast request to an actionable idle state", () => {

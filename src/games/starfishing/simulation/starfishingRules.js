@@ -72,6 +72,124 @@ export function isClaimContextCurrent({
   return Boolean(isMounted) && expectedEpoch === currentEpoch;
 }
 
+export function planStarfishingSessionTransition({
+  currentOwnerId = "",
+  nextOwnerId = "",
+  currentEpoch = 0,
+}) {
+  const currentOwner = typeof currentOwnerId === "string" ? currentOwnerId : "";
+  const nextOwner = typeof nextOwnerId === "string" ? nextOwnerId : "";
+  const changed = currentOwner !== nextOwner;
+
+  return {
+    changed,
+    nextEpoch: changed ? currentEpoch + 1 : currentEpoch,
+    authMode: nextOwner ? "signed-in" : "guest",
+    shouldCancelPendingWork: changed,
+    shouldResetServerState: changed,
+    shouldReloadProgression: changed && Boolean(nextOwner),
+    shouldRestoreEnvelope: changed && Boolean(nextOwner),
+  };
+}
+
+function sanitizePendingClaimEnvelope(snapshot) {
+  if (
+    !snapshot
+    || typeof snapshot.ownerId !== "string"
+    || !snapshot.ownerId
+    || !snapshot.serverTicket?.ticketId
+    || !snapshot.pendingClaim?.idempotencyKey
+  ) {
+    return null;
+  }
+
+  return {
+    ownerId: snapshot.ownerId,
+    serverTicket: {
+      ticketId: snapshot.serverTicket.ticketId,
+      fishKey: snapshot.serverTicket.fishKey,
+      qteLength: snapshot.serverTicket.qteLength,
+      appliedEffects: Array.isArray(snapshot.serverTicket.appliedEffects)
+        ? snapshot.serverTicket.appliedEffects.map((effect) => ({
+          key: effect.key,
+          value: effect.value,
+          label: effect.label,
+        }))
+        : [],
+      notBefore: snapshot.serverTicket.notBefore,
+      expiresAt: snapshot.serverTicket.expiresAt,
+    },
+    pendingClaim: {
+      idempotencyKey: snapshot.pendingClaim.idempotencyKey,
+      duplicatePolicy: snapshot.pendingClaim.duplicatePolicy,
+      telemetry: {
+        actionCount: snapshot.pendingClaim.telemetry?.actionCount,
+        missCount: snapshot.pendingClaim.telemetry?.missCount,
+        durationMs: snapshot.pendingClaim.telemetry?.durationMs,
+      },
+    },
+    lastCatch: snapshot.lastCatch ? {
+      fishKey: snapshot.lastCatch.fishKey,
+      label: snapshot.lastCatch.label,
+    } : null,
+    qteCompletedAt: snapshot.qteCompletedAt,
+    completionDurationMs: snapshot.completionDurationMs,
+    catchCount: snapshot.catchCount,
+    streak: snapshot.streak,
+    claimError: snapshot.claimError ? {
+      code: snapshot.claimError.code,
+      message: snapshot.claimError.message,
+      retryable: snapshot.claimError.retryable,
+      definitiveNoCommit: snapshot.claimError.definitiveNoCommit,
+    } : null,
+  };
+}
+
+function normalizePendingClaimEnvelopeStore(store) {
+  if (store?.version === 1 && store.owners && typeof store.owners === "object") {
+    const owners = {};
+    Object.values(store.owners).forEach((candidate) => {
+      const envelope = sanitizePendingClaimEnvelope(candidate);
+      if (envelope) owners[envelope.ownerId] = envelope;
+    });
+    return { version: 1, owners };
+  }
+
+  const legacyEnvelope = sanitizePendingClaimEnvelope(store);
+  return {
+    version: 1,
+    owners: legacyEnvelope ? { [legacyEnvelope.ownerId]: legacyEnvelope } : {},
+  };
+}
+
+export function getOwnerPendingClaimEnvelope(store, ownerId) {
+  if (typeof ownerId !== "string" || !ownerId) return null;
+  const normalizedStore = normalizePendingClaimEnvelopeStore(store);
+  const envelope = normalizedStore.owners[ownerId];
+  return envelope?.ownerId === ownerId ? sanitizePendingClaimEnvelope(envelope) : null;
+}
+
+export function upsertOwnerPendingClaimEnvelope(store, snapshot) {
+  const envelope = sanitizePendingClaimEnvelope(snapshot);
+  const normalizedStore = normalizePendingClaimEnvelopeStore(store);
+  if (!envelope) return normalizedStore;
+  return {
+    version: 1,
+    owners: {
+      ...normalizedStore.owners,
+      [envelope.ownerId]: envelope,
+    },
+  };
+}
+
+export function removeOwnerPendingClaimEnvelope(store, ownerId) {
+  const normalizedStore = normalizePendingClaimEnvelopeStore(store);
+  if (!normalizedStore.owners[ownerId]) return normalizedStore;
+  const owners = { ...normalizedStore.owners };
+  delete owners[ownerId];
+  return { version: 1, owners };
+}
+
 export function createPendingClaimSnapshot(state, ownerId) {
   if (
     typeof ownerId !== "string"
@@ -83,20 +201,17 @@ export function createPendingClaimSnapshot(state, ownerId) {
     return null;
   }
 
-  return {
+  return sanitizePendingClaimEnvelope({
     ownerId,
-    serverTicket: { ...state.serverTicket },
-    pendingClaim: {
-      ...state.pendingClaim,
-      telemetry: { ...state.pendingClaim.telemetry },
-    },
-    lastCatch: state.lastCatch ? { ...state.lastCatch } : null,
+    serverTicket: state.serverTicket,
+    pendingClaim: state.pendingClaim,
+    lastCatch: state.lastCatch,
     qteCompletedAt: state.qteCompletedAt,
     completionDurationMs: state.completionDurationMs,
     catchCount: state.catchCount,
     streak: state.streak,
-    claimError: state.claimError ? { ...state.claimError } : null,
-  };
+    claimError: state.claimError,
+  });
 }
 
 export function restorePendingClaimSnapshot(state, snapshot, ownerId) {
