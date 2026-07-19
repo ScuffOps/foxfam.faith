@@ -6,63 +6,53 @@ import PraiseBurst from "../PraiseBurst";
 import { getCommunityActorKey } from "@/lib/communityActor";
 import { isPubliclyHiddenFeaturePost } from "@/lib/hiddenFeatures";
 import { PRAISE_BURST_DURATION_MS } from "@/lib/praiseEffects";
+import { awardPoints } from "@/hooks/usePoints";
+import { useLevelUpToast } from "@/hooks/useLevelUpToast";
 
 export default function TopIdeas() {
+  const checkLevelUp = useLevelUpToast();
   const [ideas, setIdeas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [upvoting, setUpvoting] = useState(null);
   const [voteBurstId, setVoteBurstId] = useState(null);
 
+  const loadIdeas = async () => {
+    try {
+      const [all, me] = await Promise.all([
+        communityClient.entities.CommunityPost.filter({ type: "idea", status: "approved" }, "-upvotes", 10),
+        communityClient.auth.me().catch(() => null),
+      ]);
+      setIdeas(all.filter((idea) => !isPubliclyHiddenFeaturePost(idea)).slice(0, 5));
+      setUser(me);
+    } catch {
+      setIdeas([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const load = async () => {
-      try {
-        const [all, me] = await Promise.all([
-          communityClient.entities.CommunityPost.filter({ type: "idea", status: "approved" }, "-upvotes", 10),
-          communityClient.auth.me().catch(() => null),
-        ]);
-        setIdeas(all.filter((idea) => !isPubliclyHiddenFeaturePost(idea)).slice(0, 5));
-        setUser(me);
-      } catch {
-        setIdeas([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+    void loadIdeas();
   }, []);
 
   const handleUpvote = async (idea) => {
     if (upvoting) return;
     const actorKey = getCommunityActorKey(user);
-    const upvotedBy = idea.upvoted_by || [];
-    const hasUpvoted = upvotedBy.includes(actorKey);
+    const hasUpvoted = (idea.upvoted_by || []).includes(actorKey);
     setUpvoting(idea.id);
 
-    const updated = {
-      upvotes: hasUpvoted ? Math.max((idea.upvotes || 0) - 1, 0) : (idea.upvotes || 0) + 1,
-      upvoted_by: hasUpvoted
-        ? upvotedBy.filter((e) => e !== actorKey)
-        : [...upvotedBy, actorKey],
-    };
-    if (!hasUpvoted) {
-      setVoteBurstId(idea.id);
-      window.setTimeout(() => {
-        setVoteBurstId((current) => (current === idea.id ? null : current));
-      }, PRAISE_BURST_DURATION_MS);
-    }
-
-    // Optimistic update
-    setIdeas((prev) =>
-      prev.map((i) => (i.id === idea.id ? { ...i, ...updated } : i))
-        .sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0))
-    );
-
     try {
-      await communityClient.entities.CommunityPost.update(idea.id, updated);
+      const award = await awardPoints(user, "praise-idea", idea.id);
+      if (!hasUpvoted && !award.replayed && award.favor.delta > 0) {
+        setVoteBurstId(idea.id);
+        window.setTimeout(() => {
+          setVoteBurstId((current) => (current === idea.id ? null : current));
+        }, PRAISE_BURST_DURATION_MS);
+      }
+      checkLevelUp(award);
+      await loadIdeas();
     } catch {
-      // revert on failure
-      setIdeas((prev) => prev.map((i) => (i.id === idea.id ? idea : i)));
     } finally {
       setUpvoting(null);
     }

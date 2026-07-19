@@ -31,7 +31,6 @@ export default function PollCard({ post, isAdmin, user, onRefresh }) {
   const [editForm, setEditForm] = useState({
     title: post.title || "",
     description: post.description || "",
-    options: (post.poll_options || []).map((option) => ({ ...option })),
   });
   const actorKey = getCommunityActorKey(user);
   const options = post.poll_options || [];
@@ -46,7 +45,6 @@ export default function PollCard({ post, isAdmin, user, onRefresh }) {
     await communityClient.entities.CommunityPost.update(post.id, {
       title: editForm.title.trim(),
       description: editForm.description,
-      poll_options: editForm.options.map((option) => ({ ...option, text: String(option.text || "").trim() })).filter((option) => option.text),
       edited_at: new Date().toISOString(),
     });
     setEditing(false);
@@ -133,21 +131,18 @@ export default function PollCard({ post, isAdmin, user, onRefresh }) {
         <div className="mt-3 space-y-3 rounded-lg border border-border bg-secondary/20 p-3">
           <Textarea value={editForm.description} onChange={(event) => setEditForm((current) => ({ ...current, description: event.target.value }))} className="min-h-20 bg-secondary/60 text-sm" />
           <div className="space-y-2">
-            {editForm.options.map((option, index) => (
+            {options.map((option, index) => (
               <Input
                 key={option.id || index}
                 value={option.text}
-                onChange={(event) => {
-                  const nextOptions = [...editForm.options];
-                  nextOptions[index] = { ...option, text: event.target.value };
-                  setEditForm((current) => ({ ...current, options: nextOptions }));
-                }}
+                disabled
+                title="Poll option labels cannot be edited here"
                 className="bg-secondary/60"
               />
             ))}
           </div>
           <div className="flex justify-end gap-2">
-            <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setEditForm({ title: post.title || "", description: post.description || "", options: (post.poll_options || []).map((option) => ({ ...option })) }); }}>Cancel</Button>
+            <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setEditForm({ title: post.title || "", description: post.description || "" }); }}>Cancel</Button>
             <Button size="sm" onClick={handleSaveEdit} disabled={!editForm.title.trim()}>Save</Button>
           </div>
         </div>

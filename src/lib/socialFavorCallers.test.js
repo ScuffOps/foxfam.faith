@@ -10,7 +10,7 @@ function handlerSource(source, handlerName, nextHandlerName) {
   const start = source.indexOf(`const ${handlerName} = async`);
   const end = nextHandlerName
     ? source.indexOf(`const ${nextHandlerName} = async`, start)
-    : source.length;
+    : source.indexOf("\n  return (", start);
 
   assert.ok(start >= 0, `${handlerName} is missing`);
   assert.ok(end > start, `${handlerName} boundary is missing`);
@@ -23,6 +23,8 @@ const pollCard = readSource("../components/community/PollCard.jsx");
 const blessingCard = readSource("../components/blessings/BlessingCard.jsx");
 const blessingForm = readSource("../components/blessings/BlessingForm.jsx");
 const reliquaryCard = readSource("../components/reliquary/ReliquaryEntryCard.jsx");
+const topIdeas = readSource("../components/dashboard/TopIdeas.jsx");
+const roadmap = readSource("../pages/Roadmap.jsx");
 const usePoints = readSource("../hooks/usePoints.js");
 const boop = readSource("../components/dashboard/BoopTheFox.jsx");
 
@@ -54,4 +56,31 @@ test("Favor writes have no arbitrary client amount path and boops do not claim F
   assert.doesNotMatch(usePoints, /awardPointAmount/);
   assert.match(usePoints, /favorService\.performAction\(actionKey, sourceId, optionKey\)/);
   assert.doesNotMatch(boop, /awardPointAmount|\+\$\{reward\.points\} Favor|communityClient\.auth\.me/);
+});
+
+test("reachable Top Ideas and Roadmap praise through the Favor gateway before reloading", () => {
+  const topIdeasPraise = handlerSource(topIdeas, "handleUpvote", null);
+  const roadmapPraise = handlerSource(roadmap, "handleUpvote", null);
+
+  assert.match(topIdeasPraise, /awardPoints\(user, "praise-idea", idea\.id\)/);
+  assert.doesNotMatch(topIdeasPraise, /CommunityPost\.update|upvoted_by\s*:|setIdeas\(/);
+  assert.ok(topIdeasPraise.indexOf("await awardPoints") < topIdeasPraise.indexOf("await loadIdeas"));
+  assert.match(roadmapPraise, /awardPoints\(user, "praise-idea", post\.id\)/);
+  assert.doesNotMatch(roadmapPraise, /CommunityPost\.update|upvoted_by\s*:/);
+  assert.ok(roadmapPraise.indexOf("await awardPoints") < roadmapPraise.indexOf("await loadData"));
+});
+
+test("PollCard metadata edits never submit poll vote fields and BlessingCard uses a synchronous praise latch", () => {
+  const pollSave = handlerSource(pollCard, "handleSaveEdit", "handleVote");
+  const blessingPraise = handlerSource(blessingCard, "handlePraise", "loadComments");
+
+  assert.doesNotMatch(pollSave, /CommunityPost\.get|poll_options|votes|voted_by/);
+  assert.match(pollCard, /disabled\s+title="Poll option labels cannot be edited here"/);
+  assert.match(blessingCard, /useRef/);
+  assert.match(blessingPraise, /if \(praiseRequestRef\.current\) return;/);
+  assert.match(blessingPraise, /praiseRequestRef\.current = true;/);
+  assert.match(blessingPraise, /setPraising\(true\)/);
+  assert.match(blessingPraise, /!award\.replayed && award\.favor\.delta > 0/);
+  assert.match(blessingPraise, /finally \{\s+praiseRequestRef\.current = false;\s+setPraising\(false\)/);
+  assert.match(blessingCard, /disabled=\{praising\}/);
 });

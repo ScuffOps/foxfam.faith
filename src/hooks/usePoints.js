@@ -122,5 +122,10 @@ export async function awardPoints(user, actionKey, sourceId, optionKey = null) {
     });
   }
 
-  return { leveledUp: outcome.leveledUp, newRank };
+  return {
+    leveledUp: outcome.leveledUp,
+    newRank,
+    replayed: result.replayed,
+    favor: result.favor,
+  };
 }

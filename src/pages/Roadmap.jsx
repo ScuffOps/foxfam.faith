@@ -10,7 +10,9 @@ import PraiseBurst from "@/components/PraiseBurst";
 import { canModerate } from "@/lib/roles";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { getCommunityActorKey } from "@/lib/communityActor";
-import { PRAISE_BURST_DURATION_MS, PRAISE_REFRESH_DELAY_MS } from "@/lib/praiseEffects";
+import { PRAISE_BURST_DURATION_MS } from "@/lib/praiseEffects";
+import { awardPoints } from "@/hooks/usePoints";
+import { useLevelUpToast } from "@/hooks/useLevelUpToast";
 
 const STAGES = [
   { key: "planned", label: "Planned", icon: Clock, color: "text-chart-4", bg: "bg-chart-4/10", border: "border-chart-4/20" },
@@ -19,6 +21,7 @@ const STAGES = [
 ];
 
 export default function Roadmap() {
+  const checkLevelUp = useLevelUpToast();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
@@ -26,6 +29,7 @@ export default function Roadmap() {
   const [editingPost, setEditingPost] = useState(null);
   const [form, setForm] = useState({ title: "", description: "", roadmap_status: "planned" });
   const [saving, setSaving] = useState(false);
+  const [upvoting, setUpvoting] = useState(null);
   const [voteBurstId, setVoteBurstId] = useState(null);
 
   const loadData = async () => {
@@ -84,20 +88,23 @@ export default function Roadmap() {
   };
 
   const handleUpvote = async (post) => {
+    if (upvoting) return;
     const actorKey = getCommunityActorKey(user);
-    const upvotedBy = post.upvoted_by || [];
-    const hasVoted = upvotedBy.includes(actorKey);
-    if (!hasVoted) {
-      setVoteBurstId(post.id);
-      window.setTimeout(() => {
-        setVoteBurstId((current) => (current === post.id ? null : current));
-      }, PRAISE_BURST_DURATION_MS);
+    const hasVoted = (post.upvoted_by || []).includes(actorKey);
+    setUpvoting(post.id);
+    try {
+      const award = await awardPoints(user, "praise-idea", post.id);
+      if (!hasVoted && !award.replayed && award.favor.delta > 0) {
+        setVoteBurstId(post.id);
+        window.setTimeout(() => {
+          setVoteBurstId((current) => (current === post.id ? null : current));
+        }, PRAISE_BURST_DURATION_MS);
+      }
+      checkLevelUp(award);
+      await loadData();
+    } finally {
+      setUpvoting(null);
     }
-    await communityClient.entities.CommunityPost.update(post.id, {
-      upvotes: hasVoted ? Math.max((post.upvotes || 0) - 1, 0) : (post.upvotes || 0) + 1,
-      upvoted_by: hasVoted ? upvotedBy.filter((e) => e !== actorKey) : [...upvotedBy, actorKey],
-    });
-    window.setTimeout(loadData, PRAISE_REFRESH_DELAY_MS);
   };
 
   return (
@@ -145,11 +152,12 @@ export default function Roadmap() {
                             {/* Give Praise */}
                             <button
                               onClick={() => handleUpvote(post)}
+                              disabled={Boolean(upvoting)}
                               aria-label={hasVoted ? "Remove Praise" : "Give Praise"}
                               title={hasVoted ? "Remove Praise" : "Give Praise"}
                               className={`praise-button flex min-w-[4.75rem] flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 transition-colors ${
                                 hasVoted ? "bg-primary/15 text-primary" : "bg-secondary text-muted-foreground hover:text-foreground"
-                              } ${voteBurstId === post.id ? "is-praising" : ""}`}
+                              } ${voteBurstId === post.id ? "is-praising" : ""} disabled:cursor-wait disabled:opacity-60`}
                             >
                               <PraiseBurst key={`${post.id}-${voteBurstId}`} active={voteBurstId === post.id} />
                               <Sparkles className="h-3.5 w-3.5" />

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { communityClient } from "@/api/communityClient";
 import { BookOpen, ChevronDown, ChevronUp, Download, ExternalLink, Maximize2, MessageCircle, Send, Sparkles, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -18,12 +18,14 @@ function downloadNameFor(title) {
 
 export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
   const checkLevelUp = useLevelUpToast();
+  const praiseRequestRef = useRef(false);
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState([]);
   const [loadingComments, setLoadingComments] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showFullImage, setShowFullImage] = useState(false);
+  const [praising, setPraising] = useState(false);
   const [praiseBurst, setPraiseBurst] = useState(0);
   const actorKey = getCommunityActorKey(user);
   const hasPraised = (blessing.upvoted_by || []).includes(actorKey);
@@ -31,10 +33,13 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
   const handlePraise = async (event) => {
     event.preventDefault();
     event.stopPropagation();
+    if (praiseRequestRef.current) return;
+    praiseRequestRef.current = true;
+    setPraising(true);
 
     try {
       const award = await awardPoints(user, "praise-blessing", blessing.id);
-      if (!hasPraised) {
+      if (!hasPraised && !award.replayed && award.favor.delta > 0) {
         setPraiseBurst((value) => value + 1);
         window.setTimeout(() => setPraiseBurst(0), PRAISE_BURST_DURATION_MS);
       }
@@ -42,6 +47,9 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
       window.setTimeout(() => onRefresh?.({ silent: true }), PRAISE_REFRESH_DELAY_MS);
     } catch {
       onRefresh?.({ silent: true });
+    } finally {
+      praiseRequestRef.current = false;
+      setPraising(false);
     }
   };
 
@@ -155,9 +163,10 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
           <button
             type="button"
             onClick={handlePraise}
+            disabled={praising}
             className={`praise-button flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors ${
               hasPraised ? "bg-primary/15 text-primary" : "bg-secondary text-muted-foreground hover:text-foreground"
-            } ${praiseBurst ? "is-praising" : ""}`}
+            } ${praiseBurst ? "is-praising" : ""} disabled:cursor-wait disabled:opacity-60`}
           >
             <PraiseBurst key={praiseBurst} active={praiseBurst > 0} />
             <Sparkles className="h-3.5 w-3.5" />
