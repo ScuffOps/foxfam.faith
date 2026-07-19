@@ -69,12 +69,14 @@ Implement:
 Implement:
 
 1. `ensure_user_relic()` for server-created default relic state.
-2. `save_user_relic_with_favor(jsonb, uuid)` with a canonical cost, gate validation, payload allow-listing, sufficient-balance check, ledger debit, relic update, and idempotent replay.
-3. `set_user_level_favored(uuid, boolean, text)` with staff validation for metadata only.
-4. A one-time cutover reconciliation that records any final mirror/account difference before revocation.
-5. Revoke authenticated direct writes to `user_levels`, `user_relics`, and `user_relic_charms`; retain the exact owner/staff reads required by existing screens.
-6. Update Forge/Admin clients to use only the validated RPCs.
-7. Keep Starfishing durable claims feature-disabled until Task 3 database/RLS smoke passes.
+2. `save_user_relic_with_favor(jsonb, uuid)` with a canonical cost, gate validation, payload allow-listing, sufficient-balance check, ledger debit, relic update, and idempotent replay. Use a dedicated receipt for zero-cost and paid saves; identical request/payload pairs replay and conflicting reuse is rejected.
+3. Preserve the current Forge bypass only for `admin` and `lead_mod`. The server, not the browser, validates the latest `relic_roll_gate` state.
+4. Add validated charm roll/equip RPCs before revoking charm writes. Rolling validates the gate and owns catalog selection; equipping enforces ownership and one equipped charm per slot.
+5. `set_user_level_favored(level_id uuid, boolean, text)` validates an existing `user_levels.id`, permits the current admin-panel roles (`admin`, `lead_mod`, and `mod`), and changes only Favored badge/title metadata.
+6. A one-time cutover reconciliation records every mirror/account mismatch before revocation. After the opening import, the ledger/account wins; the mirror is repaired from it. Duplicate legacy level rows are recorded for audit and left intact rather than deleted or silently consolidated.
+7. Revoke authenticated direct writes to `user_levels`, `user_relics`, and `user_relic_charms`; retain the exact owner/staff reads required by existing screens.
+8. Update Forge/Admin/Profile clients to use only the validated RPCs.
+9. Keep Starfishing durable claims feature-disabled until Task 3 database/RLS smoke passes.
 
 ## Verification Gate
 
