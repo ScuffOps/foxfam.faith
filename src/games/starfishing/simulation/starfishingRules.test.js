@@ -1,17 +1,22 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  abandonServerClaim,
   applyStarfishingAction,
   applyQteAction,
   beginCast,
   beginServerCast,
   beginServerClaim,
   buildCatchRewardIntent,
+  createPendingClaimSnapshot,
   createInitialStarfishingState,
   failServerCast,
   failServerClaim,
+  getSignedInClaimPolicy,
+  isClaimContextCurrent,
   receiveServerClaim,
   receiveServerTicket,
+  restorePendingClaimSnapshot,
   STARFISHING_PHASES,
   tickStarfishing,
   updateFishpedia,
@@ -67,6 +72,8 @@ describe("starfishingRules", () => {
     assert.equal(state.phase, STARFISHING_PHASES.caught);
     assert.ok(state.lastCatch.fishKey);
     assert.equal(state.catchCount, 1);
+    assert.equal(state.qteCompletedAt, started.biteAt + 50);
+    assert.equal(state.completionDurationMs, started.biteAt + 50 - started.castStartedAt);
   });
 
   it("does not clear a pending catch when cast input repeats", () => {
@@ -178,7 +185,7 @@ describe("starfishingRules", () => {
     const claiming = beginServerClaim(
       caught,
       "423e4567-e89b-42d3-a456-426614174000",
-      "none",
+      "keep",
       { actionCount: 1, missCount: 0, durationMs: 1200 },
     );
 
@@ -189,6 +196,10 @@ describe("starfishingRules", () => {
     );
     assert.equal(claiming.pendingClaim.telemetry.durationMs, 1200);
     assert.deepEqual(claiming.lastCatch, caught.lastCatch);
+  });
+
+  it("always uses keep as the neutral signed-in preclaim policy", () => {
+    assert.equal(getSignedInClaimPolicy(), "keep");
   });
 
   it("records authoritative claim data and returns to idle", () => {
@@ -246,6 +257,81 @@ describe("starfishingRules", () => {
     assert.equal(
       retried.pendingClaim.idempotencyKey,
       claiming.pendingClaim.idempotencyKey,
+    );
+    assert.equal(abandonServerClaim(failed), failed);
+  });
+
+  it("only abandons a claim after a definitive no-commit rejection", () => {
+    const failed = {
+      ...createInitialStarfishingState(),
+      phase: STARFISHING_PHASES.claimError,
+      lastCatch: { fishKey: "lunar-guppy" },
+      pendingClaim: {
+        idempotencyKey: "423e4567-e89b-42d3-a456-426614174000",
+        duplicatePolicy: "keep",
+      },
+      claimError: {
+        code: "STARFISHING_REQUEST_REJECTED",
+        message: "The claim was rejected before commit.",
+        definitiveNoCommit: true,
+      },
+    };
+
+    const abandoned = abandonServerClaim(failed);
+    assert.equal(abandoned.phase, STARFISHING_PHASES.idle);
+    assert.equal(abandoned.pendingClaim, null);
+  });
+
+  it("guards delayed and in-flight claims with mount and session epochs", () => {
+    assert.equal(isClaimContextCurrent({
+      isMounted: true,
+      expectedEpoch: 4,
+      currentEpoch: 4,
+    }), true);
+    assert.equal(isClaimContextCurrent({
+      isMounted: false,
+      expectedEpoch: 4,
+      currentEpoch: 4,
+    }), false);
+    assert.equal(isClaimContextCurrent({
+      isMounted: true,
+      expectedEpoch: 4,
+      currentEpoch: 5,
+    }), false);
+  });
+
+  it("restores an unresolved claim only for the same signed-in owner", () => {
+    const ownerId = "123e4567-e89b-42d3-a456-426614174000";
+    const claiming = {
+      ...createInitialStarfishingState(),
+      phase: STARFISHING_PHASES.claimError,
+      serverTicket: {
+        ticketId: "223e4567-e89b-42d3-a456-426614174000",
+        fishKey: "lunar-guppy",
+      },
+      pendingClaim: {
+        idempotencyKey: "423e4567-e89b-42d3-a456-426614174000",
+        duplicatePolicy: "keep",
+        telemetry: { actionCount: 1, missCount: 0, durationMs: 1400 },
+      },
+      lastCatch: { fishKey: "lunar-guppy", label: "Lunar Guppy" },
+      claimError: {
+        code: "STARFISHING_TEMPORARILY_UNAVAILABLE",
+        definitiveNoCommit: false,
+      },
+    };
+    const snapshot = createPendingClaimSnapshot(claiming, ownerId);
+    const initial = createInitialStarfishingState();
+    const restored = restorePendingClaimSnapshot(initial, snapshot, ownerId);
+
+    assert.equal(restored.phase, STARFISHING_PHASES.claimError);
+    assert.equal(
+      restored.pendingClaim.idempotencyKey,
+      claiming.pendingClaim.idempotencyKey,
+    );
+    assert.equal(
+      restorePendingClaimSnapshot(initial, snapshot, "other-owner"),
+      initial,
     );
   });
 

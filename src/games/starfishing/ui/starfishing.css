@@ -6,6 +6,16 @@
 .starfishing-scene-label { position: absolute; top: 1.35rem; left: 1.35rem; display: inline-flex; align-items: center; gap: .4rem; padding: .35rem .55rem; border: 2px solid #485365; border-radius: 5px; background: #faf3eb; color: #364152; font-size: .72rem; font-weight: 900; box-shadow: 0 3px 0 rgb(72 83 101 / 18%); }
 .starfishing-scene-label svg { width: 16px; }
 .starfishing-sidebar { display: grid; gap: 1rem; }
+.starfishing-preclaim { display: grid; gap: .5rem; color: #364152; }
+.starfishing-preclaim > svg { width: 32px; height: 32px; padding: .35rem; border: 2px solid #485365; border-radius: 50%; background: #dfd8ab; }
+.starfishing-preclaim > p { margin: 0; color: rgb(54 65 82 / 67%); font-size: .65rem; font-weight: 900; text-transform: uppercase; }
+.starfishing-preclaim > h2 { margin: 0; font-size: 1.2rem; }
+.starfishing-preclaim > span { margin-bottom: .35rem; font-size: .78rem; line-height: 1.5; }
+.starfishing-preclaim > button { display: flex; min-height: 58px; align-items: center; gap: .55rem; padding: .55rem; border: 2px solid #485365; border-radius: 6px; background: #80adbc; color: #26333f; text-align: left; box-shadow: 0 4px 0 rgb(72 83 101 / 22%); }
+.starfishing-preclaim > button > svg { width: 20px; flex: 0 0 20px; }
+.starfishing-preclaim > button span, .starfishing-preclaim > button small { display: block; }
+.starfishing-preclaim > button small { margin-top: .15rem; font-size: .67rem; line-height: 1.35; }
+.starfishing-preclaim > button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 5px #485365; }
 .reel-panel { color: #364152; }
 .reel-panel__heading { display: flex; align-items: center; gap: .7rem; }
 .reel-panel__heading > span { display: inline-flex; width: 44px; height: 44px; align-items: center; justify-content: center; border: 2px solid #485365; border-radius: 50%; background: #80adbc; }

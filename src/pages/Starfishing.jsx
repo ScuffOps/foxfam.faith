@@ -9,7 +9,7 @@ import { useGameControls } from "@/games/shared/input/useGameControls";
 import StarfishingScene from "@/games/starfishing/phaser/StarfishingScene";
 import FishpediaPanel from "@/games/starfishing/ui/FishpediaPanel";
 import StarfishingHud from "@/games/starfishing/ui/StarfishingHud";
-import { communityClient } from "@/api/communityClient";
+import { communityClient, supabase } from "@/api/communityClient";
 import {
   claimStarfishingCatch,
   loadStarfishingProgression,
@@ -21,14 +21,18 @@ import {
   beginServerCast,
   beginServerClaim,
   buildCatchRewardIntent,
+  createPendingClaimSnapshot,
   createInitialStarfishingState,
   failServerCast,
   failServerClaim,
   FISHPEDIA_STORAGE_KEY,
+  getSignedInClaimPolicy,
+  isClaimContextCurrent,
   readLocalJson,
   receiveServerClaim,
   receiveServerTicket,
   REWARD_LOG_STORAGE_KEY,
+  restorePendingClaimSnapshot,
   STARFISHING_PHASES,
   tickStarfishing,
   updateFishpedia,
@@ -38,16 +42,48 @@ import { DUPLICATE_POLICIES } from "@/lib/gameRewards";
 import "@/games/starfishing/ui/starfishing.css";
 
 const DUPLICATE_CHOICES = [
-  { key: DUPLICATE_POLICIES.keep, label: "Keep the star", description: "Preserve this catch in your Fishpedia." },
-  { key: DUPLICATE_POLICIES.release, label: "Release for Favor", description: "Return it gently for an authoritative Favor reward." },
-  { key: DUPLICATE_POLICIES.convert, label: "Distill to Star Glass", description: "Convert it into authoritative forge materials." },
+  { key: DUPLICATE_POLICIES.keep, label: "Keep the star", description: "Preserve this catch in your local collection." },
+  { key: DUPLICATE_POLICIES.release, label: "Release for Favor", description: "Preview a gentle Favor return." },
+  { key: DUPLICATE_POLICIES.convert, label: "Distill to Star Glass", description: "Preview forge material conversion." },
 ];
+const SIGNED_IN_CLAIM_CHOICE = {
+  key: DUPLICATE_POLICIES.keep,
+  label: "Verify this catch",
+  description: "The observatory will determine its size, duplicate status, and rewards.",
+};
+const PENDING_CLAIM_STORAGE_KEY = "foxfam_starfishing_pending_claim_v1";
 
 const AUTH_MODES = {
   checking: "checking",
   guest: "guest",
   signedIn: "signed-in",
 };
+
+function readPendingClaimSnapshot() {
+  try {
+    const value = window.sessionStorage.getItem(PENDING_CLAIM_STORAGE_KEY);
+    return value ? JSON.parse(value) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writePendingClaimSnapshot(snapshot) {
+  if (!snapshot) return;
+  try {
+    window.sessionStorage.setItem(PENDING_CLAIM_STORAGE_KEY, JSON.stringify(snapshot));
+  } catch {
+    // The in-memory claim remains available when tab storage is unavailable.
+  }
+}
+
+function clearPendingClaimSnapshot() {
+  try {
+    window.sessionStorage.removeItem(PENDING_CLAIM_STORAGE_KEY);
+  } catch {
+    // No recovery state exists when tab storage is unavailable.
+  }
+}
 
 function buildFishpediaLookup(rows = []) {
   return Object.fromEntries(rows.map((record) => [
@@ -102,25 +138,36 @@ function mergeClaimProgression(current, claim) {
 }
 
 function friendlyProgressionError(error, action) {
-  if (error?.code === "STARFISHING_REQUEST_REJECTED") {
+  const code = error?.code || "STARFISHING_REQUEST_FAILED";
+  if (action === "claim") {
+    const definitiveNoCommit = [
+      "STARFISHING_AUTH_REQUIRED",
+      "STARFISHING_INVALID_INPUT",
+      "STARFISHING_REQUEST_REJECTED",
+    ].includes(code);
     return {
-      code: error.code,
-      message: action === "cast"
-        ? "Portal catch rewards are not available yet. Your local preview remains untouched."
-        : "Portal catch rewards are not available yet. This catch was not granted.",
+      code,
+      message: definitiveNoCommit
+        ? "The portal rejected this claim before recording a reward."
+        : "The portal response is uncertain. Retry to reconcile this same catch safely.",
+      retryable: !definitiveNoCommit || Boolean(error?.retryable),
+      definitiveNoCommit,
+    };
+  }
+  if (code === "STARFISHING_REQUEST_REJECTED") {
+    return {
+      code,
+      message: "Portal catch rewards are not available yet. Your local preview remains untouched.",
       retryable: false,
+      definitiveNoCommit: true,
     };
   }
   return {
-    code: error?.code || "STARFISHING_REQUEST_FAILED",
+    code,
     message: error?.message || "Starfishing progress could not be synced.",
     retryable: Boolean(error?.retryable),
+    definitiveNoCommit: true,
   };
-}
-
-function waitUntil(timestamp) {
-  const delay = Math.max(0, Date.parse(timestamp || "") - Date.now());
-  return delay ? new Promise((resolve) => window.setTimeout(resolve, delay)) : Promise.resolve();
 }
 
 export default function Starfishing() {
@@ -133,8 +180,88 @@ export default function Starfishing() {
   const [progressionError, setProgressionError] = useState("");
   const stateRef = useRef(state);
   const fishpediaRef = useRef(localFishpedia);
+  const mountedRef = useRef(true);
+  const sessionEpochRef = useRef(0);
+  const sessionOwnerIdRef = useRef("");
+  const claimDelayRef = useRef(null);
+
+  const cancelClaimDelay = useCallback(() => {
+    claimDelayRef.current?.cancel();
+    claimDelayRef.current = null;
+  }, []);
+
+  const isCurrentClaimContext = useCallback((expectedEpoch) => (
+    isClaimContextCurrent({
+      isMounted: mountedRef.current,
+      expectedEpoch,
+      currentEpoch: sessionEpochRef.current,
+    })
+  ), []);
+
+  const waitForClaimWindow = useCallback((timestamp, expectedEpoch) => (
+    new Promise((resolve) => {
+      if (!isCurrentClaimContext(expectedEpoch)) {
+        resolve(false);
+        return;
+      }
+
+      const delay = Math.max(0, Date.parse(timestamp || "") - Date.now());
+      if (!delay) {
+        resolve(true);
+        return;
+      }
+
+      let settled = false;
+      const finish = (isCurrent) => {
+        if (settled) return;
+        settled = true;
+        claimDelayRef.current = null;
+        resolve(isCurrent);
+      };
+      const timeoutId = window.setTimeout(
+        () => finish(isCurrentClaimContext(expectedEpoch)),
+        delay,
+      );
+      claimDelayRef.current = {
+        cancel() {
+          window.clearTimeout(timeoutId);
+          finish(false);
+        },
+      };
+    })
+  ), [isCurrentClaimContext]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      sessionEpochRef.current += 1;
+      cancelClaimDelay();
+    };
+  }, [cancelClaimDelay]);
 
   useEffect(() => { stateRef.current = state; }, [state]);
+  useEffect(() => {
+    if (!supabase?.auth?.onAuthStateChange) return undefined;
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
+      const currentOwnerId = sessionOwnerIdRef.current;
+      const nextOwnerId = session?.user?.id || "";
+      if (!currentOwnerId || currentOwnerId === nextOwnerId) return;
+
+      sessionEpochRef.current += 1;
+      cancelClaimDelay();
+      sessionOwnerIdRef.current = nextOwnerId;
+      const initial = createInitialStarfishingState();
+      stateRef.current = initial;
+      setState(initial);
+      setProgression(null);
+      setProgressionError(nextOwnerId ? "Your session changed. Reload Starfishing to continue." : "");
+      setIsProgressionLoading(false);
+      setAuthMode(nextOwnerId ? AUTH_MODES.checking : AUTH_MODES.guest);
+    });
+    return () => data?.subscription?.unsubscribe();
+  }, [cancelClaimDelay]);
   useEffect(() => {
     if (authMode !== AUTH_MODES.guest) return;
     fishpediaRef.current = localFishpedia;
@@ -152,53 +279,73 @@ export default function Starfishing() {
   }, [authMode, rewardLog]);
 
   useEffect(() => {
-    let active = true;
+    const sessionEpoch = sessionEpochRef.current + 1;
+    sessionEpochRef.current = sessionEpoch;
     async function loadSessionProgression() {
+      let profile;
       try {
-        await communityClient.auth.me();
+        profile = await communityClient.auth.me();
       } catch {
-        if (!active) return;
+        if (!isCurrentClaimContext(sessionEpoch)) return;
         setAuthMode(AUTH_MODES.guest);
         setIsProgressionLoading(false);
         return;
       }
 
-      if (!active) return;
+      if (!isCurrentClaimContext(sessionEpoch)) return;
+      sessionOwnerIdRef.current = profile.id;
       setAuthMode(AUTH_MODES.signedIn);
+      const initial = stateRef.current;
+      const storedSnapshot = readPendingClaimSnapshot();
+      if (storedSnapshot?.ownerId && storedSnapshot.ownerId !== profile.id) {
+        clearPendingClaimSnapshot();
+      }
+      const restored = restorePendingClaimSnapshot(
+        initial,
+        storedSnapshot,
+        profile.id,
+      );
+      if (restored !== initial) {
+        stateRef.current = restored;
+        setState(restored);
+      }
       try {
         const nextProgression = await loadStarfishingProgression();
-        if (active) setProgression(nextProgression);
+        if (isCurrentClaimContext(sessionEpoch)) setProgression(nextProgression);
       } catch (error) {
-        if (active) {
+        if (isCurrentClaimContext(sessionEpoch)) {
           setProgressionError(error?.message || "Your portal Fishpedia could not be loaded.");
         }
       } finally {
-        if (active) setIsProgressionLoading(false);
+        if (isCurrentClaimContext(sessionEpoch)) setIsProgressionLoading(false);
       }
     }
     loadSessionProgression();
-    return () => { active = false; };
-  }, []);
+  }, [isCurrentClaimContext]);
 
   const commitState = useCallback((nextState) => {
+    if (!mountedRef.current) return;
     stateRef.current = nextState;
     setState(nextState);
   }, []);
 
   const requestServerCast = useCallback(async () => {
+    const sessionEpoch = sessionEpochRef.current;
     const requesting = beginServerCast(stateRef.current);
     if (requesting === stateRef.current) return;
     commitState(requesting);
     try {
       const ticket = await startStarfishingCast();
+      if (!isCurrentClaimContext(sessionEpoch)) return;
       commitState(receiveServerTicket(stateRef.current, ticket));
     } catch (error) {
+      if (!isCurrentClaimContext(sessionEpoch)) return;
       commitState(failServerCast(
         stateRef.current,
         friendlyProgressionError(error, "cast"),
       ));
     }
-  }, [commitState]);
+  }, [commitState, isCurrentClaimContext]);
 
   const dispatchAction = useCallback((action) => {
     const isCastAction = [
@@ -241,50 +388,68 @@ export default function Starfishing() {
     dispatchAction,
   }), [dispatchAction]);
 
-  const applyAuthoritativeClaim = useCallback((result) => {
+  const applyAuthoritativeClaim = useCallback((result, sessionEpoch) => {
+    if (!isCurrentClaimContext(sessionEpoch)) return;
+    clearPendingClaimSnapshot();
     setProgression((current) => mergeClaimProgression(current, result));
     commitState(receiveServerClaim(stateRef.current, result));
-  }, [commitState]);
+  }, [commitState, isCurrentClaimContext]);
 
-  const submitServerClaim = useCallback(async (pendingClaim) => {
+  const submitServerClaim = useCallback(async (pendingClaim, sessionEpoch) => {
+    if (!isCurrentClaimContext(sessionEpoch)) return;
+    const ticketId = stateRef.current.serverTicket?.ticketId;
+    if (!ticketId) return;
     try {
       const result = await claimStarfishingCatch({
-        ticketId: stateRef.current.serverTicket.ticketId,
+        ticketId,
         idempotencyKey: pendingClaim.idempotencyKey,
         duplicatePolicy: pendingClaim.duplicatePolicy,
         telemetry: pendingClaim.telemetry,
       });
-      applyAuthoritativeClaim(result);
+      if (!isCurrentClaimContext(sessionEpoch)) return;
+      applyAuthoritativeClaim(result, sessionEpoch);
     } catch (error) {
-      commitState(failServerClaim(
+      if (!isCurrentClaimContext(sessionEpoch)) return;
+      const failed = failServerClaim(
         stateRef.current,
         friendlyProgressionError(error, "claim"),
+      );
+      writePendingClaimSnapshot(createPendingClaimSnapshot(
+        failed,
+        sessionOwnerIdRef.current,
       ));
+      commitState(failed);
     }
-  }, [applyAuthoritativeClaim, commitState]);
+  }, [applyAuthoritativeClaim, commitState, isCurrentClaimContext]);
 
   const handleCatchChoice = useCallback(async (policy) => {
     const catchRecord = stateRef.current.lastCatch;
     if (!catchRecord || stateRef.current.phase !== STARFISHING_PHASES.caught) return;
 
     if (authMode === AUTH_MODES.signedIn) {
+      const sessionEpoch = sessionEpochRef.current;
       const telemetry = {
         actionCount: stateRef.current.qtePattern.length,
         missCount: 0,
-        durationMs: Math.min(
-          600000,
-          Math.max(0, Date.now() - stateRef.current.castStartedAt),
-        ),
+        durationMs: stateRef.current.completionDurationMs,
       };
       const claiming = beginServerClaim(
         stateRef.current,
         window.crypto.randomUUID(),
-        policy,
+        getSignedInClaimPolicy(),
         telemetry,
       );
+      writePendingClaimSnapshot(createPendingClaimSnapshot(
+        claiming,
+        sessionOwnerIdRef.current,
+      ));
       commitState(claiming);
-      await waitUntil(claiming.serverTicket.notBefore);
-      await submitServerClaim(claiming.pendingClaim);
+      const shouldSubmit = await waitForClaimWindow(
+        claiming.serverTicket.notBefore,
+        sessionEpoch,
+      );
+      if (!shouldSubmit || !isCurrentClaimContext(sessionEpoch)) return;
+      await submitServerClaim(claiming.pendingClaim, sessionEpoch);
       return;
     }
 
@@ -303,34 +468,49 @@ export default function Starfishing() {
       qtePattern: [],
       qteIndex: 0,
     }));
-  }, [authMode, commitState, submitServerClaim]);
+  }, [
+    authMode,
+    commitState,
+    isCurrentClaimContext,
+    submitServerClaim,
+    waitForClaimWindow,
+  ]);
 
   const handleRetryClaim = useCallback(() => {
     const current = stateRef.current;
     if (current.phase !== STARFISHING_PHASES.claimError || !current.pendingClaim) return;
+    const sessionEpoch = sessionEpochRef.current;
     const claiming = beginServerClaim(
       current,
       current.pendingClaim.idempotencyKey,
       current.pendingClaim.duplicatePolicy,
       current.pendingClaim.telemetry,
     );
+    writePendingClaimSnapshot(createPendingClaimSnapshot(
+      claiming,
+      sessionOwnerIdRef.current,
+    ));
     commitState(claiming);
-    submitServerClaim(claiming.pendingClaim);
+    submitServerClaim(claiming.pendingClaim, sessionEpoch);
   }, [commitState, submitServerClaim]);
 
   const handleReturnWithoutReward = useCallback(() => {
-    commitState(abandonServerClaim(stateRef.current));
+    const abandoned = abandonServerClaim(stateRef.current);
+    if (abandoned === stateRef.current) return;
+    clearPendingClaimSnapshot();
+    commitState(abandoned);
   }, [commitState]);
 
   const handleReset = useCallback(() => {
+    if (stateRef.current.phase === STARFISHING_PHASES.claimError) return;
     commitState(createInitialStarfishingState());
   }, [commitState]);
 
   const latestRewardIntent = rewardLog[0] || null;
   const isCatchReveal = state.phase === STARFISHING_PHASES.caught && state.lastCatch;
-  const choices = state.lastCatch?.duplicate
+  const localChoices = state.lastCatch?.duplicate
     ? DUPLICATE_CHOICES
-    : [{ key: DUPLICATE_POLICIES.none, label: "Add to Fishpedia", description: "Record this new constellation catch." }];
+    : [{ key: DUPLICATE_POLICIES.none, label: "Add to Fishpedia", description: "Record this new local constellation catch." }];
 
   return (
     <GameShell
@@ -350,11 +530,28 @@ export default function Starfishing() {
       )}
       sidebar={(
         <div className="starfishing-sidebar">
-          {isCatchReveal ? (
+          {isCatchReveal && authMode === AUTH_MODES.signedIn ? (
+            <section className="starfishing-preclaim" aria-labelledby="starfishing-preclaim-title">
+              <Sparkles aria-hidden="true" />
+              <p>Constellation on the line</p>
+              <h2 id="starfishing-preclaim-title">{state.lastCatch.label}</h2>
+              <span>The line is holding. Size, duplicate status, and rewards remain unverified.</span>
+              <button
+                type="button"
+                onClick={() => handleCatchChoice(SIGNED_IN_CLAIM_CHOICE.key)}
+              >
+                <Fish aria-hidden="true" />
+                <span>
+                  <strong>{SIGNED_IN_CLAIM_CHOICE.label}</strong>
+                  <small>{SIGNED_IN_CLAIM_CHOICE.description}</small>
+                </span>
+              </button>
+            </section>
+          ) : isCatchReveal ? (
             <GameResultSheet
               title={`${state.lastCatch.label} caught`}
               record={{ label: state.lastCatch.rarity, value: `${state.lastCatch.size}\" starspan` }}
-              choices={choices}
+              choices={localChoices}
               onChoose={handleCatchChoice}
             />
           ) : (

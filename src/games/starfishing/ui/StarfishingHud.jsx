@@ -24,7 +24,7 @@ const PHASE_COPY = {
   qte: ["Constellation on the line", "Match each direction before the glow closes."],
   "requesting-cast": ["Asking the observatory", "Finding a constellation for your line."],
   claiming: ["Inscribing your catch", "The observatory is safely recording your reward."],
-  "claim-error": ["Your catch is still here", "Nothing was granted. Retry safely or return without a reward."],
+  "claim-error": ["Your catch is still here", "Its portal result must be reconciled before you continue."],
   escaped: ["A soft escape", "Cast again when you are ready."],
 };
 
@@ -82,12 +82,15 @@ export default function StarfishingHud({
         <div className="reel-panel__recovery">
           {state.claimError?.retryable ? (
             <button type="button" onClick={onRetryClaim}>
-              <Sparkles aria-hidden="true" /> Retry claim
+              <Sparkles aria-hidden="true" />
+              {state.claimError?.definitiveNoCommit ? "Retry claim" : "Retry / reconcile"}
             </button>
           ) : null}
-          <button type="button" onClick={onReturnWithoutReward}>
-            <ArrowLeft aria-hidden="true" /> Return without reward
-          </button>
+          {state.claimError?.definitiveNoCommit ? (
+            <button type="button" onClick={onReturnWithoutReward}>
+              <ArrowLeft aria-hidden="true" /> Return without reward
+            </button>
+          ) : null}
         </div>
       ) : (
         <button
@@ -122,7 +125,7 @@ export default function StarfishingHud({
 
       <div className="reel-panel__footer">
         <span><strong>{state.catchCount}</strong> caught this visit</span>
-        <button type="button" onClick={onReset} disabled={isPending} aria-label="Reset fishing session" title="Reset fishing session"><RotateCcw aria-hidden="true" /></button>
+        <button type="button" onClick={onReset} disabled={isPending || state.phase === STARFISHING_PHASES.claimError} aria-label="Reset fishing session" title="Reset fishing session"><RotateCcw aria-hidden="true" /></button>
       </div>
 
       {isSignedIn && progression ? (
@@ -140,8 +143,13 @@ export default function StarfishingHud({
         <div className="reel-reward reel-reward--authoritative" role="status">
           <Sparkles aria-hidden="true" />
           <span>
-            <strong>Catch recorded · +{claim.favor.delta} Favor</strong>
-            <small>Portal balance: {claim.favor.balance}</small>
+            <strong>{claim.catch.label} · {claim.catch.size}&quot; starspan</strong>
+            <small>
+              {claim.catch.duplicate
+                ? `Duplicate verified · ${claim.catch.duplicatePolicy}`
+                : "New Fishpedia discovery"}
+            </small>
+            <small>+{claim.favor.delta} Favor · {claim.favor.balance} total</small>
             {claim.materials.map((material) => (
               <small key={material.key}>+{material.delta} {material.label} · {material.balance} total</small>
             ))}

@@ -19,6 +19,7 @@ export const FISHPEDIA_STORAGE_KEY = "foxfam_starfishing_fishpedia_v1";
 export const REWARD_LOG_STORAGE_KEY = "foxfam_starfishing_reward_log_v1";
 
 const DEFAULT_WAIT_MS = 1200;
+const SIGNED_IN_CLAIM_POLICY = DUPLICATE_POLICIES.keep;
 const QTE_WINDOW_MS = {
   common: 2200,
   uncommon: 1900,
@@ -43,6 +44,8 @@ export function createInitialStarfishingState() {
     qtePattern: [],
     qteIndex: 0,
     qteStartedAt: 0,
+    qteCompletedAt: 0,
+    completionDurationMs: 0,
     lastCatch: null,
     lastClaim: null,
     lastRewardIntent: null,
@@ -54,6 +57,79 @@ export function createInitialStarfishingState() {
     sessionStartedAt: Date.now(),
     catchCount: 0,
     streak: 0,
+  };
+}
+
+export function getSignedInClaimPolicy() {
+  return SIGNED_IN_CLAIM_POLICY;
+}
+
+export function isClaimContextCurrent({
+  isMounted,
+  expectedEpoch,
+  currentEpoch,
+}) {
+  return Boolean(isMounted) && expectedEpoch === currentEpoch;
+}
+
+export function createPendingClaimSnapshot(state, ownerId) {
+  if (
+    typeof ownerId !== "string"
+    || !ownerId
+    || ![STARFISHING_PHASES.claiming, STARFISHING_PHASES.claimError].includes(state.phase)
+    || !state.serverTicket?.ticketId
+    || !state.pendingClaim?.idempotencyKey
+  ) {
+    return null;
+  }
+
+  return {
+    ownerId,
+    serverTicket: { ...state.serverTicket },
+    pendingClaim: {
+      ...state.pendingClaim,
+      telemetry: { ...state.pendingClaim.telemetry },
+    },
+    lastCatch: state.lastCatch ? { ...state.lastCatch } : null,
+    qteCompletedAt: state.qteCompletedAt,
+    completionDurationMs: state.completionDurationMs,
+    catchCount: state.catchCount,
+    streak: state.streak,
+    claimError: state.claimError ? { ...state.claimError } : null,
+  };
+}
+
+export function restorePendingClaimSnapshot(state, snapshot, ownerId) {
+  if (
+    !snapshot
+    || snapshot.ownerId !== ownerId
+    || !snapshot.serverTicket?.ticketId
+    || !snapshot.pendingClaim?.idempotencyKey
+  ) {
+    return state;
+  }
+
+  return {
+    ...state,
+    phase: STARFISHING_PHASES.claimError,
+    serverTicket: { ...snapshot.serverTicket },
+    pendingClaim: {
+      ...snapshot.pendingClaim,
+      telemetry: { ...snapshot.pendingClaim.telemetry },
+    },
+    lastCatch: snapshot.lastCatch ? { ...snapshot.lastCatch } : null,
+    qteCompletedAt: snapshot.qteCompletedAt || 0,
+    completionDurationMs: snapshot.completionDurationMs || 0,
+    catchCount: snapshot.catchCount || 0,
+    streak: snapshot.streak || 0,
+    claimError: snapshot.claimError?.definitiveNoCommit === true
+      ? { ...snapshot.claimError }
+      : {
+        code: "STARFISHING_RECONCILIATION_REQUIRED",
+        message: "This catch still needs portal reconciliation.",
+        retryable: true,
+        definitiveNoCommit: false,
+      },
   };
 }
 
@@ -77,6 +153,8 @@ export function beginServerCast(state) {
     qtePattern: [],
     qteIndex: 0,
     qteStartedAt: 0,
+    qteCompletedAt: 0,
+    completionDurationMs: 0,
     lastCatch: null,
     lastClaim: null,
     lastRewardIntent: null,
@@ -104,6 +182,8 @@ export function receiveServerTicket(state, ticket, now = Date.now()) {
     qtePattern: buildServerQtePattern(fish, ticket.qteLength),
     qteIndex: 0,
     qteStartedAt: 0,
+    qteCompletedAt: 0,
+    completionDurationMs: 0,
     serverTicket: ticket,
     serverError: null,
   };
@@ -167,7 +247,10 @@ export function failServerClaim(state, error) {
 }
 
 export function abandonServerClaim(state) {
-  if (![STARFISHING_PHASES.caught, STARFISHING_PHASES.claimError].includes(state.phase)) {
+  if (
+    state.phase !== STARFISHING_PHASES.claimError
+    || state.claimError?.definitiveNoCommit !== true
+  ) {
     return state;
   }
 
@@ -177,6 +260,8 @@ export function abandonServerClaim(state) {
     activeFish: null,
     qtePattern: [],
     qteIndex: 0,
+    qteCompletedAt: 0,
+    completionDurationMs: 0,
     lastCatch: null,
     lastClaim: null,
     serverTicket: null,
@@ -200,6 +285,8 @@ export function beginCast(state, now = Date.now(), randomValue = Math.random()) 
     qtePattern: fish.qtePattern,
     qteIndex: 0,
     qteStartedAt: 0,
+    qteCompletedAt: 0,
+    completionDurationMs: 0,
     lastCatch: null,
     lastClaim: null,
     lastRewardIntent: null,
@@ -272,6 +359,8 @@ export function applyQteAction(state, action, fishpedia = {}, now = Date.now(), 
     ...state,
     phase: STARFISHING_PHASES.caught,
     lastCatch: catchRecord,
+    qteCompletedAt: now,
+    completionDurationMs: Math.max(0, now - state.castStartedAt),
     catchCount: state.catchCount + 1,
     streak: state.streak + 1,
     qteIndex: nextIndex,
