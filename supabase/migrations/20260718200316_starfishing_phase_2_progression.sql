@@ -337,6 +337,15 @@ create table if not exists private.relic_forge_receipts (
     check (result_snapshot is null or jsonb_typeof(result_snapshot) = 'object')
 );
 
+create table if not exists private.relic_forge_investments (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  relic_id uuid not null unique references public.user_relics(id) on delete cascade,
+  favor_invested bigint not null default 0,
+  updated_at timestamptz not null default now(),
+  constraint relic_forge_investments_safe_amount
+    check (favor_invested between 0 and 9007199254740991)
+);
+
 create table if not exists private.favor_reconciliation_audit (
   id uuid primary key default gen_random_uuid(),
   cutover_key text not null,
@@ -371,6 +380,7 @@ create table if not exists private.favor_reconciliation_cutovers (
 revoke all on table private.favor_gateway_cutovers from public, anon, authenticated;
 revoke all on table private.favor_gateway_historical_sources from public, anon, authenticated;
 revoke all on table private.relic_forge_receipts from public, anon, authenticated;
+revoke all on table private.relic_forge_investments from public, anon, authenticated;
 revoke all on table private.favor_reconciliation_audit from public, anon, authenticated;
 revoke all on table private.favor_reconciliation_cutovers from public, anon, authenticated;
 
@@ -2331,6 +2341,7 @@ as $$
 declare
   caller_id uuid := (select auth.uid());
   relic_row public.user_relics%rowtype;
+  authoritative_favor_spent bigint;
 begin
   if caller_id is null then
     raise exception using errcode = '42501', message = 'Authentication required';
@@ -2360,10 +2371,43 @@ begin
   select relic.*
   into relic_row
   from public.user_relics as relic
-  where relic.user_id = caller_id;
+  where relic.user_id = caller_id
+  for update;
 
   if relic_row.id is null then
     raise exception using errcode = 'P0001', message = 'Relic could not be created';
+  end if;
+
+  insert into private.relic_forge_investments (
+    user_id,
+    relic_id,
+    favor_invested
+  )
+  values (
+    caller_id,
+    relic_row.id,
+    0
+  )
+  on conflict (user_id) do update
+  set relic_id = excluded.relic_id;
+
+  select investment.favor_invested
+  into authoritative_favor_spent
+  from private.relic_forge_investments as investment
+  where investment.user_id = caller_id;
+
+  if relic_row.data -> 'favor_spent'
+    is distinct from pg_catalog.to_jsonb(authoritative_favor_spent) then
+    update public.user_relics
+    set data = pg_catalog.jsonb_set(
+          data,
+          '{favor_spent}',
+          pg_catalog.to_jsonb(authoritative_favor_spent),
+          true
+        ),
+        updated_at = pg_catalog.clock_timestamp()
+    where id = relic_row.id
+    returning * into relic_row;
   end if;
 
   return pg_catalog.jsonb_build_object(
@@ -2533,9 +2577,15 @@ begin
   where relic.user_id = caller_id
   for update;
 
-  if coalesce(relic_row.data ->> 'favor_spent', '') ~ '^[0-9]+$'
-    and (relic_row.data ->> 'favor_spent')::numeric <= 9007199254740991 then
-    prior_favor_spent := (relic_row.data ->> 'favor_spent')::bigint;
+  select investment.favor_invested
+  into prior_favor_spent
+  from private.relic_forge_investments as investment
+  where investment.user_id = caller_id
+    and investment.relic_id = relic_row.id
+  for update;
+
+  if prior_favor_spent is null then
+    raise exception using errcode = 'P0001', message = 'Relic investment state is unavailable';
   end if;
 
   favor_due := pg_catalog.greatest(0, canonical_cost - prior_favor_spent);
@@ -2571,6 +2621,12 @@ begin
   set data = next_relic_data,
       updated_at = saved_at
   where id = relic_row.id;
+
+  update private.relic_forge_investments
+  set favor_invested = pg_catalog.greatest(prior_favor_spent, canonical_cost),
+      updated_at = saved_at
+  where user_id = caller_id
+    and relic_id = relic_row.id;
 
   forge_result_snapshot := pg_catalog.jsonb_build_object(
     'replayed', false,
@@ -2703,7 +2759,25 @@ begin
       'source', 'relic_roll'
     )
   )
+  on conflict (user_id, (data ->> 'instance_id'))
+  where data ->> 'source' = 'relic_roll'
+    and nullif(data ->> 'instance_id', '') is not null
+  do nothing
   returning * into created_charm;
+
+  if created_charm.id is null then
+    select charm.*
+    into created_charm
+    from public.user_relic_charms as charm
+    where charm.user_id = caller_id
+      and charm.data ->> 'source' = 'relic_roll'
+      and charm.data ->> 'instance_id' = request_id::text
+    limit 1;
+  end if;
+
+  if created_charm.id is null then
+    raise exception using errcode = '40001', message = 'Charm roll replay is unavailable';
+  end if;
 
   return pg_catalog.jsonb_build_object(
     'id', created_charm.id,
@@ -2896,6 +2970,26 @@ begin
 end;
 $$;
 
+lock table public.user_levels, public.user_relics, public.user_relic_charms
+in access exclusive mode;
+
+revoke insert, update, delete on table public.user_levels from anon, authenticated;
+revoke insert, update, delete on table public.user_relics from anon, authenticated;
+revoke insert, update, delete on table public.user_relic_charms from anon, authenticated;
+grant select on table public.user_relics to authenticated;
+grant select on table public.user_relic_charms to authenticated;
+
+drop policy if exists "User level create" on public.user_levels;
+drop policy if exists "Public create" on public.user_levels;
+drop policy if exists "Owner or staff update" on public.user_levels;
+drop policy if exists "Owner or staff delete" on public.user_levels;
+drop policy if exists "Users create own relics" on public.user_relics;
+drop policy if exists "Users update own relics" on public.user_relics;
+drop policy if exists "Users delete own relics" on public.user_relics;
+drop policy if exists "Users create own relic charms" on public.user_relic_charms;
+drop policy if exists "Users update own relic charms" on public.user_relic_charms;
+drop policy if exists "Users delete own relic charms" on public.user_relic_charms;
+
 do $$
 declare
   account_user record;
@@ -2948,9 +3042,12 @@ begin
       mirror.id,
       account.balance,
       mirror.balance,
-      pg_catalog.jsonb_build_object('ledger_wins', true)
+      pg_catalog.jsonb_build_object(
+        'ledger_wins', true,
+        'missing_mirror', mirror.id is null
+      )
     from public.currency_accounts as account
-    join lateral (
+    left join lateral (
       select
         level_row.id,
         case
@@ -2969,7 +3066,10 @@ begin
       limit 1
     ) as mirror on true
     where account.currency_key = 'favor'
-      and mirror.balance is distinct from account.balance
+      and (
+        mirror.id is null
+        or mirror.balance is distinct from account.balance
+      )
     on conflict do nothing;
 
     for account_user in select id from auth.users order by id
@@ -2988,23 +3088,6 @@ begin
   end if;
 end
 $$;
-
-revoke insert, update, delete on table public.user_levels from anon, authenticated;
-revoke insert, update, delete on table public.user_relics from anon, authenticated;
-revoke insert, update, delete on table public.user_relic_charms from anon, authenticated;
-grant select on table public.user_relics to authenticated;
-grant select on table public.user_relic_charms to authenticated;
-
-drop policy if exists "User level create" on public.user_levels;
-drop policy if exists "Public create" on public.user_levels;
-drop policy if exists "Owner or staff update" on public.user_levels;
-drop policy if exists "Owner or staff delete" on public.user_levels;
-drop policy if exists "Users create own relics" on public.user_relics;
-drop policy if exists "Users update own relics" on public.user_relics;
-drop policy if exists "Users delete own relics" on public.user_relics;
-drop policy if exists "Users create own relic charms" on public.user_relic_charms;
-drop policy if exists "Users update own relic charms" on public.user_relic_charms;
-drop policy if exists "Users delete own relic charms" on public.user_relic_charms;
 
 revoke all on function private.favor_rank(bigint) from public, anon, authenticated;
 revoke all on function private.sync_favor_mirror(uuid, bigint) from public, anon, authenticated;
@@ -3033,10 +3116,7 @@ from public, anon;
 grant execute on function public.perform_portal_favor_action(text, uuid, text)
 to authenticated;
 
-revoke execute on function public.start_starfishing_cast() from public, anon;
-grant execute on function public.start_starfishing_cast() to authenticated;
+revoke execute on function public.start_starfishing_cast() from public, anon, authenticated;
 
 revoke execute on function public.claim_starfishing_catch(uuid, uuid, text, integer, integer, integer)
-from public, anon;
-grant execute on function public.claim_starfishing_catch(uuid, uuid, text, integer, integer, integer)
-to authenticated;
+from public, anon, authenticated;

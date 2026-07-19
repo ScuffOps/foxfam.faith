@@ -549,10 +549,9 @@ test("claim migration validates inputs, snapshots before insert, and locks execu
     migration,
     /pg_catalog\.jsonb_set\(\s*pg_catalog\.jsonb_set\(\s*coalesce\(data, '\{\}'::jsonb\),\s*'\{user_key\}'/,
   );
-  assert.match(migration, /revoke execute on function public\.start_starfishing_cast\(\) from public, anon;/);
-  assert.match(migration, /grant execute on function public\.start_starfishing_cast\(\) to authenticated;/);
-  assert.match(migration, /revoke execute on function public\.claim_starfishing_catch\(uuid, uuid, text, integer, integer, integer\)\s+from public, anon;/);
-  assert.match(migration, /grant execute on function public\.claim_starfishing_catch\(uuid, uuid, text, integer, integer, integer\)\s+to authenticated;/);
+  assert.match(migration, /revoke execute on function public\.start_starfishing_cast\(\) from public, anon, authenticated;/);
+  assert.match(migration, /revoke execute on function public\.claim_starfishing_catch\(uuid, uuid, text, integer, integer, integer\)\s+from public, anon, authenticated;/);
+  assert.doesNotMatch(migration, /grant execute on function public\.(start_starfishing_cast|claim_starfishing_catch)/);
 });
 
 test("claim migration uses active Fishpedia completion and preserves canonical level ownership", () => {

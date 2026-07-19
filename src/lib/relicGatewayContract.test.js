@@ -77,6 +77,7 @@ test("relic service sends narrow RPC payloads with no client costs or user targe
 
 test("migration owns forge validation, canonical costs, receipts, and balance debit", () => {
   assert.match(migration, /create table if not exists private\.relic_forge_receipts/);
+  assert.match(migration, /create table if not exists private\.relic_forge_investments/);
   assert.match(migration, /create or replace function public\.ensure_user_relic\(\)/);
   assert.match(
     migration,
@@ -96,6 +97,26 @@ test("migration owns forge validation, canonical costs, receipts, and balance de
   assert.match(migration, /when 'lore-script' then 14/);
   assert.match(migration, /private\.post_favor_entry\(\s*caller_id,\s*-favor_due/);
   assert.match(migration, /greatest\(prior_favor_spent, canonical_cost\)/);
+  assert.match(
+    migration,
+    /insert into private\.relic_forge_investments \([\s\S]*favor_invested[\s\S]*values \(\s*caller_id,\s*relic_row\.id,\s*0\s*\)/,
+  );
+  assert.match(
+    migration,
+    /select investment\.favor_invested\s+into authoritative_favor_spent[\s\S]*jsonb_set\(\s*data,\s*'\{favor_spent\}',\s*pg_catalog\.to_jsonb\(authoritative_favor_spent\)/,
+  );
+  assert.match(
+    migration,
+    /from private\.relic_forge_investments as investment[\s\S]*for update/,
+  );
+  assert.doesNotMatch(
+    migration,
+    /relic_row\.data ->> 'favor_spent'[\s\S]*prior_favor_spent :=/,
+  );
+  assert.match(
+    migration,
+    /update private\.relic_forge_investments[\s\S]*favor_invested = pg_catalog\.greatest\(prior_favor_spent, canonical_cost\)/,
+  );
   assert.match(migration, /Relic Forge is closed/);
   assert.match(migration, /caller_role not in \('admin', 'lead_mod'\)/);
   assert.match(migration, /Relic request id was reused with a different payload/);
@@ -120,6 +141,14 @@ test("displayed relic costs remain in exact parity with the server allow-list", 
 
 test("migration owns charm rolls, slot-exclusive equips, Favored metadata, and final revocation", () => {
   assert.match(migration, /create or replace function public\.roll_user_relic_charm\(\s*request_id uuid\s*\)/);
+  assert.match(
+    migration,
+    /create unique index if not exists user_relic_charms_one_roll_instance/,
+  );
+  assert.match(
+    migration,
+    /on conflict \(user_id, \(data ->> 'instance_id'\)\)[\s\S]*do nothing/,
+  );
   assert.match(migration, /create or replace function public\.equip_user_relic_charm\(\s*charm_id uuid,\s*equipped boolean\s*\)/);
   assert.match(migration, /data ->> 'slot' = owned_slot/);
   assert.match(migration, /create or replace function public\.set_user_level_favored\(\s*level_id uuid,\s*favored boolean,\s*title text\s*\)/);
@@ -135,6 +164,39 @@ test("migration owns charm rolls, slot-exclusive equips, Favored metadata, and f
   assert.match(migration, /grant execute on function public\.roll_user_relic_charm\(uuid\) to authenticated/);
   assert.match(migration, /grant execute on function public\.equip_user_relic_charm\(uuid, boolean\) to authenticated/);
   assert.match(migration, /grant execute on function public\.set_user_level_favored\(uuid, boolean, text\) to authenticated/);
+});
+
+test("cutover locks and revokes legacy mutations before auditing or repairing mirrors", () => {
+  const lockIndex = migration.indexOf("lock table public.user_levels");
+  const revokeIndex = migration.indexOf(
+    "revoke insert, update, delete on table public.user_levels from anon, authenticated",
+  );
+  const reconcileIndex = migration.indexOf("do $$\ndeclare\n  account_user record;");
+
+  assert.ok(lockIndex >= 0, "legacy tables must be locked for cutover");
+  assert.ok(revokeIndex > lockIndex, "revocation must happen while the cutover lock is held");
+  assert.ok(reconcileIndex > revokeIndex, "reconciliation must run after revocation");
+  assert.match(
+    migration,
+    /left join lateral \([\s\S]*from public\.user_levels as level_row[\s\S]*\) as mirror on true/,
+  );
+  assert.match(migration, /'missing_mirror', mirror\.id is null/);
+  assert.match(migration, /mirror\.id is null\s+or mirror\.balance is distinct from account\.balance/);
+});
+
+test("Starfishing transaction RPCs remain disabled until a post-smoke enable migration", () => {
+  assert.match(
+    migration,
+    /revoke execute on function public\.start_starfishing_cast\(\) from public, anon, authenticated;/,
+  );
+  assert.match(
+    migration,
+    /revoke execute on function public\.claim_starfishing_catch\(uuid, uuid, text, integer, integer, integer\)\s+from public, anon, authenticated;/,
+  );
+  assert.doesNotMatch(
+    migration,
+    /grant execute on function public\.(start_starfishing_cast|claim_starfishing_catch)/,
+  );
 });
 
 test("Forge, Profile, and Admin contain no generic durable relic or Favor writes", () => {
