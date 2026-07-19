@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
-import { readFileSync, realpathSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { createHash, randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -8,12 +9,26 @@ import { createClient } from "@supabase/supabase-js";
 
 export const KNOWN_LIVE_PROJECT_REF = "wdypokgdqgvqpyabvshq";
 
-const ENABLE_MIGRATION_ENV = "STARFISHING_E2E_ENABLE_MIGRATION";
+const SCRIPT_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
+export const PHASE_2_FIXTURE_RELATIVE_PATHS = Object.freeze({
+  bootstrap: "scripts/fixtures/starfishing-phase2/bootstrap.sql",
+  enable: "scripts/fixtures/starfishing-phase2/enable.sql",
+  allowlist: "scripts/fixtures/starfishing-phase2/allowlist.json",
+});
+export const PHASE_2_FIXTURE_PATHS = Object.freeze({
+  bootstrap: path.join(SCRIPT_DIRECTORY, "fixtures/starfishing-phase2/bootstrap.sql"),
+  enable: path.join(SCRIPT_DIRECTORY, "fixtures/starfishing-phase2/enable.sql"),
+  allowlist: path.join(SCRIPT_DIRECTORY, "fixtures/starfishing-phase2/allowlist.json"),
+});
+export const PHASE_2_FIXTURE_DIGESTS = Object.freeze({
+  bootstrap: "dceadfcc6e361a23fcca073977f0e87cb19cb72f6a432474b4117e432bac997d",
+  enable: "6127467045506aed9d33c2d7c332c55bdd118d0c9142da9b45a980e4394ee123",
+});
+
 const REQUIRED_ENV = Object.freeze([
   "STARFISHING_E2E_PROJECT_REF",
   "STARFISHING_E2E_SUPABASE_URL",
   "STARFISHING_E2E_SUPABASE_PUBLISHABLE_KEY",
-  "STARFISHING_E2E_PROJECT_ALLOWLIST",
   "STARFISHING_E2E_FIXTURE_MARKER",
   "STARFISHING_E2E_TEARDOWN_CONTRACT",
   "STARFISHING_E2E_USER_A_STARTING_FAVOR",
@@ -40,7 +55,7 @@ const MIN_FORGE_PAYLOAD = Object.freeze({
 
 const MAX_FORGE_COST = 133;
 const MIN_FORGE_COST = 43;
-const MIN_EARLY_CLAIM_MARGIN_MS = 750;
+const MIN_EARLY_CLAIM_MARGIN_MS = 10000;
 const ISOLATION_TROPHY_KEY = "phase2-smoke-isolation";
 const TEARDOWN_CONTRACT = "DELETE_DISPOSABLE_PROJECT_AFTER_RUN";
 export const PHASE_2_OWNER_PROJECTIONS = Object.freeze({
@@ -121,6 +136,11 @@ export function getPhase2SmokeConfig(env = process.env) {
       "Set STARFISHING_E2E_DISPOSABLE=1 only for an isolated disposable Supabase database. Normal VITE_* settings are never used.",
     );
   }
+  if (env.STARFISHING_E2E_PROJECT_ALLOWLIST || env.STARFISHING_E2E_ENABLE_MIGRATION) {
+    throw new Error(
+      "Dynamic allowlist and SQL paths are not accepted. Use the fixed tracked Phase 2 fixture files.",
+    );
+  }
 
   for (const key of REQUIRED_ENV) requiredValue(env, key);
 
@@ -185,7 +205,6 @@ export function getPhase2SmokeConfig(env = process.env) {
   return {
     supabaseUrl: parsedUrl.toString().replace(/\/$/, ""),
     publishableKey,
-    projectAllowlistPath: requiredValue(env, "STARFISHING_E2E_PROJECT_ALLOWLIST"),
     userA,
     userB,
     projectRef,
@@ -204,19 +223,102 @@ export function getPhase2SmokeConfig(env = process.env) {
   };
 }
 
-function stripSqlComments(source) {
-  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/--[^\r\n]*/g, "");
+export function assertFixtureDigest(label, contents, expectedDigest) {
+  const actualDigest = createHash("sha256").update(contents).digest("hex");
+  if (actualDigest !== expectedDigest) {
+    throw new Error(`${label} digest mismatch: expected ${expectedDigest}, received ${actualDigest}.`);
+  }
 }
 
-export function assertDisposableProjectAllowlist(allowlist, projectRef, now = Date.now()) {
-  if (allowlist?.contract !== "starfishing-phase2-disposable-projects-v1") {
+export function assertRepositoryFixtureGitState({ trackedPaths, statusOutput }) {
+  const expectedPaths = Object.values(PHASE_2_FIXTURE_RELATIVE_PATHS);
+  const tracked = new Set(trackedPaths);
+  const missingPaths = expectedPaths.filter((fixturePath) => !tracked.has(fixturePath));
+  if (missingPaths.length > 0) {
+    throw new Error(`Fixed fixture files must be tracked in git: ${missingPaths.join(", ")}.`);
+  }
+  if (statusOutput.trim()) {
+    throw new Error(
+      `Fixed fixture files must be committed and clean at runtime:\n${statusOutput.trim()}`,
+    );
+  }
+}
+
+function verifyRepositoryFixtureGitState(cwd) {
+  let repositoryRoot;
+  let trackedOutput;
+  let statusOutput;
+  try {
+    repositoryRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+      cwd,
+      encoding: "utf8",
+    }).trim();
+    trackedOutput = execFileSync(
+      "git",
+      ["ls-files", "--", ...Object.values(PHASE_2_FIXTURE_RELATIVE_PATHS)],
+      { cwd: repositoryRoot, encoding: "utf8" },
+    );
+    statusOutput = execFileSync(
+      "git",
+      [
+        "status",
+        "--porcelain=v1",
+        "--untracked-files=all",
+        "--",
+        ...Object.values(PHASE_2_FIXTURE_RELATIVE_PATHS),
+      ],
+      { cwd: repositoryRoot, encoding: "utf8" },
+    );
+  } catch (error) {
+    throw new Error(`Could not verify fixed fixture git state: ${error.message}`);
+  }
+
+  for (const [key, relativePath] of Object.entries(PHASE_2_FIXTURE_RELATIVE_PATHS)) {
+    const expectedPath = path.resolve(repositoryRoot, relativePath);
+    if (path.resolve(PHASE_2_FIXTURE_PATHS[key]) !== expectedPath) {
+      throw new Error(`${relativePath} is not the exact fixed repository fixture path.`);
+    }
+  }
+
+  assertRepositoryFixtureGitState({
+    trackedPaths: trackedOutput.split(/\r?\n/).filter(Boolean),
+    statusOutput,
+  });
+  return repositoryRoot;
+}
+
+export function assertDisposableProjectAllowlist(
+  allowlist,
+  projectRef,
+  now = Date.now(),
+  expectedNonce,
+) {
+  if (allowlist?.contract !== "starfishing-phase2-disposable-v2") {
     throw new Error("Disposable project allowlist has an unknown contract.");
   }
-  if (!Array.isArray(allowlist.project_refs) || allowlist.project_refs.includes(KNOWN_LIVE_PROJECT_REF)) {
-    throw new Error("Disposable project allowlist is invalid or contains the known live Foxfam project.");
+  const exactKeys = ["contract", "expires_at", "nonce", "project_ref"];
+  if (
+    !allowlist.project_ref ||
+    !allowlist.expires_at ||
+    !allowlist.nonce ||
+    Object.keys(allowlist).sort().join(",") !== exactKeys.join(",")
+  ) {
+    throw new Error("Disposable project allowlist is empty, missing fields, or has unexpected fields.");
   }
-  if (!allowlist.project_refs.includes(projectRef)) {
-    throw new Error(`Disposable project ${projectRef} is not allowlisted.`);
+  if (!/^[a-z0-9]{20}$/.test(allowlist.project_ref)) {
+    throw new Error("Disposable project allowlist project ref is invalid.");
+  }
+  if (allowlist.project_ref === KNOWN_LIVE_PROJECT_REF) {
+    throw new Error("Disposable project allowlist contains the known live Foxfam project.");
+  }
+  if (allowlist.project_ref !== projectRef) {
+    throw new Error(`Disposable project allowlist ref does not match ${projectRef}.`);
+  }
+  if (!/^[0-9a-f]{32,128}$/.test(allowlist.nonce)) {
+    throw new Error("Disposable project allowlist nonce is invalid.");
+  }
+  if (expectedNonce && allowlist.nonce !== expectedNonce) {
+    throw new Error("Disposable project allowlist nonce does not match the fixture marker.");
   }
   const expiresAt = Date.parse(allowlist.expires_at);
   if (!Number.isFinite(expiresAt) || expiresAt <= now) {
@@ -234,60 +336,26 @@ export function assertDisposableSentinel(sentinel, config, now = Date.now()) {
   if (sentinel.project_ref !== config.projectRef) {
     throw new Error("Disposable sentinel project ref does not match the requested target.");
   }
-  if (sentinel.fixture_marker !== config.fixtureMarker) {
-    throw new Error("Disposable sentinel fixture marker does not match the requested fixture.");
+  if (sentinel.nonce !== config.fixtureMarker) {
+    throw new Error("Disposable sentinel nonce does not match the committed allowlist.");
   }
   const expiresAt = Date.parse(sentinel.expires_at);
   if (!Number.isFinite(expiresAt) || expiresAt <= now) {
     throw new Error("Disposable sentinel is expired.");
   }
-  if (expiresAt - now > 48 * 60 * 60 * 1000) {
-    throw new Error("Disposable sentinel may not remain valid for more than 48 hours.");
+  if (expiresAt !== Date.parse(config.allowlistExpiresAt)) {
+    throw new Error("Disposable sentinel expiry does not match the committed allowlist.");
   }
-}
-
-export function assertExplicitEnableMigration(source, migrationPath) {
-  const uncommentedSource = stripSqlComments(source);
-  const castGrant = /grant\s+execute\s+on\s+function\s+public\.start_starfishing_cast\(\)\s+to\s+authenticated\s*;/i;
-  const claimGrant = /grant\s+execute\s+on\s+function\s+public\.claim_starfishing_catch\(\s*uuid\s*,\s*uuid\s*,\s*text\s*,\s*integer\s*,\s*integer\s*,\s*integer\s*\)\s+to\s+authenticated\s*;/i;
-  const sentinelGrant = /grant\s+execute\s+on\s+function\s+public\.assert_phase2_disposable_smoke_target\(\s*text\s*,\s*text\s*\)\s+to\s+authenticated\s*;/i;
-  const sentinelRevoke = /revoke\s+all\s+on\s+function\s+public\.assert_phase2_disposable_smoke_target\(\s*text\s*,\s*text\s*\)\s+from\s+public\s*,\s*anon\s*;/i;
-  const sentinelContract = [
-    /create\s+table\s+private\.phase2_disposable_smoke_sentinel\s*\(/i,
-    /insert\s+into\s+private\.phase2_disposable_smoke_sentinel/i,
-    /create\s+or\s+replace\s+function\s+public\.assert_phase2_disposable_smoke_target\s*\(\s*expected_project_ref\s+text\s*,\s*expected_fixture_marker\s+text\s*\)/i,
-    /security\s+definer/i,
-    /set\s+search_path\s*=\s*''/i,
-    /from\s+private\.phase2_disposable_smoke_sentinel/i,
-    /project_ref\s*=\s*expected_project_ref/i,
-    /fixture_marker\s*=\s*expected_fixture_marker/i,
-    /disposable\s+is\s+true/i,
-    /expires_at\s*>\s*(?:pg_catalog\.)?clock_timestamp\(\)/i,
-  ];
-  const isolationFixture = new RegExp(
-    `insert\\s+into\\s+public\\.user_trophies[\\s\\S]*?['"]${ISOLATION_TROPHY_KEY}['"]`,
-    "i",
-  );
-  if (
-    !castGrant.test(uncommentedSource) ||
-    !claimGrant.test(uncommentedSource) ||
-    !sentinelGrant.test(uncommentedSource) ||
-    !sentinelRevoke.test(uncommentedSource) ||
-    sentinelContract.some((pattern) => !pattern.test(uncommentedSource)) ||
-    !isolationFixture.test(uncommentedSource)
-  ) {
-    throw new Error(
-      `${migrationPath} must contain the disposable sentinel, isolation trophy fixture, and all three narrow RPC grants.`,
-    );
+  if (sentinel.user_a_id !== config.userA.id || sentinel.user_b_id !== config.userB.id) {
+    throw new Error("Disposable sentinel fixture users do not match the authenticated test users.");
   }
-
-  const grants = uncommentedSource.match(/\bgrant\b[\s\S]*?;/gi) || [];
-  const allowedGrantPatterns = [castGrant, claimGrant, sentinelGrant];
   if (
-    grants.length !== allowedGrantPatterns.length ||
-    grants.some((grant) => !allowedGrantPatterns.some((pattern) => pattern.test(grant)))
+    numeric(sentinel.user_a_starting_favor, "sentinel user A starting Favor") !==
+      config.expectedStartingFavor.userA ||
+    numeric(sentinel.user_b_starting_favor, "sentinel user B starting Favor") !==
+      config.expectedStartingFavor.userB
   ) {
-    throw new Error(`${migrationPath} contains an unexpected grant; only the three authenticated RPC grants are allowed.`);
+    throw new Error("Disposable sentinel starting Favor does not match the fixture contract.");
   }
 }
 
@@ -318,7 +386,7 @@ export function assertFreshFixtureState(
     const trophy = requireSingleRow(`${label} isolation trophy`, state.user_trophies);
     if (
       trophy.trophy_key !== ISOLATION_TROPHY_KEY ||
-      trophy.data?.fixture_marker !== fixtureMarker
+      trophy.data?.fixture_nonce !== fixtureMarker
     ) {
       throw new Error(`${label} isolation trophy does not match fixture ${fixtureMarker}.`);
     }
@@ -649,61 +717,33 @@ async function verifyForge(client, userId) {
   );
 }
 
-function resolveOutsideSourcePath(cwd, configuredPath, label) {
-  let sourceRoot;
-  let resolvedPath;
-  try {
-    sourceRoot = realpathSync(cwd);
-    resolvedPath = realpathSync(path.resolve(cwd, configuredPath));
-  } catch (error) {
-    throw new Error(`Could not resolve ${label}: ${error.message}`);
-  }
-  const relativePath = path.relative(sourceRoot, resolvedPath);
-  if (relativePath !== ".." && !relativePath.startsWith(`..${path.sep}`)) {
-    throw new Error(`${label} must point outside the committed source worktree.`);
-  }
-  return resolvedPath;
-}
-
-function resolveEnableMigration(env, cwd) {
-  const configuredPath = requiredValue(env, ENABLE_MIGRATION_ENV);
-  if (!configuredPath.endsWith(".sql")) {
-    throw new Error(`${ENABLE_MIGRATION_ENV} must point to an operator-provided SQL file.`);
-  }
-  const migrationPath = resolveOutsideSourcePath(cwd, configuredPath, ENABLE_MIGRATION_ENV);
-  let source;
-  try {
-    source = readFileSync(migrationPath, "utf8");
-  } catch (error) {
-    throw new Error(`Could not read ${configuredPath}: ${error.message}`);
-  }
-  assertExplicitEnableMigration(source, configuredPath);
-  return migrationPath;
-}
-
-function resolveProjectAllowlist(config, cwd) {
-  const allowlistPath = resolveOutsideSourcePath(
-    cwd,
-    config.projectAllowlistPath,
-    "STARFISHING_E2E_PROJECT_ALLOWLIST",
-  );
+function loadRepositoryFixtureContract(config, cwd) {
+  verifyRepositoryFixtureGitState(cwd);
+  let bootstrap;
+  let enable;
   let allowlist;
   try {
-    allowlist = JSON.parse(readFileSync(allowlistPath, "utf8"));
+    bootstrap = readFileSync(PHASE_2_FIXTURE_PATHS.bootstrap);
+    enable = readFileSync(PHASE_2_FIXTURE_PATHS.enable);
+    allowlist = JSON.parse(readFileSync(PHASE_2_FIXTURE_PATHS.allowlist, "utf8"));
   } catch (error) {
-    throw new Error(`Could not read disposable project allowlist: ${error.message}`);
+    throw new Error(`Could not read fixed disposable fixture files: ${error.message}`);
   }
-  assertDisposableProjectAllowlist(allowlist, config.projectRef);
-  return allowlistPath;
+  assertFixtureDigest("Phase 2 bootstrap SQL", bootstrap, PHASE_2_FIXTURE_DIGESTS.bootstrap);
+  assertFixtureDigest("Phase 2 enable SQL", enable, PHASE_2_FIXTURE_DIGESTS.enable);
+  assertDisposableProjectAllowlist(allowlist, config.projectRef, Date.now(), config.fixtureMarker);
+  return allowlist;
 }
 
 export async function runPhase2Smoke({ env = process.env, cwd = process.cwd() } = {}) {
-  const config = getPhase2SmokeConfig(env);
-  const allowlistPath = resolveProjectAllowlist(config, cwd);
-  const enableMigration = resolveEnableMigration(env, cwd);
-  console.log(`PREFLIGHT disposable project ${config.projectRef} accepted; RPC enable contract: ${enableMigration}`);
+  const baseConfig = getPhase2SmokeConfig(env);
+  const allowlist = loadRepositoryFixtureContract(baseConfig, cwd);
+  const config = { ...baseConfig, allowlistExpiresAt: allowlist.expires_at };
   console.log(
-    `PREFLIGHT allowlist ${allowlistPath}; fresh fixture ${config.fixtureMarker}; teardown contract ${config.teardownContract}.`,
+    `PREFLIGHT disposable project ${config.projectRef} accepted from ${PHASE_2_FIXTURE_RELATIVE_PATHS.allowlist}.`,
+  );
+  console.log(
+    `PREFLIGHT pinned bootstrap ${PHASE_2_FIXTURE_DIGESTS.bootstrap}; pinned enable ${PHASE_2_FIXTURE_DIGESTS.enable}; teardown ${config.teardownContract}.`,
   );
 
   const clientA = createSmokeClient(config, config.userA.accessToken);
@@ -713,18 +753,9 @@ export async function runPhase2Smoke({ env = process.env, cwd = process.cwd() } 
   const userB = config.userB;
 
   const sentinelResult = await expectPass("disposable database sentinel", () =>
-    clientA.rpc("assert_phase2_disposable_smoke_target", {
-      expected_project_ref: config.projectRef,
-      expected_fixture_marker: config.fixtureMarker,
-    }),
+    clientA.rpc("assert_phase2_disposable_smoke_target"),
   );
   assertDisposableSentinel(sentinelResult.data, config);
-  await expectRejected("anonymous disposable sentinel", () =>
-    anonymousClient.rpc("assert_phase2_disposable_smoke_target", {
-      expected_project_ref: config.projectRef,
-      expected_fixture_marker: config.fixtureMarker,
-    }),
-  );
 
   await verifyFreshFixture(clientA, userA.id, "user A", config.expectedStartingFavor.userA, {
     fixtureMarker: config.fixtureMarker,
@@ -735,35 +766,31 @@ export async function runPhase2Smoke({ env = process.env, cwd = process.cwd() } 
     requireIsolationTrophy: false,
   });
 
-  const castStartedAt = performance.now();
-  const castResult = await clientA.rpc("start_starfishing_cast");
-  if (castResult.error) {
-    const availability = classifyRpcAvailabilityError(castResult.error);
+  const timingCastStartedAt = performance.now();
+  const timingCastResult = await clientA.rpc("start_starfishing_timing_test");
+  if (timingCastResult.error) {
+    const availability = classifyRpcAvailabilityError(timingCastResult.error);
     if (availability === "disabled") {
       throw new Error(
-        `Starfishing RPCs are still disabled on the disposable database. Apply ${enableMigration} there explicitly, then rerun. The harness did not change grants.`,
+        `Starfishing timing RPC is disabled. Apply ${PHASE_2_FIXTURE_RELATIVE_PATHS.bootstrap} before ${PHASE_2_FIXTURE_RELATIVE_PATHS.enable} on the disposable database, then rerun.`,
       );
     }
     if (availability === "missing") {
       throw new Error(
-        "Starfishing Phase 2 RPCs are missing on the disposable database. Apply the Phase 2 schema and the explicit enable migration there, then rerun.",
+        `Starfishing timing RPC is missing. Apply ${PHASE_2_FIXTURE_RELATIVE_PATHS.bootstrap} before ${PHASE_2_FIXTURE_RELATIVE_PATHS.enable} on the disposable database.`,
       );
     }
-    throw new Error(`start_starfishing_cast preflight failed: ${errorText(castResult.error)}`);
+    throw new Error(`start_starfishing_timing_test preflight failed: ${errorText(timingCastResult.error)}`);
   }
-  console.log("PASS authenticated Starfishing cast RPC is explicitly enabled");
-
-  const cast = castResult.data;
-  assert.ok(cast.ticket_id, "Cast response is missing ticket_id");
-  assert.ok(cast.fish_key, "Cast response is missing fish_key");
-  assertEarlyClaimMargin(cast.not_before);
-
-  const claimId = randomUUID();
+  const timingCast = timingCastResult.data;
+  assert.ok(timingCast.ticket_id, "Timing-test cast response is missing ticket_id");
+  assert.ok(timingCast.fish_key, "Timing-test cast response is missing fish_key");
+  assertEarlyClaimMargin(timingCast.not_before);
   const earlyParams = buildClaimParams({
-    ticketId: cast.ticket_id,
+    ticketId: timingCast.ticket_id,
     idempotencyKey: randomUUID(),
-    qteLength: cast.qte_length,
-    durationMs: performance.now() - castStartedAt,
+    qteLength: timingCast.qte_length,
+    durationMs: performance.now() - timingCastStartedAt,
   });
   await expectRejected(
     "too-early Starfishing claim",
@@ -771,13 +798,19 @@ export async function runPhase2Smoke({ env = process.env, cwd = process.cwd() } 
     /claim is too early/i,
   );
 
+  await expectRejected("anonymous disposable sentinel", () =>
+    anonymousClient.rpc("assert_phase2_disposable_smoke_target"),
+  );
+  await expectRejected("anonymous Starfishing timing cast", () =>
+    anonymousClient.rpc("start_starfishing_timing_test"),
+  );
   await expectRejected("anonymous Starfishing cast", () => anonymousClient.rpc("start_starfishing_cast"));
 
   const crossUserParams = buildClaimParams({
-    ticketId: cast.ticket_id,
+    ticketId: timingCast.ticket_id,
     idempotencyKey: randomUUID(),
-    qteLength: cast.qte_length,
-    durationMs: performance.now() - castStartedAt,
+    qteLength: timingCast.qte_length,
+    durationMs: performance.now() - timingCastStartedAt,
   });
   await expectRejected(
     "cross-user Starfishing claim",
@@ -785,6 +818,26 @@ export async function runPhase2Smoke({ env = process.env, cwd = process.cwd() } 
     /does not belong to caller/i,
   );
 
+  const castStartedAt = performance.now();
+  const castResult = await clientA.rpc("start_starfishing_cast");
+  if (castResult.error) {
+    const availability = classifyRpcAvailabilityError(castResult.error);
+    if (availability === "disabled") {
+      throw new Error(
+        `Starfishing production RPCs are disabled. Apply ${PHASE_2_FIXTURE_RELATIVE_PATHS.enable} on the disposable database, then rerun.`,
+      );
+    }
+    if (availability === "missing") {
+      throw new Error("Starfishing Phase 2 RPCs are missing on the disposable database.");
+    }
+    throw new Error(`start_starfishing_cast preflight failed: ${errorText(castResult.error)}`);
+  }
+  console.log("PASS authenticated Starfishing production cast RPC is explicitly enabled");
+
+  const cast = castResult.data;
+  assert.ok(cast.ticket_id, "Cast response is missing ticket_id");
+  assert.ok(cast.fish_key, "Cast response is missing fish_key");
+  const claimId = randomUUID();
   const waitMs = millisecondsUntil(cast.not_before);
   assert.ok(waitMs <= 30000, `Cast not_before is unexpectedly far away (${waitMs}ms)`);
   await new Promise((resolve) => setTimeout(resolve, waitMs));

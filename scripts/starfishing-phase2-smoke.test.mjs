@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
+import * as smoke from "./starfishing-phase2-smoke.mjs";
 import {
   KNOWN_LIVE_PROJECT_REF,
   PHASE_2_OWNER_PROJECTIONS,
@@ -11,7 +13,6 @@ import {
   buildClaimParams,
   classifyRpcAvailabilityError,
   getPhase2SmokeConfig,
-  assertExplicitEnableMigration,
   millisecondsUntil,
   requireSingleRow,
 } from "./starfishing-phase2-smoke.mjs";
@@ -35,60 +36,13 @@ const disposableEnv = Object.freeze({
   STARFISHING_E2E_PROJECT_REF: "abcdefghijklmnopqrst",
   STARFISHING_E2E_SUPABASE_URL: "https://abcdefghijklmnopqrst.supabase.co",
   STARFISHING_E2E_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_disposable_test",
-  STARFISHING_E2E_PROJECT_ALLOWLIST: "/tmp/starfishing-phase2-disposable-projects.json",
-  STARFISHING_E2E_FIXTURE_MARKER: "phase2-20260718-a1",
+  STARFISHING_E2E_FIXTURE_MARKER: "0123456789abcdef0123456789abcdef",
   STARFISHING_E2E_TEARDOWN_CONTRACT: "DELETE_DISPOSABLE_PROJECT_AFTER_RUN",
   STARFISHING_E2E_USER_A_STARTING_FAVOR: "50",
   STARFISHING_E2E_USER_B_STARTING_FAVOR: "0",
   STARFISHING_E2E_USER_A_ACCESS_TOKEN: fakeUserToken("00000000-0000-4000-8000-000000000001"),
   STARFISHING_E2E_USER_B_ACCESS_TOKEN: fakeUserToken("00000000-0000-4000-8000-000000000002"),
 });
-
-const temporaryDisposableSql = `
-  create table private.phase2_disposable_smoke_sentinel (
-    project_ref text primary key,
-    fixture_marker text not null,
-    disposable boolean not null,
-    expires_at timestamptz not null
-  );
-  insert into private.phase2_disposable_smoke_sentinel
-    (project_ref, fixture_marker, disposable, expires_at)
-  values ('abcdefghijklmnopqrst', 'phase2-20260718-a1', true, now() + interval '1 day');
-  create or replace function public.assert_phase2_disposable_smoke_target(
-    expected_project_ref text,
-    expected_fixture_marker text
-  )
-  returns jsonb
-  language plpgsql
-  security definer
-  set search_path = ''
-  as $$
-  declare sentinel record;
-  begin
-    select * into sentinel
-    from private.phase2_disposable_smoke_sentinel
-    where project_ref = expected_project_ref
-      and fixture_marker = expected_fixture_marker
-      and disposable is true
-      and expires_at > clock_timestamp();
-    if sentinel.project_ref is null then raise exception 'Disposable sentinel mismatch'; end if;
-    return jsonb_build_object(
-      'project_ref', sentinel.project_ref,
-      'fixture_marker', sentinel.fixture_marker,
-      'disposable', sentinel.disposable,
-      'expires_at', sentinel.expires_at
-    );
-  end;
-  $$;
-  revoke all on function public.assert_phase2_disposable_smoke_target(text, text) from public, anon;
-  grant execute on function public.assert_phase2_disposable_smoke_target(text, text) to authenticated;
-  grant execute on function public.start_starfishing_cast() to authenticated;
-  grant execute on function public.claim_starfishing_catch(uuid, uuid, text, integer, integer, integer)
-    to authenticated;
-  insert into public.user_trophies (user_id, trophy_key, data)
-  values ('00000000-0000-4000-8000-000000000001', 'phase2-smoke-isolation',
-    '{"fixture_marker":"phase2-20260718-a1"}'::jsonb);
-`;
 
 test("smoke config ignores normal VITE Supabase fallback variables", () => {
   assert.throws(
@@ -98,6 +52,25 @@ test("smoke config ignores normal VITE Supabase fallback variables", () => {
         VITE_SUPABASE_PUBLISHABLE_KEY: "ordinary-key",
       }),
     /STARFISHING_E2E_DISPOSABLE=1/,
+  );
+});
+
+test("smoke config rejects dynamic SQL and allowlist paths", () => {
+  assert.throws(
+    () =>
+      getPhase2SmokeConfig({
+        ...disposableEnv,
+        STARFISHING_E2E_PROJECT_ALLOWLIST: "/tmp/allowlist.json",
+      }),
+    /Dynamic allowlist and SQL paths are not accepted/,
+  );
+  assert.throws(
+    () =>
+      getPhase2SmokeConfig({
+        ...disposableEnv,
+        STARFISHING_E2E_ENABLE_MIGRATION: "/tmp/enable.sql",
+      }),
+    /Dynamic allowlist and SQL paths are not accepted/,
   );
 });
 
@@ -218,7 +191,6 @@ test("smoke config returns explicit disposable credentials", () => {
   assert.deepEqual(getPhase2SmokeConfig(disposableEnv), {
     supabaseUrl: disposableEnv.STARFISHING_E2E_SUPABASE_URL,
     publishableKey: disposableEnv.STARFISHING_E2E_SUPABASE_PUBLISHABLE_KEY,
-    projectAllowlistPath: disposableEnv.STARFISHING_E2E_PROJECT_ALLOWLIST,
     userA: {
       id: "00000000-0000-4000-8000-000000000001",
       accessToken: disposableEnv.STARFISHING_E2E_USER_A_ACCESS_TOKEN,
@@ -239,16 +211,17 @@ test("smoke config returns explicit disposable credentials", () => {
 
 test("project allowlist must separately authorize the exact ref and remain short lived", () => {
   const allowlist = {
-    contract: "starfishing-phase2-disposable-projects-v1",
-    project_refs: ["abcdefghijklmnopqrst"],
+    contract: "starfishing-phase2-disposable-v2",
+    project_ref: "abcdefghijklmnopqrst",
     expires_at: "2026-07-20T00:00:00.000Z",
+    nonce: "0123456789abcdef0123456789abcdef",
   };
   assert.doesNotThrow(() =>
     assertDisposableProjectAllowlist(allowlist, "abcdefghijklmnopqrst", Date.parse("2026-07-19T00:00:00.000Z")),
   );
   assert.throws(
     () => assertDisposableProjectAllowlist(allowlist, "zyxwvutsrqponmlkjihg", Date.parse("2026-07-19T00:00:00.000Z")),
-    /not allowlisted/,
+    /does not match/i,
   );
   assert.throws(
     () => assertDisposableProjectAllowlist(allowlist, "abcdefghijklmnopqrst", Date.parse("2026-07-21T00:00:00.000Z")),
@@ -257,25 +230,46 @@ test("project allowlist must separately authorize the exact ref and remain short
   assert.throws(
     () =>
       assertDisposableProjectAllowlist(
-        { ...allowlist, project_refs: [KNOWN_LIVE_PROJECT_REF] },
+        { ...allowlist, project_ref: KNOWN_LIVE_PROJECT_REF },
         KNOWN_LIVE_PROJECT_REF,
         Date.parse("2026-07-19T00:00:00.000Z"),
       ),
     /known live/i,
   );
+  assert.throws(
+    () =>
+      assertDisposableProjectAllowlist(
+        { ...allowlist, project_ref: "", expires_at: "", nonce: "" },
+        "abcdefghijklmnopqrst",
+        Date.parse("2026-07-19T00:00:00.000Z"),
+      ),
+    /empty|missing/i,
+  );
 });
 
-test("database sentinel must match project and fixture and be unexpired", () => {
+test("database sentinel must exactly match allowlist project, nonce, and expiry", () => {
   const sentinel = {
     project_ref: "abcdefghijklmnopqrst",
-    fixture_marker: "phase2-20260718-a1",
+    nonce: "0123456789abcdef0123456789abcdef",
     disposable: true,
     expires_at: "2026-07-20T00:00:00.000Z",
+    user_a_id: "00000000-0000-4000-8000-000000000001",
+    user_b_id: "00000000-0000-4000-8000-000000000002",
+    user_a_starting_favor: 50,
+    user_b_starting_favor: 0,
+  };
+  const sentinelConfig = {
+    projectRef: "abcdefghijklmnopqrst",
+    fixtureMarker: "0123456789abcdef0123456789abcdef",
+    allowlistExpiresAt: "2026-07-20T00:00:00.000Z",
+    userA: { id: "00000000-0000-4000-8000-000000000001" },
+    userB: { id: "00000000-0000-4000-8000-000000000002" },
+    expectedStartingFavor: { userA: 50, userB: 0 },
   };
   assert.doesNotThrow(() =>
     assertDisposableSentinel(
       sentinel,
-      { projectRef: "abcdefghijklmnopqrst", fixtureMarker: "phase2-20260718-a1" },
+      sentinelConfig,
       Date.parse("2026-07-19T00:00:00.000Z"),
     ),
   );
@@ -283,7 +277,7 @@ test("database sentinel must match project and fixture and be unexpired", () => 
     () =>
       assertDisposableSentinel(
         { ...sentinel, disposable: false },
-        { projectRef: "abcdefghijklmnopqrst", fixtureMarker: "phase2-20260718-a1" },
+        sentinelConfig,
         Date.parse("2026-07-19T00:00:00.000Z"),
       ),
     /disposable sentinel/i,
@@ -291,11 +285,29 @@ test("database sentinel must match project and fixture and be unexpired", () => 
   assert.throws(
     () =>
       assertDisposableSentinel(
-        { ...sentinel, fixture_marker: "wrong-fixture" },
-        { projectRef: "abcdefghijklmnopqrst", fixtureMarker: "phase2-20260718-a1" },
+        { ...sentinel, nonce: "ffffffffffffffffffffffffffffffff" },
+        sentinelConfig,
         Date.parse("2026-07-19T00:00:00.000Z"),
       ),
-    /fixture marker/i,
+    /nonce/i,
+  );
+  assert.throws(
+    () =>
+      assertDisposableSentinel(
+        { ...sentinel, project_ref: "zyxwvutsrqponmlkjihg" },
+        sentinelConfig,
+        Date.parse("2026-07-19T00:00:00.000Z"),
+      ),
+    /project ref/i,
+  );
+  assert.throws(
+    () =>
+      assertDisposableSentinel(
+        { ...sentinel, expires_at: "2026-07-20T01:00:00.000Z" },
+        sentinelConfig,
+        Date.parse("2026-07-19T00:00:00.000Z"),
+      ),
+    /expiry/i,
   );
 });
 
@@ -330,36 +342,75 @@ test("disabled Starfishing RPC errors receive an actionable classification", () 
   assert.equal(classifyRpcAvailabilityError({ code: "22023", message: "bad input" }), "other");
 });
 
-test("temporary SQL preflight requires sentinel, isolation fixture, and only narrow authenticated grants", () => {
-  assert.throws(
-    () => assertExplicitEnableMigration("revoke execute on function public.start_starfishing_cast();", "disabled.sql"),
-    /must contain the disposable sentinel/,
+test("fixed disposable SQL is digest-pinned and altered bytes fail", () => {
+  assert.equal(typeof smoke.assertFixtureDigest, "function");
+  assert.equal(typeof smoke.PHASE_2_FIXTURE_PATHS?.bootstrap, "string");
+  assert.equal(typeof smoke.PHASE_2_FIXTURE_DIGESTS?.bootstrap, "string");
+  const bootstrap = readFileSync(smoke.PHASE_2_FIXTURE_PATHS.bootstrap);
+  const enable = readFileSync(smoke.PHASE_2_FIXTURE_PATHS.enable);
+  assert.doesNotThrow(() =>
+    smoke.assertFixtureDigest("bootstrap SQL", bootstrap, smoke.PHASE_2_FIXTURE_DIGESTS.bootstrap),
   );
-
-  assert.doesNotThrow(() => assertExplicitEnableMigration(temporaryDisposableSql, "temporary-disposable.sql"));
-
+  assert.doesNotThrow(() =>
+    smoke.assertFixtureDigest("enable SQL", enable, smoke.PHASE_2_FIXTURE_DIGESTS.enable),
+  );
   assert.throws(
     () =>
-      assertExplicitEnableMigration(
-        `
-          -- grant execute on function public.start_starfishing_cast() to authenticated;
-          /* grant execute on function public.claim_starfishing_catch(
-            uuid, uuid, text, integer, integer, integer
-          ) to authenticated; */
-        `,
-        "commented.sql",
+      smoke.assertFixtureDigest(
+        "bootstrap SQL",
+        Buffer.concat([bootstrap, Buffer.from("\n-- altered")]),
+        smoke.PHASE_2_FIXTURE_DIGESTS.bootstrap,
       ),
-    /must contain the disposable sentinel/,
+    /digest mismatch/i,
   );
-
+  assert.throws(
+    () => smoke.assertFixtureDigest("bootstrap SQL", bootstrap, "0".repeat(64)),
+    /digest mismatch/i,
+  );
   assert.throws(
     () =>
-      assertExplicitEnableMigration(
-        `${temporaryDisposableSql}
-         grant select on table public.user_trophies to authenticated;`,
-        "overbroad.sql",
+      smoke.assertFixtureDigest(
+        "enable SQL",
+        Buffer.concat([enable, Buffer.from("\nrevoke all on schema public from public;")]),
+        smoke.PHASE_2_FIXTURE_DIGESTS.enable,
       ),
-    /unexpected grant/i,
+    /digest mismatch/i,
+  );
+});
+
+test("committed allowlist is intentionally empty and fails closed until reviewed", () => {
+  const allowlist = JSON.parse(readFileSync(smoke.PHASE_2_FIXTURE_PATHS.allowlist, "utf8"));
+  assert.throws(
+    () => assertDisposableProjectAllowlist(allowlist, "abcdefghijklmnopqrst"),
+    /empty|missing/i,
+  );
+});
+
+test("fixture git-state validation rejects dirty and untracked fixed allowlists", () => {
+  assert.equal(typeof smoke.assertRepositoryFixtureGitState, "function");
+  assert.doesNotThrow(() =>
+    smoke.assertRepositoryFixtureGitState({
+      trackedPaths: Object.values(smoke.PHASE_2_FIXTURE_RELATIVE_PATHS),
+      statusOutput: "",
+    }),
+  );
+  assert.throws(
+    () =>
+      smoke.assertRepositoryFixtureGitState({
+        trackedPaths: Object.values(smoke.PHASE_2_FIXTURE_RELATIVE_PATHS),
+        statusOutput: " M scripts/fixtures/starfishing-phase2/allowlist.json",
+      }),
+    /committed and clean/i,
+  );
+  assert.throws(
+    () =>
+      smoke.assertRepositoryFixtureGitState({
+        trackedPaths: Object.values(smoke.PHASE_2_FIXTURE_RELATIVE_PATHS).filter(
+          (entry) => !entry.endsWith("allowlist.json"),
+        ),
+        statusOutput: "?? scripts/fixtures/starfishing-phase2/allowlist.json",
+      }),
+    /tracked|committed and clean/i,
   );
 });
 
@@ -379,9 +430,9 @@ test("owner-table projections use real schema keys", () => {
 });
 
 test("early-claim margin must be large enough to prove timing deterministically", () => {
-  assert.equal(assertEarlyClaimMargin("2026-07-19T00:00:02.000Z", Date.parse("2026-07-19T00:00:00.000Z")), 2000);
+  assert.equal(assertEarlyClaimMargin("2026-07-19T00:00:10.000Z", Date.parse("2026-07-19T00:00:00.000Z")), 10000);
   assert.throws(
-    () => assertEarlyClaimMargin("2026-07-19T00:00:00.500Z", Date.parse("2026-07-19T00:00:00.000Z")),
+    () => assertEarlyClaimMargin("2026-07-19T00:00:09.999Z", Date.parse("2026-07-19T00:00:00.000Z")),
     /not_before margin/i,
   );
 });
@@ -408,7 +459,7 @@ test("fresh fixture assertion rejects prior mutable state or an unexpected Favor
       {
         id: "fixture-trophy",
         trophy_key: "phase2-smoke-isolation",
-        data: { fixture_marker: "phase2-20260718-a1" },
+        data: { fixture_nonce: "phase2-20260718-a1" },
       },
     ],
     user_relics: [],
