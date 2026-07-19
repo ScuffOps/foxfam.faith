@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Fish, Ruler, Sparkles } from "lucide-react";
+import { STARFISHING_FISH } from "@/games/starfishing/content/fishCatalog";
 import { getFishpediaRows } from "@/games/starfishing/simulation/starfishingRules";
 
 const TABS = [
@@ -8,9 +9,22 @@ const TABS = [
   { key: "hidden", label: "Silhouettes" },
 ];
 
-export default function FishpediaPanel({ fishpedia = {} }) {
+export default function FishpediaPanel({ fishpedia = {}, authoritativeRows = null }) {
   const [tab, setTab] = useState("all");
-  const rows = getFishpediaRows(fishpedia);
+  const rows = useMemo(() => {
+    if (!Array.isArray(authoritativeRows)) return getFishpediaRows(fishpedia);
+    const records = new Map(authoritativeRows.map((record) => [record.fishKey, record]));
+    return STARFISHING_FISH.map((fish) => {
+      const record = records.get(fish.key);
+      return {
+        ...fish,
+        discovered: Boolean(record),
+        caughtCount: record?.caughtCount || 0,
+        biggestSize: record?.largestSize || 0,
+        smallestSize: record?.smallestSize || 0,
+      };
+    });
+  }, [authoritativeRows, fishpedia]);
   const discoveredCount = rows.filter((row) => row.discovered).length;
   const visibleRows = useMemo(() => rows.filter((fish) => (
     tab === "all" || (tab === "caught" ? fish.discovered : !fish.discovered)
@@ -37,7 +51,14 @@ export default function FishpediaPanel({ fishpedia = {} }) {
             <div className="fish-entry__copy">
               <p>{fish.discovered ? `${fish.rarity} · ${fish.constellation}` : "Unknown constellation"}</p>
               <h3>{fish.discovered ? fish.label : "Uncharted star"}</h3>
-              {fish.discovered ? <span><Ruler aria-hidden="true" /> {fish.biggestSize}\" best · {fish.caughtCount} caught</span> : <span>Its shape waits beneath the moonwater.</span>}
+              {fish.discovered ? (
+                <span>
+                  <Ruler aria-hidden="true" />
+                  {fish.biggestSize}&quot; best
+                  {fish.smallestSize ? ` · ${fish.smallestSize}" smallest` : ""}
+                  {` · ${fish.caughtCount} caught`}
+                </span>
+              ) : <span>Its shape waits beneath the moonwater.</span>}
             </div>
           </article>
         ))}

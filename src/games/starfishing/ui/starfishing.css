@@ -15,10 +15,20 @@
 .reel-panel__detail { min-height: 3.1rem; margin: .85rem 0; font-size: .88rem; line-height: 1.55; }
 .reel-panel__cast { display: flex; width: 100%; min-height: 48px; align-items: center; justify-content: center; gap: .55rem; border: 2px solid #485365; border-radius: 6px; background: #80adbc; color: #26333f; font-weight: 900; box-shadow: 0 4px 0 rgb(72 83 101 / 22%); }
 .reel-panel__cast:disabled { cursor: wait; opacity: .62; }
+.reel-panel__spinner { animation: starfishing-spin .9s linear infinite; }
 .reel-panel kbd { padding: .1rem .35rem; border: 1px solid #485365; border-radius: 4px; background: #faf3eb; font-size: .68rem; }
 .reel-panel button:focus-visible, .fishpedia button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 5px #485365; }
+.reel-panel__recovery { display: grid; gap: .45rem; }
+.reel-panel__recovery button { display: flex; min-height: 46px; align-items: center; justify-content: center; gap: .45rem; border: 2px solid #485365; border-radius: 6px; background: #dfd8ab; color: #364152; font-weight: 900; }
+.reel-panel__recovery button:last-child { background: #faf3eb; }
+.reel-panel__recovery svg { width: 18px; }
+.reel-panel__announcement { margin: .65rem 0 0; padding: .5rem .6rem; border-left: 4px solid #80adbc; background: #d9e6ec; font-size: .72rem; line-height: 1.45; }
+.reel-effects { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .65rem; }
+.reel-effects span { display: inline-flex; align-items: center; gap: .25rem; padding: .3rem .45rem; border: 1px solid #485365; border-radius: 4px; background: #eaeee0; font-size: .66rem; font-weight: 800; }
+.reel-effects svg { width: 13px; }
 .reel-panel__footer { display: flex; align-items: center; justify-content: space-between; gap: .6rem; margin-top: .8rem; color: rgb(54 65 82 / 74%); font-size: .75rem; }
 .reel-panel__footer button { display: inline-flex; width: 38px; height: 38px; align-items: center; justify-content: center; border: 2px solid #485365; border-radius: 5px; background: #f8e6e6; }
+.reel-panel__footer button:disabled { cursor: not-allowed; opacity: .5; }
 .reel-panel__footer svg { width: 17px; }
 .reel-qte { padding: .75rem; border: 2px solid #485365; border-radius: 6px; background: #f8e6e6; }
 .reel-qte > p { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin: 0; font-size: .78rem; font-weight: 900; }
@@ -34,6 +44,12 @@
 .reel-reward { display: flex; gap: .55rem; margin-top: .9rem; padding: .65rem; border: 2px solid #485365; border-radius: 6px; background: #eaeee0; font-size: .75rem; }
 .reel-reward svg { width: 18px; flex: 0 0 18px; }
 .reel-reward small { display: block; margin-top: .15rem; }
+.reel-reward--authoritative { background: #dfd8ab; }
+.reel-balance { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem; margin-top: .8rem; }
+.reel-balance > span { min-width: 0; padding: .5rem; border: 2px solid #485365; border-radius: 5px; background: #d9e6ec; }
+.reel-balance strong, .reel-balance small { display: block; overflow-wrap: anywhere; }
+.reel-balance strong { font-size: .9rem; }
+.reel-balance small { margin-top: .1rem; color: rgb(54 65 82 / 72%); font-size: .62rem; text-transform: capitalize; }
 .fishpedia { padding: .9rem; border-top: 3px solid #485365; background: #faf3eb; color: #364152; }
 .fishpedia__header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .fishpedia__header > span { display: inline-flex; align-items: center; gap: .35rem; padding: .3rem .5rem; border: 2px solid #485365; border-radius: 5px; background: #dfd8ab; font-size: .72rem; font-weight: 900; }
@@ -62,4 +78,5 @@
 .starfishing-safety-note svg { width: 16px; flex: 0 0 16px; }
 @media (max-width: 980px) { .fishpedia__grid { grid-template-columns: 1fr; } }
 @media (max-width: 760px) { .starfishing-status { white-space: normal; } .starfishing-local { display: none; } .starfishing-canvas { min-height: 25rem; } .fishpedia__grid { padding: .45rem; } }
-@media (prefers-reduced-motion: reduce) { .reel-qte__buttons button[data-active="true"] { transform: none; } }
+@keyframes starfishing-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .reel-qte__buttons button[data-active="true"] { transform: none; } .reel-panel__spinner { animation: none; } }

@@ -4,8 +4,14 @@ import {
   applyStarfishingAction,
   applyQteAction,
   beginCast,
+  beginServerCast,
+  beginServerClaim,
   buildCatchRewardIntent,
   createInitialStarfishingState,
+  failServerCast,
+  failServerClaim,
+  receiveServerClaim,
+  receiveServerTicket,
   STARFISHING_PHASES,
   tickStarfishing,
   updateFishpedia,
@@ -134,5 +140,123 @@ describe("starfishingRules", () => {
     assert.equal(first.duplicatePolicy, "convert");
     assert.equal(first.eventType, "duplicate-catch");
     assert.equal(first.items.length, 1);
+  });
+
+  it("requests a server cast without selecting a local fish", () => {
+    const state = beginServerCast(createInitialStarfishingState());
+
+    assert.equal(state.phase, STARFISHING_PHASES.requestingCast);
+    assert.equal(state.activeFish, null);
+    assert.equal(state.serverTicket, null);
+  });
+
+  it("uses the server ticket to select the fish and qte length", () => {
+    const requesting = beginServerCast(createInitialStarfishingState());
+    const ticket = {
+      ticketId: "223e4567-e89b-42d3-a456-426614174000",
+      fishKey: "lunar-guppy",
+      qteLength: 3,
+      appliedEffects: [],
+      notBefore: "2026-07-18T12:00:01.000Z",
+      expiresAt: "2026-07-18T12:10:00.000Z",
+    };
+    const waiting = receiveServerTicket(requesting, ticket, 1000);
+
+    assert.equal(waiting.phase, STARFISHING_PHASES.waiting);
+    assert.equal(waiting.activeFish.key, ticket.fishKey);
+    assert.equal(waiting.qtePattern.length, ticket.qteLength);
+    assert.equal(waiting.serverTicket.ticketId, ticket.ticketId);
+  });
+
+  it("preserves a caught fish and one idempotency key while claiming", () => {
+    const caught = {
+      ...createInitialStarfishingState(),
+      phase: STARFISHING_PHASES.caught,
+      lastCatch: { fishKey: "lunar-guppy", size: 4.2 },
+      serverTicket: { ticketId: "223e4567-e89b-42d3-a456-426614174000" },
+    };
+    const claiming = beginServerClaim(
+      caught,
+      "423e4567-e89b-42d3-a456-426614174000",
+      "none",
+      { actionCount: 1, missCount: 0, durationMs: 1200 },
+    );
+
+    assert.equal(claiming.phase, STARFISHING_PHASES.claiming);
+    assert.equal(
+      claiming.pendingClaim.idempotencyKey,
+      "423e4567-e89b-42d3-a456-426614174000",
+    );
+    assert.equal(claiming.pendingClaim.telemetry.durationMs, 1200);
+    assert.deepEqual(claiming.lastCatch, caught.lastCatch);
+  });
+
+  it("records authoritative claim data and returns to idle", () => {
+    const claiming = {
+      ...createInitialStarfishingState(),
+      phase: STARFISHING_PHASES.claiming,
+      lastCatch: { fishKey: "lunar-guppy", size: 4.2 },
+      pendingClaim: {
+        idempotencyKey: "423e4567-e89b-42d3-a456-426614174000",
+        duplicatePolicy: "none",
+      },
+    };
+    const result = {
+      catch: { fishKey: "lunar-guppy", size: 4.4 },
+      fishpedia: { fishKey: "lunar-guppy", caughtCount: 1 },
+      favor: { delta: 3, balance: 12 },
+      materials: [],
+      achievements: [],
+      charms: [],
+      appliedEffects: [],
+      replayed: false,
+    };
+    const claimed = receiveServerClaim(claiming, result);
+
+    assert.equal(claimed.phase, STARFISHING_PHASES.idle);
+    assert.equal(claimed.lastClaim.favor.balance, 12);
+    assert.equal(claimed.lastCatch.size, 4.4);
+    assert.equal(claimed.pendingClaim, null);
+  });
+
+  it("keeps claim identity and catch data after a retryable failure", () => {
+    const claiming = {
+      ...createInitialStarfishingState(),
+      phase: STARFISHING_PHASES.claiming,
+      lastCatch: { fishKey: "lunar-guppy", size: 4.2 },
+      pendingClaim: {
+        idempotencyKey: "423e4567-e89b-42d3-a456-426614174000",
+        duplicatePolicy: "none",
+      },
+    };
+    const failed = failServerClaim(claiming, {
+      code: "STARFISHING_TEMPORARILY_UNAVAILABLE",
+      message: "Starfishing is resting for a moment. Please try again.",
+      retryable: true,
+    });
+    const retried = beginServerClaim(
+      failed,
+      failed.pendingClaim.idempotencyKey,
+      failed.pendingClaim.duplicatePolicy,
+    );
+
+    assert.equal(failed.phase, STARFISHING_PHASES.claimError);
+    assert.equal(failed.claimError.retryable, true);
+    assert.deepEqual(failed.lastCatch, claiming.lastCatch);
+    assert.equal(
+      retried.pendingClaim.idempotencyKey,
+      claiming.pendingClaim.idempotencyKey,
+    );
+  });
+
+  it("returns a failed cast request to an actionable idle state", () => {
+    const failed = failServerCast(beginServerCast(createInitialStarfishingState()), {
+      code: "STARFISHING_REQUEST_REJECTED",
+      message: "That Starfishing action could not be accepted.",
+      retryable: false,
+    });
+
+    assert.equal(failed.phase, STARFISHING_PHASES.idle);
+    assert.equal(failed.serverError.code, "STARFISHING_REQUEST_REJECTED");
   });
 });

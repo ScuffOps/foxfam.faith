@@ -4,11 +4,14 @@ import { FISH_BY_KEY, pickFish, rollFishSize, STARFISHING_FISH } from "../conten
 
 export const STARFISHING_PHASES = {
   idle: "idle",
+  requestingCast: "requesting-cast",
   casting: "casting",
   waiting: "waiting",
   bite: "bite",
   qte: "qte",
   caught: "caught",
+  claiming: "claiming",
+  claimError: "claim-error",
   escaped: "escaped",
 };
 
@@ -41,11 +44,144 @@ export function createInitialStarfishingState() {
     qteIndex: 0,
     qteStartedAt: 0,
     lastCatch: null,
+    lastClaim: null,
     lastRewardIntent: null,
+    serverTicket: null,
+    pendingClaim: null,
+    serverError: null,
+    claimError: null,
     escapedReason: "",
     sessionStartedAt: Date.now(),
     catchCount: 0,
     streak: 0,
+  };
+}
+
+function buildServerQtePattern(fish, qteLength) {
+  const canonicalPattern = fish.qtePattern;
+  return Array.from(
+    { length: qteLength },
+    (_, index) => canonicalPattern[index % canonicalPattern.length],
+  );
+}
+
+export function beginServerCast(state) {
+  if (![STARFISHING_PHASES.idle, STARFISHING_PHASES.escaped].includes(state.phase)) {
+    return state;
+  }
+
+  return {
+    ...state,
+    phase: STARFISHING_PHASES.requestingCast,
+    activeFish: null,
+    qtePattern: [],
+    qteIndex: 0,
+    qteStartedAt: 0,
+    lastCatch: null,
+    lastClaim: null,
+    lastRewardIntent: null,
+    serverTicket: null,
+    pendingClaim: null,
+    serverError: null,
+    claimError: null,
+    escapedReason: "",
+  };
+}
+
+export function receiveServerTicket(state, ticket, now = Date.now()) {
+  if (state.phase !== STARFISHING_PHASES.requestingCast) return state;
+  const fish = FISH_BY_KEY[ticket?.fishKey];
+  if (!fish || !Number.isSafeInteger(ticket?.qteLength) || ticket.qteLength < 1) {
+    return state;
+  }
+
+  return {
+    ...state,
+    phase: STARFISHING_PHASES.waiting,
+    castStartedAt: now,
+    biteAt: now + DEFAULT_WAIT_MS,
+    activeFish: fish,
+    qtePattern: buildServerQtePattern(fish, ticket.qteLength),
+    qteIndex: 0,
+    qteStartedAt: 0,
+    serverTicket: ticket,
+    serverError: null,
+  };
+}
+
+export function failServerCast(state, error) {
+  if (state.phase !== STARFISHING_PHASES.requestingCast) return state;
+
+  return {
+    ...state,
+    phase: STARFISHING_PHASES.idle,
+    serverError: error || null,
+  };
+}
+
+export function beginServerClaim(state, idempotencyKey, duplicatePolicy, telemetry = null) {
+  if (![STARFISHING_PHASES.caught, STARFISHING_PHASES.claimError].includes(state.phase)) {
+    return state;
+  }
+
+  const pendingClaim = state.pendingClaim || {
+    idempotencyKey,
+    duplicatePolicy,
+    telemetry,
+  };
+
+  return {
+    ...state,
+    phase: STARFISHING_PHASES.claiming,
+    pendingClaim,
+    claimError: null,
+  };
+}
+
+export function receiveServerClaim(state, result) {
+  if (state.phase !== STARFISHING_PHASES.claiming) return state;
+
+  return {
+    ...state,
+    phase: STARFISHING_PHASES.idle,
+    activeFish: null,
+    qtePattern: [],
+    qteIndex: 0,
+    lastCatch: result.catch,
+    lastClaim: result,
+    serverTicket: null,
+    pendingClaim: null,
+    serverError: null,
+    claimError: null,
+  };
+}
+
+export function failServerClaim(state, error) {
+  if (state.phase !== STARFISHING_PHASES.claiming) return state;
+
+  return {
+    ...state,
+    phase: STARFISHING_PHASES.claimError,
+    claimError: error || null,
+  };
+}
+
+export function abandonServerClaim(state) {
+  if (![STARFISHING_PHASES.caught, STARFISHING_PHASES.claimError].includes(state.phase)) {
+    return state;
+  }
+
+  return {
+    ...state,
+    phase: STARFISHING_PHASES.idle,
+    activeFish: null,
+    qtePattern: [],
+    qteIndex: 0,
+    lastCatch: null,
+    lastClaim: null,
+    serverTicket: null,
+    pendingClaim: null,
+    claimError: null,
   };
 }
 
@@ -65,7 +201,12 @@ export function beginCast(state, now = Date.now(), randomValue = Math.random()) 
     qteIndex: 0,
     qteStartedAt: 0,
     lastCatch: null,
+    lastClaim: null,
     lastRewardIntent: null,
+    serverTicket: null,
+    pendingClaim: null,
+    serverError: null,
+    claimError: null,
     escapedReason: "",
   };
 }
