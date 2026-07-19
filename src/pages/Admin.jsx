@@ -10,7 +10,7 @@ import GlassCard from "../components/GlassCard";
 import ActivityChart from "../components/dashboard/ActivityChart";
 import RichTextContent from "../components/RichTextContent";
 import { canManageRoles, canUseAdminPanel, getRoleLabel, ROLE_OPTIONS } from "@/lib/roles";
-import { loadRelicRollGate, setRelicRollGate } from "@/lib/relicService";
+import { loadRelicRollGate, setRelicRollGate, setUserLevelFavored } from "@/lib/relicService";
 import { communityPostMetadataService } from "@/lib/communityPostMetadataService";
 
 const TABS = [
@@ -103,7 +103,11 @@ export default function Admin() {
     loadAll();
   };
   const updateFavor = async (id, update) => {
-    await communityClient.entities.UserLevel.update(id, update);
+    await setUserLevelFavored(
+      id,
+      Boolean(update.is_favored),
+      update.favored_title || FAVORED_DEFAULT_TITLE,
+    );
     loadAll();
   };
   const updateRelicGate = async ({ enabled, reason }) => {

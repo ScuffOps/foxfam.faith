@@ -325,8 +325,54 @@ create table if not exists private.favor_gateway_historical_sources (
     ))
 );
 
+create table if not exists private.relic_forge_receipts (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  request_id uuid not null,
+  payload_hash text not null,
+  result_snapshot jsonb,
+  created_at timestamptz not null default now(),
+  completed_at timestamptz,
+  primary key (user_id, request_id),
+  constraint relic_forge_receipts_result_object
+    check (result_snapshot is null or jsonb_typeof(result_snapshot) = 'object')
+);
+
+create table if not exists private.favor_reconciliation_audit (
+  id uuid primary key default gen_random_uuid(),
+  cutover_key text not null,
+  audit_kind text not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  level_id uuid,
+  account_balance bigint,
+  mirror_balance bigint,
+  details jsonb not null default '{}'::jsonb,
+  recorded_at timestamptz not null default now(),
+  constraint favor_reconciliation_audit_kind
+    check (audit_kind in ('mirror_mismatch', 'duplicate_level')),
+  constraint favor_reconciliation_audit_details
+    check (jsonb_typeof(details) = 'object')
+);
+
+create unique index if not exists favor_reconciliation_audit_identity
+on private.favor_reconciliation_audit (
+  cutover_key,
+  audit_kind,
+  user_id,
+  coalesce(level_id, '00000000-0000-0000-0000-000000000000'::uuid)
+);
+
+create table if not exists private.favor_reconciliation_cutovers (
+  cutover_key text primary key,
+  completed_at timestamptz not null,
+  constraint favor_reconciliation_cutovers_singleton
+    check (cutover_key = 'favor-ledger-v1')
+);
+
 revoke all on table private.favor_gateway_cutovers from public, anon, authenticated;
 revoke all on table private.favor_gateway_historical_sources from public, anon, authenticated;
+revoke all on table private.relic_forge_receipts from public, anon, authenticated;
+revoke all on table private.favor_reconciliation_audit from public, anon, authenticated;
+revoke all on table private.favor_reconciliation_cutovers from public, anon, authenticated;
 
 do $$
 declare
@@ -2242,11 +2288,745 @@ begin
 end;
 $$;
 
+create or replace function private.assert_relic_forge_open(
+  caller_id uuid
+)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  caller_role text;
+  gate_enabled boolean := false;
+begin
+  select profile.role
+  into caller_role
+  from public.profiles as profile
+  where profile.id = caller_id;
+
+  select coalesce(gate.data ->> 'enabled', 'false') = 'true'
+  into gate_enabled
+  from public.sync_states as gate
+  where coalesce(gate.data ->> 'key', gate.data ->> 'name', gate.data ->> 'type') = 'relic_roll_gate'
+  order by gate.updated_at desc, gate.id desc
+  limit 1
+  for share;
+
+  if not coalesce(gate_enabled, false)
+    and caller_role not in ('admin', 'lead_mod') then
+    raise exception using errcode = '42501', message = 'Relic Forge is closed';
+  end if;
+
+  return coalesce(caller_role, 'guest');
+end;
+$$;
+
+create or replace function public.ensure_user_relic()
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  caller_id uuid := (select auth.uid());
+  relic_row public.user_relics%rowtype;
+begin
+  if caller_id is null then
+    raise exception using errcode = '42501', message = 'Authentication required';
+  end if;
+
+  insert into public.user_relics (
+    user_id,
+    created_by,
+    data
+  )
+  values (
+    caller_id,
+    null,
+    pg_catalog.jsonb_build_object(
+      'name', 'Ashen Promise',
+      'base_type', 'lantern',
+      'theme', 'celestial',
+      'lore', 'Forged from a careful vow that learned to glow before it learned where it was going.',
+      'effects', pg_catalog.jsonb_build_array('blue-flame', 'star-orbit'),
+      'equipped_charm_ids', '[]'::jsonb,
+      'status', 'active',
+      'favor_spent', 0
+    )
+  )
+  on conflict (user_id) do nothing;
+
+  select relic.*
+  into relic_row
+  from public.user_relics as relic
+  where relic.user_id = caller_id;
+
+  if relic_row.id is null then
+    raise exception using errcode = 'P0001', message = 'Relic could not be created';
+  end if;
+
+  return pg_catalog.jsonb_build_object(
+    'id', relic_row.id,
+    'user_id', relic_row.user_id,
+    'created_at', relic_row.created_at,
+    'updated_at', relic_row.updated_at
+  ) || relic_row.data;
+end;
+$$;
+
+create or replace function public.save_user_relic_with_favor(
+  relic_payload jsonb,
+  request_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  caller_id uuid := (select auth.uid());
+  allowed_keys text[] := array['name', 'base_type', 'theme', 'lore', 'effects'];
+  payload_key text;
+  payload_hash text;
+  receipt_inserted uuid;
+  existing_payload_hash text;
+  existing_result jsonb;
+  relic_row public.user_relics%rowtype;
+  relic_name text;
+  relic_base text;
+  relic_theme text;
+  relic_lore text;
+  relic_effects jsonb;
+  effect_key text;
+  effect_count integer;
+  canonical_cost bigint := 0;
+  prior_favor_spent bigint := 0;
+  favor_due bigint;
+  favor_balance bigint;
+  favor_result jsonb;
+  next_relic_data jsonb;
+  forge_result_snapshot jsonb;
+  saved_at timestamptz := pg_catalog.clock_timestamp();
+begin
+  if caller_id is null then
+    raise exception using errcode = '42501', message = 'Authentication required';
+  end if;
+  if request_id is null then
+    raise exception using errcode = '22023', message = 'Relic request id is required';
+  end if;
+  if relic_payload is null or pg_catalog.jsonb_typeof(relic_payload) <> 'object' then
+    raise exception using errcode = '22023', message = 'Relic payload must be an object';
+  end if;
+
+  for payload_key in select pg_catalog.jsonb_object_keys(relic_payload)
+  loop
+    if not (payload_key = any(allowed_keys)) then
+      raise exception using errcode = '22023', message = 'Relic payload contains an unknown field';
+    end if;
+  end loop;
+  if (select pg_catalog.count(*) from pg_catalog.jsonb_object_keys(relic_payload)) <> 5 then
+    raise exception using errcode = '22023', message = 'Relic payload must include every editable field';
+  end if;
+
+  if pg_catalog.jsonb_typeof(relic_payload -> 'name') <> 'string'
+    or pg_catalog.jsonb_typeof(relic_payload -> 'base_type') <> 'string'
+    or pg_catalog.jsonb_typeof(relic_payload -> 'theme') <> 'string'
+    or pg_catalog.jsonb_typeof(relic_payload -> 'lore') <> 'string'
+    or pg_catalog.jsonb_typeof(relic_payload -> 'effects') <> 'array' then
+    raise exception using errcode = '22023', message = 'Relic payload has invalid field types';
+  end if;
+
+  relic_name := pg_catalog.btrim(relic_payload ->> 'name');
+  relic_base := relic_payload ->> 'base_type';
+  relic_theme := relic_payload ->> 'theme';
+  relic_lore := pg_catalog.btrim(relic_payload ->> 'lore');
+  relic_effects := relic_payload -> 'effects';
+
+  if pg_catalog.char_length(relic_name) not between 4 and 80 then
+    raise exception using errcode = '22023', message = 'Relic name must be between 4 and 80 characters';
+  end if;
+  if relic_base not in ('lantern', 'tome', 'mask', 'crystal', 'instrument') then
+    raise exception using errcode = '22023', message = 'Unknown relic base';
+  end if;
+  if relic_theme not in ('celestial', 'corrupted', 'floral', 'gothic', 'permafrost') then
+    raise exception using errcode = '22023', message = 'Unknown relic theme';
+  end if;
+  if pg_catalog.char_length(relic_lore) not between 18 and 1000 then
+    raise exception using errcode = '22023', message = 'Relic lore must be between 18 and 1000 characters';
+  end if;
+
+  effect_count := pg_catalog.jsonb_array_length(relic_effects);
+  if effect_count not between 1 and 6 then
+    raise exception using errcode = '22023', message = 'Relic must have between 1 and 6 effects';
+  end if;
+  if (
+    select pg_catalog.count(distinct effect.value)
+    from pg_catalog.jsonb_array_elements_text(relic_effects) as effect(value)
+  ) <> effect_count then
+    raise exception using errcode = '22023', message = 'Relic effects must be unique';
+  end if;
+
+  canonical_cost := case relic_base
+    when 'lantern' then 45
+    when 'tome' then 35
+    when 'mask' then 55
+    when 'crystal' then 40
+    when 'instrument' then 50
+  end;
+
+  for effect_key in select effect.value from pg_catalog.jsonb_array_elements_text(relic_effects) as effect(value)
+  loop
+    canonical_cost := canonical_cost + case effect_key
+      when 'blue-flame' then 12
+      when 'star-orbit' then 18
+      when 'petal-drift' then 10
+      when 'sigil-glow' then 16
+      when 'snow-dots' then 8
+      when 'lore-script' then 14
+      else null
+    end;
+    if canonical_cost is null then
+      raise exception using errcode = '22023', message = 'Unknown relic effect';
+    end if;
+  end loop;
+
+  perform private.assert_relic_forge_open(caller_id);
+  perform public.ensure_user_relic();
+  payload_hash := pg_catalog.md5(relic_payload::text);
+
+  insert into private.relic_forge_receipts (
+    user_id,
+    request_id,
+    payload_hash
+  )
+  values (
+    caller_id,
+    request_id,
+    payload_hash
+  )
+  on conflict (user_id, request_id) do nothing
+  returning request_id into receipt_inserted;
+
+  if receipt_inserted is null then
+    select receipt.payload_hash, receipt.result_snapshot
+    into existing_payload_hash, existing_result
+    from private.relic_forge_receipts as receipt
+    where receipt.user_id = caller_id
+      and receipt.request_id = save_user_relic_with_favor.request_id
+    for update;
+
+    if existing_payload_hash is distinct from payload_hash then
+      raise exception using
+        errcode = '23505',
+        message = 'Relic request id was reused with a different payload';
+    end if;
+    if existing_result is null then
+      raise exception using errcode = '40001', message = 'Relic request is still being processed';
+    end if;
+    return pg_catalog.jsonb_set(existing_result, '{replayed}', 'true'::jsonb, true);
+  end if;
+
+  select relic.*
+  into relic_row
+  from public.user_relics as relic
+  where relic.user_id = caller_id
+  for update;
+
+  if coalesce(relic_row.data ->> 'favor_spent', '') ~ '^[0-9]+$'
+    and (relic_row.data ->> 'favor_spent')::numeric <= 9007199254740991 then
+    prior_favor_spent := (relic_row.data ->> 'favor_spent')::bigint;
+  end if;
+
+  favor_due := pg_catalog.greatest(0, canonical_cost - prior_favor_spent);
+  if favor_due > 0 then
+    favor_result := private.post_favor_entry(
+      caller_id,
+      -favor_due,
+      'relic_forge_save',
+      request_id,
+      request_id,
+      pg_catalog.jsonb_build_object(
+        'canonical_cost', canonical_cost,
+        'prior_favor_spent', prior_favor_spent
+      )
+    );
+    favor_balance := (favor_result #>> '{favor,balance}')::bigint;
+  else
+    favor_balance := private.ensure_favor_account(caller_id);
+  end if;
+
+  next_relic_data := relic_row.data || pg_catalog.jsonb_build_object(
+    'name', relic_name,
+    'base_type', relic_base,
+    'theme', relic_theme,
+    'lore', relic_lore,
+    'effects', relic_effects,
+    'favor_spent', pg_catalog.greatest(prior_favor_spent, canonical_cost),
+    'status', coalesce(relic_row.data ->> 'status', 'active'),
+    'equipped_charm_ids', coalesce(relic_row.data -> 'equipped_charm_ids', '[]'::jsonb)
+  );
+
+  update public.user_relics
+  set data = next_relic_data,
+      updated_at = saved_at
+  where id = relic_row.id;
+
+  forge_result_snapshot := pg_catalog.jsonb_build_object(
+    'replayed', false,
+    'relic', pg_catalog.jsonb_build_object(
+      'id', relic_row.id,
+      'user_id', caller_id,
+      'updated_at', saved_at
+    ) || next_relic_data,
+    'favor', pg_catalog.jsonb_build_object(
+      'delta', -favor_due,
+      'balance', favor_balance
+    )
+  );
+
+  update private.relic_forge_receipts
+  set result_snapshot = forge_result_snapshot,
+      completed_at = saved_at
+  where user_id = caller_id
+    and request_id = save_user_relic_with_favor.request_id;
+
+  return forge_result_snapshot;
+end;
+$$;
+
+create or replace function public.roll_user_relic_charm(
+  request_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  caller_id uuid := (select auth.uid());
+  relic_id uuid;
+  existing_charm public.user_relic_charms%rowtype;
+  selected_rarity text;
+  selected_key text;
+  selected_name text;
+  selected_slot text;
+  selected_kind text;
+  selected_description text;
+  created_charm public.user_relic_charms%rowtype;
+  rarity_roll numeric;
+begin
+  if caller_id is null then
+    raise exception using errcode = '42501', message = 'Authentication required';
+  end if;
+  if request_id is null then
+    raise exception using errcode = '22023', message = 'Charm roll request id is required';
+  end if;
+
+  perform private.assert_relic_forge_open(caller_id);
+  perform public.ensure_user_relic();
+
+  select relic.id
+  into relic_id
+  from public.user_relics as relic
+  where relic.user_id = caller_id
+  for update;
+
+  select charm.*
+  into existing_charm
+  from public.user_relic_charms as charm
+  where charm.user_id = caller_id
+    and charm.data ->> 'instance_id' = request_id::text
+  limit 1;
+
+  if existing_charm.id is not null then
+    return pg_catalog.jsonb_build_object(
+      'id', existing_charm.id,
+      'user_id', existing_charm.user_id,
+      'created_at', existing_charm.created_at,
+      'updated_at', existing_charm.updated_at
+    ) || existing_charm.data;
+  end if;
+
+  rarity_roll := pg_catalog.random() * 100;
+  selected_rarity := case
+    when rarity_roll < 55 then 'common'
+    when rarity_roll < 80 then 'uncommon'
+    when rarity_roll < 94 then 'rare'
+    when rarity_roll < 99 then 'epic'
+    else 'mythic'
+  end;
+
+  select catalog.charm_key, catalog.name, catalog.slot, catalog.kind, catalog.description
+  into selected_key, selected_name, selected_slot, selected_kind, selected_description
+  from (
+    values
+      ('ash-thread', 'Ash Thread', 'common', 'ribbon', 'wrap', 'A smoke-dark cord for binding small vows to the relic.'),
+      ('candle-wax-seal', 'Candle Wax Seal', 'common', 'sigil', 'seal', 'A soft seal pressed with a quiet mark.'),
+      ('iron-ring', 'Iron Ring', 'common', 'chain', 'ring', 'Plain iron, warm from being carried.'),
+      ('smoke-ribbon', 'Smoke Ribbon', 'common', 'ribbon', 'trail', 'A trailing ribbon that refuses to stay fully solid.'),
+      ('moonlit-chain', 'Moonlit Chain', 'uncommon', 'chain', 'chain', 'Small links holding a cold lunar sheen.'),
+      ('verdant-knot', 'Verdant Knot', 'uncommon', 'root', 'knot', 'A living knot that tightens near honest promises.'),
+      ('static-sigil', 'Static Sigil', 'uncommon', 'sigil', 'sigil', 'A charged glyph that crackles when the relic wakes.'),
+      ('blue-ember', 'Blue Ember', 'uncommon', 'flame', 'ember', 'A small blue ember that burns without eating air.'),
+      ('star-shard', 'Star Shard', 'rare', 'halo', 'shard', 'A shard that catches light before it arrives.'),
+      ('hollow-bell', 'Hollow Bell', 'rare', 'bell', 'bell', 'A silent bell that rings only in memory.'),
+      ('mirror-thorn', 'Mirror Thorn', 'rare', 'pin', 'pin', 'A reflective thorn that shows the relic from the inside.'),
+      ('bloodrose-pin', 'Blood-rose Pin', 'rare', 'pin', 'pin', 'A dark rose-metal fastener for dramatic attachments.'),
+      ('void-halo', 'Void Halo', 'epic', 'halo', 'halo', 'A thin ring of absence that makes the relic feel heavier.'),
+      ('eclipse-lens', 'Eclipse Lens', 'epic', 'core', 'lens', 'A smoked lens that turns glow into omen.'),
+      ('last-vow-core', 'Last Vow Core', 'mythic', 'core', 'core', 'A mythic core made from a promise that survived the dark.'),
+      ('forsaken-halo', 'Forsaken Halo', 'mythic', 'halo', 'halo', 'A fractured halo with no white edge, only colored fire.')
+  ) as catalog(charm_key, name, rarity, slot, kind, description)
+  where catalog.rarity = selected_rarity
+  order by pg_catalog.random()
+  limit 1;
+
+  insert into public.user_relic_charms (
+    user_id,
+    created_by,
+    data
+  )
+  values (
+    caller_id,
+    null,
+    pg_catalog.jsonb_build_object(
+      'instance_id', request_id,
+      'charm_key', selected_key,
+      'name', selected_name,
+      'rarity', selected_rarity,
+      'slot', selected_slot,
+      'kind', selected_kind,
+      'description', selected_description,
+      'equipped', false,
+      'acquired_at', pg_catalog.clock_timestamp(),
+      'source', 'relic_roll'
+    )
+  )
+  returning * into created_charm;
+
+  return pg_catalog.jsonb_build_object(
+    'id', created_charm.id,
+    'user_id', created_charm.user_id,
+    'created_at', created_charm.created_at,
+    'updated_at', created_charm.updated_at
+  ) || created_charm.data;
+end;
+$$;
+
+create unique index if not exists user_relic_charms_one_roll_instance
+on public.user_relic_charms (user_id, (data ->> 'instance_id'))
+where data ->> 'source' = 'relic_roll'
+  and nullif(data ->> 'instance_id', '') is not null;
+
+create or replace function public.equip_user_relic_charm(
+  charm_id uuid,
+  equipped boolean
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  caller_id uuid := (select auth.uid());
+  relic_row public.user_relics%rowtype;
+  owned_charm public.user_relic_charms%rowtype;
+  owned_slot text;
+  equipped_ids jsonb;
+  charm_snapshot jsonb;
+begin
+  if caller_id is null then
+    raise exception using errcode = '42501', message = 'Authentication required';
+  end if;
+  if charm_id is null or equipped is null then
+    raise exception using errcode = '22023', message = 'Charm and equipped state are required';
+  end if;
+
+  perform public.ensure_user_relic();
+  select relic.*
+  into relic_row
+  from public.user_relics as relic
+  where relic.user_id = caller_id
+  for update;
+
+  perform charm.id
+  from public.user_relic_charms as charm
+  where charm.user_id = caller_id
+  for update;
+
+  select charm.*
+  into owned_charm
+  from public.user_relic_charms as charm
+  where charm.id = charm_id
+    and charm.user_id = caller_id;
+
+  if owned_charm.id is null then
+    raise exception using errcode = '42501', message = 'Charm is not owned by the caller';
+  end if;
+  owned_slot := owned_charm.data ->> 'slot';
+  if nullif(owned_slot, '') is null then
+    raise exception using errcode = '22023', message = 'Charm slot is invalid';
+  end if;
+
+  if equipped then
+    update public.user_relic_charms
+    set data = pg_catalog.jsonb_set(data, '{equipped}', 'false'::jsonb, true)
+    where user_id = caller_id
+      and id <> charm_id
+      and data ->> 'slot' = owned_slot
+      and data ->> 'equipped' = 'true';
+  end if;
+
+  update public.user_relic_charms
+  set data = pg_catalog.jsonb_set(data, '{equipped}', pg_catalog.to_jsonb(equipped), true)
+  where id = charm_id
+    and user_id = caller_id;
+
+  select coalesce(
+    pg_catalog.jsonb_agg(pg_catalog.to_jsonb(charm.id::text) order by charm.created_at),
+    '[]'::jsonb
+  )
+  into equipped_ids
+  from public.user_relic_charms as charm
+  where charm.user_id = caller_id
+    and charm.data ->> 'equipped' = 'true';
+
+  update public.user_relics
+  set data = pg_catalog.jsonb_set(data, '{equipped_charm_ids}', equipped_ids, true)
+  where id = relic_row.id;
+
+  select coalesce(
+    pg_catalog.jsonb_agg(
+      pg_catalog.jsonb_build_object(
+        'id', charm.id,
+        'user_id', charm.user_id,
+        'created_at', charm.created_at,
+        'updated_at', charm.updated_at
+      ) || charm.data
+      order by charm.created_at desc, charm.id
+    ),
+    '[]'::jsonb
+  )
+  into charm_snapshot
+  from public.user_relic_charms as charm
+  where charm.user_id = caller_id;
+
+  return charm_snapshot;
+end;
+$$;
+
+create or replace function public.set_user_level_favored(
+  level_id uuid,
+  favored boolean,
+  title text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  caller_id uuid := (select auth.uid());
+  caller_role text;
+  level_row public.user_levels%rowtype;
+  normalized_title text := pg_catalog.btrim(coalesce(title, ''));
+  next_data jsonb;
+begin
+  if caller_id is null then
+    raise exception using errcode = '42501', message = 'Authentication required';
+  end if;
+  if level_id is null or favored is null then
+    raise exception using errcode = '22023', message = 'Favored target and state are required';
+  end if;
+
+  select profile.role
+  into caller_role
+  from public.profiles as profile
+  where profile.id = caller_id;
+
+  if caller_role not in ('admin', 'lead_mod', 'mod') then
+    raise exception using errcode = '42501', message = 'Staff role required';
+  end if;
+  if pg_catalog.char_length(normalized_title) > 60 then
+    raise exception using errcode = '22023', message = 'Favored title must be 60 characters or fewer';
+  end if;
+  if favored and normalized_title = '' then
+    normalized_title := 'Favored';
+  end if;
+
+  select level.*
+  into level_row
+  from public.user_levels as level
+  where level.id = level_id
+  for update;
+
+  if level_row.id is null then
+    raise exception using errcode = '22023', message = 'Favor level not found';
+  end if;
+  if pg_catalog.jsonb_typeof(level_row.data) <> 'object' then
+    raise exception using errcode = '22023', message = 'Favor level metadata must be an object';
+  end if;
+
+  next_data := pg_catalog.jsonb_set(
+    pg_catalog.jsonb_set(
+      pg_catalog.jsonb_set(
+        level_row.data,
+        '{is_favored}',
+        pg_catalog.to_jsonb(favored),
+        true
+      ),
+      '{favored_title}',
+      pg_catalog.to_jsonb(normalized_title),
+      true
+    ),
+    '{favored_badge}',
+    '"crown"'::jsonb,
+    true
+  );
+
+  update public.user_levels
+  set data = next_data
+  where id = level_row.id;
+
+  return pg_catalog.jsonb_build_object(
+    'id', level_row.id,
+    'user_id', level_row.user_id
+  ) || next_data;
+end;
+$$;
+
+do $$
+declare
+  account_user record;
+begin
+  if not exists (
+    select 1
+    from private.favor_reconciliation_cutovers
+    where cutover_key = 'favor-ledger-v1'
+  ) then
+    insert into private.favor_reconciliation_audit (
+      cutover_key,
+      audit_kind,
+      user_id,
+      level_id,
+      details
+    )
+    select
+      'favor-ledger-v1',
+      'duplicate_level',
+      portal_user.id,
+      null,
+      pg_catalog.jsonb_build_object(
+        'row_count', pg_catalog.count(level_row.id),
+        'level_ids', pg_catalog.jsonb_agg(level_row.id order by level_row.created_at, level_row.id)
+      )
+    from auth.users as portal_user
+    join public.user_levels as level_row
+      on level_row.user_id = portal_user.id
+      or (
+        level_row.data ->> 'user_key' = 'user:' || portal_user.id::text
+        and (level_row.user_id is null or level_row.user_id = portal_user.id)
+      )
+    group by portal_user.id
+    having pg_catalog.count(level_row.id) > 1
+    on conflict do nothing;
+
+    insert into private.favor_reconciliation_audit (
+      cutover_key,
+      audit_kind,
+      user_id,
+      level_id,
+      account_balance,
+      mirror_balance,
+      details
+    )
+    select
+      'favor-ledger-v1',
+      'mirror_mismatch',
+      account.user_id,
+      mirror.id,
+      account.balance,
+      mirror.balance,
+      pg_catalog.jsonb_build_object('ledger_wins', true)
+    from public.currency_accounts as account
+    join lateral (
+      select
+        level_row.id,
+        case
+          when level_row.data ->> 'points' ~ '^[0-9]+$'
+            and (level_row.data ->> 'points')::numeric <= 9007199254740991
+          then (level_row.data ->> 'points')::bigint
+          else null
+        end as balance
+      from public.user_levels as level_row
+      where level_row.user_id = account.user_id
+        or (
+          level_row.data ->> 'user_key' = 'user:' || account.user_id::text
+          and (level_row.user_id is null or level_row.user_id = account.user_id)
+        )
+      order by level_row.created_at, level_row.id
+      limit 1
+    ) as mirror on true
+    where account.currency_key = 'favor'
+      and mirror.balance is distinct from account.balance
+    on conflict do nothing;
+
+    for account_user in select id from auth.users order by id
+    loop
+      perform private.ensure_favor_account(account_user.id);
+    end loop;
+
+    insert into private.favor_reconciliation_cutovers (
+      cutover_key,
+      completed_at
+    )
+    values (
+      'favor-ledger-v1',
+      pg_catalog.clock_timestamp()
+    );
+  end if;
+end
+$$;
+
+revoke insert, update, delete on table public.user_levels from anon, authenticated;
+revoke insert, update, delete on table public.user_relics from anon, authenticated;
+revoke insert, update, delete on table public.user_relic_charms from anon, authenticated;
+grant select on table public.user_relics to authenticated;
+grant select on table public.user_relic_charms to authenticated;
+
+drop policy if exists "User level create" on public.user_levels;
+drop policy if exists "Public create" on public.user_levels;
+drop policy if exists "Owner or staff update" on public.user_levels;
+drop policy if exists "Owner or staff delete" on public.user_levels;
+drop policy if exists "Users create own relics" on public.user_relics;
+drop policy if exists "Users update own relics" on public.user_relics;
+drop policy if exists "Users delete own relics" on public.user_relics;
+drop policy if exists "Users create own relic charms" on public.user_relic_charms;
+drop policy if exists "Users update own relic charms" on public.user_relic_charms;
+drop policy if exists "Users delete own relic charms" on public.user_relic_charms;
+
 revoke all on function private.favor_rank(bigint) from public, anon, authenticated;
 revoke all on function private.sync_favor_mirror(uuid, bigint) from public, anon, authenticated;
 revoke all on function private.ensure_favor_account(uuid) from public, anon, authenticated;
 revoke all on function private.post_favor_entry(uuid, bigint, text, uuid, uuid, jsonb)
 from public, anon, authenticated;
+revoke all on function private.assert_relic_forge_open(uuid) from public, anon, authenticated;
+
+revoke execute on function public.ensure_user_relic() from public, anon;
+grant execute on function public.ensure_user_relic() to authenticated;
+
+revoke execute on function public.save_user_relic_with_favor(jsonb, uuid) from public, anon;
+grant execute on function public.save_user_relic_with_favor(jsonb, uuid) to authenticated;
+
+revoke execute on function public.roll_user_relic_charm(uuid) from public, anon;
+grant execute on function public.roll_user_relic_charm(uuid) to authenticated;
+
+revoke execute on function public.equip_user_relic_charm(uuid, boolean) from public, anon;
+grant execute on function public.equip_user_relic_charm(uuid, boolean) to authenticated;
+
+revoke execute on function public.set_user_level_favored(uuid, boolean, text) from public, anon;
+grant execute on function public.set_user_level_favored(uuid, boolean, text) to authenticated;
 
 revoke execute on function public.perform_portal_favor_action(text, uuid, text)
 from public, anon;

@@ -467,7 +467,7 @@ test("migration defines locked security-definer game and Favor transactions", ()
     migration,
     /create or replace function public\.claim_starfishing_catch\(\s*claim_ticket_id uuid,\s*claim_idempotency_key uuid,\s*claim_duplicate_policy text,\s*claim_qte_action_count integer,\s*claim_miss_count integer,\s*claim_duration_ms integer\s*\)/,
   );
-  assert.equal((migration.match(/security definer\s+set search_path = ''/g) || []).length, 3);
+  assert.equal((migration.match(/security definer\s+set search_path = ''/g) || []).length, 9);
   assert.equal((migration.match(/if \(select auth\.uid\(\)\) is null then/g) || []).length, 3);
   assert.equal(
     (migration.match(/select id\s+into locked_user_id\s+from auth\.users\s+where id = caller_id\s+for update/g) || []).length,

@@ -264,8 +264,14 @@ test("portal Favor RPC owns reward values and accepts no client reward fields", 
     migration,
     /grant execute on function public\.perform_portal_favor_action\(text, uuid, text\)\s+to authenticated;/,
   );
-  assert.doesNotMatch(migration, /revoke [^;]*on table public\.user_levels/);
-  assert.doesNotMatch(migration, /revoke [^;]*on table public\.user_relics\b/);
+  assert.match(
+    migration,
+    /revoke insert, update, delete on table public\.user_levels from anon, authenticated/,
+  );
+  assert.match(
+    migration,
+    /revoke insert, update, delete on table public\.user_relics from anon, authenticated/,
+  );
 });
 
 test("historical snapshot exhaustively reserves all community posts once and is immutable", () => {

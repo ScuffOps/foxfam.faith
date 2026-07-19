@@ -9,7 +9,7 @@ import RelicPreview from "@/components/relics/RelicPreview";
 import { useAuth } from "@/lib/AuthContext";
 import { communityClient } from "@/api/communityClient";
 import { getOrCreateUserRelic, loadRelicRollGate, saveUserRelic } from "@/lib/relicService";
-import { calculateRelicFavorCost, normalizeRelic, RELIC_BASES, RELIC_EFFECTS, RELIC_THEMES } from "@/lib/relicCharms";
+import { normalizeRelic, RELIC_BASES, RELIC_EFFECTS, RELIC_THEMES } from "@/lib/relicCharms";
 import { canManageRoles } from "@/lib/roles";
 import { getPrivateUserKey } from "@/lib/communityActor";
 
@@ -152,10 +152,6 @@ export default function RelicForge() {
   const selectedEffects = RELIC_EFFECTS.filter((item) => normalizedRelic.effects.includes(item.id));
   const currentFavor = Math.max(0, Number(level?.points || 0));
   const investedFavor = Math.max(0, Number(normalizedRelic.favor_spent || 0));
-  const relicFavorCost = calculateRelicFavorCost(normalizedRelic);
-  const favorDue = Math.max(0, relicFavorCost - investedFavor);
-  const favorAfterSave = currentFavor - favorDue;
-  const hasEnoughFavor = favorAfterSave >= 0;
   const relicReady = normalizedRelic.name.trim().length >= 4 && normalizedRelic.lore.trim().length >= 18 && selectedEffects.length > 0;
 
   const checklist = useMemo(
@@ -173,37 +169,20 @@ export default function RelicForge() {
   };
 
   const handleSave = async () => {
-    if (!relicReady || !hasEnoughFavor) return;
+    if (!relicReady) return;
     setSaving(true);
-    let deductedFavor = false;
-    const previousFavor = currentFavor;
     try {
-      if (favorDue > 0) {
-        if (!level?.id) throw new Error("Earn Favor before spending it in the Forge.");
-        const updatedLevel = await communityClient.entities.UserLevel.update(level.id, {
-          points: favorAfterSave,
-        });
-        deductedFavor = true;
-        setLevel(updatedLevel);
-      }
-      const saved = await saveUserRelic({
-        ...normalizedRelic,
-        favor_spent: Math.max(investedFavor, relicFavorCost),
-      });
-      setRelic(saved);
+      const result = await saveUserRelic(normalizedRelic);
+      const chargedFavor = Math.max(0, -result.favor.delta);
+      setRelic(result.relic);
+      setLevel((current) => ({ ...(current || {}), points: result.favor.balance }));
       toast({
-        title: "Relic saved",
-        description: favorDue > 0 ? `${favorDue} Favor invested. ${favorAfterSave} Favor remains.` : "Your one profile relic has been updated.",
+        title: result.replayed ? "Relic already saved" : "Relic saved",
+        description: chargedFavor > 0
+          ? `${chargedFavor} Favor invested. ${result.favor.balance} Favor remains.`
+          : "Your one profile relic has been updated.",
       });
     } catch (saveError) {
-      if (deductedFavor && level?.id) {
-        try {
-          const restoredLevel = await communityClient.entities.UserLevel.update(level.id, { points: previousFavor });
-          setLevel(restoredLevel);
-        } catch {
-          setLevel((current) => current ? { ...current, points: previousFavor } : current);
-        }
-      }
       toast({ title: "Relic could not be saved", description: saveError?.message || "Refresh and try again.", variant: "destructive" });
     } finally {
       setSaving(false);
@@ -293,17 +272,17 @@ export default function RelicForge() {
                 </div>
                 <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
                   <span className="rounded-md border border-white/10 bg-black/20 px-2 py-1">
-                    {relicFavorCost} cost
+                    Server priced
                   </span>
                   <span className="rounded-md border border-white/10 bg-black/20 px-2 py-1">
-                    {favorDue} due
+                    No refunds
                   </span>
-                  <span className={`rounded-md border px-2 py-1 ${hasEnoughFavor ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-100" : "border-rose-300/40 bg-rose-300/10 text-rose-100"}`}>
-                    {favorAfterSave} left
+                  <span className="rounded-md border border-emerald-300/35 bg-emerald-300/10 px-2 py-1 text-emerald-100">
+                    Atomic save
                   </span>
                 </div>
                 <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                  Costs update as you add relic pieces. Favor is only deducted when you save.
+                  The Forge verifies the build and charges the exact canonical cost when you save.
                 </p>
               </div>
 
@@ -378,12 +357,12 @@ export default function RelicForge() {
                   <strong className="text-foreground">{investedFavor}</strong>
                 </div>
                 <div className="mt-1 flex items-center justify-between gap-3">
-                  <span>Current build cost</span>
-                  <strong className="text-foreground">{relicFavorCost}</strong>
+                  <span>Pricing</span>
+                  <strong className="text-foreground">Verified by Forge</strong>
                 </div>
                 <div className="mt-1 flex items-center justify-between gap-3">
-                  <span>Charged on save</span>
-                  <strong className={hasEnoughFavor ? "text-emerald-100" : "text-rose-100"}>{favorDue}</strong>
+                  <span>Available Favor</span>
+                  <strong className="text-emerald-100">{currentFavor}</strong>
                 </div>
               </div>
               <div className="space-y-2">
@@ -399,12 +378,7 @@ export default function RelicForge() {
             </div>
 
             <div className="grid gap-2">
-              {!hasEnoughFavor && (
-                <p className="rounded-lg border border-rose-300/30 bg-rose-300/10 px-3 py-2 text-xs text-rose-100">
-                  This build needs {favorDue} Favor, but you only have {currentFavor}.
-                </p>
-              )}
-              <Button onClick={handleSave} disabled={!relicReady || !hasEnoughFavor || saving} className="h-11 gap-2">
+              <Button onClick={handleSave} disabled={!relicReady || saving} className="h-11 gap-2">
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 {saving ? "Saving..." : "Save Relic"}
               </Button>

@@ -1,0 +1,148 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+import { RELIC_BASES, RELIC_EFFECTS } from "./relicCharms.js";
+import { createRelicService } from "./relicService.js";
+
+const migration = readFileSync(
+  new URL("../../supabase/migrations/20260718200316_starfishing_phase_2_progression.sql", import.meta.url),
+  "utf8",
+);
+const forgePage = readFileSync(new URL("../pages/RelicForge.jsx", import.meta.url), "utf8");
+const profilePage = readFileSync(new URL("../pages/Profile.jsx", import.meta.url), "utf8");
+const adminPage = readFileSync(new URL("../pages/Admin.jsx", import.meta.url), "utf8");
+
+const requestId = "123e4567-e89b-42d3-a456-426614174000";
+const charmId = "123e4567-e89b-42d3-a456-426614174001";
+const levelId = "123e4567-e89b-42d3-a456-426614174002";
+
+test("relic service sends narrow RPC payloads with no client costs or user targets", async () => {
+  const calls = [];
+  const service = createRelicService({
+    async rpc(name, params) {
+      calls.push({ name, params });
+      if (name === "save_user_relic_with_favor") {
+        return {
+          data: {
+            replayed: false,
+            relic: { id: charmId, name: "Ashen Promise", effects: ["blue-flame"] },
+            favor: { delta: -57, balance: 43 },
+          },
+          error: null,
+        };
+      }
+      if (name === "roll_user_relic_charm") {
+        return { data: { id: charmId, charm_key: "ash-thread", slot: "ribbon" }, error: null };
+      }
+      if (name === "equip_user_relic_charm") {
+        return { data: [{ id: charmId, charm_key: "ash-thread", slot: "ribbon", equipped: true }], error: null };
+      }
+      return { data: { id: levelId, is_favored: true, favored_title: "Starlit" }, error: null };
+    },
+  });
+
+  await service.saveRelic({
+    name: "Ashen Promise",
+    base_type: "lantern",
+    theme: "celestial",
+    lore: "A careful vow with enough history.",
+    effects: ["blue-flame"],
+  }, requestId);
+  await service.rollCharm(requestId);
+  await service.setCharmEquipped(charmId, true);
+  await service.setFavored(levelId, true, "Starlit");
+
+  assert.deepEqual(calls, [
+    {
+      name: "save_user_relic_with_favor",
+      params: {
+        relic_payload: {
+          name: "Ashen Promise",
+          base_type: "lantern",
+          theme: "celestial",
+          lore: "A careful vow with enough history.",
+          effects: ["blue-flame"],
+        },
+        request_id: requestId,
+      },
+    },
+    { name: "roll_user_relic_charm", params: { request_id: requestId } },
+    { name: "equip_user_relic_charm", params: { charm_id: charmId, equipped: true } },
+    {
+      name: "set_user_level_favored",
+      params: { level_id: levelId, favored: true, title: "Starlit" },
+    },
+  ]);
+});
+
+test("migration owns forge validation, canonical costs, receipts, and balance debit", () => {
+  assert.match(migration, /create table if not exists private\.relic_forge_receipts/);
+  assert.match(migration, /create or replace function public\.ensure_user_relic\(\)/);
+  assert.match(
+    migration,
+    /create or replace function public\.save_user_relic_with_favor\(\s*relic_payload jsonb,\s*request_id uuid\s*\)/,
+  );
+  assert.match(migration, /allowed_keys text\[\] := array\['name', 'base_type', 'theme', 'lore', 'effects'\]/);
+  assert.match(migration, /when 'lantern' then 45/);
+  assert.match(migration, /when 'tome' then 35/);
+  assert.match(migration, /when 'mask' then 55/);
+  assert.match(migration, /when 'crystal' then 40/);
+  assert.match(migration, /when 'instrument' then 50/);
+  assert.match(migration, /when 'blue-flame' then 12/);
+  assert.match(migration, /when 'star-orbit' then 18/);
+  assert.match(migration, /when 'petal-drift' then 10/);
+  assert.match(migration, /when 'sigil-glow' then 16/);
+  assert.match(migration, /when 'snow-dots' then 8/);
+  assert.match(migration, /when 'lore-script' then 14/);
+  assert.match(migration, /private\.post_favor_entry\(\s*caller_id,\s*-favor_due/);
+  assert.match(migration, /greatest\(prior_favor_spent, canonical_cost\)/);
+  assert.match(migration, /Relic Forge is closed/);
+  assert.match(migration, /caller_role not in \('admin', 'lead_mod'\)/);
+  assert.match(migration, /Relic request id was reused with a different payload/);
+});
+
+test("displayed relic costs remain in exact parity with the server allow-list", () => {
+  for (const base of RELIC_BASES) {
+    assert.match(
+      migration,
+      new RegExp(`when '${base.id}' then ${base.cost}`),
+      `${base.id} cost drifted from the server`,
+    );
+  }
+  for (const effect of RELIC_EFFECTS) {
+    assert.match(
+      migration,
+      new RegExp(`when '${effect.id}' then ${effect.cost}`),
+      `${effect.id} cost drifted from the server`,
+    );
+  }
+});
+
+test("migration owns charm rolls, slot-exclusive equips, Favored metadata, and final revocation", () => {
+  assert.match(migration, /create or replace function public\.roll_user_relic_charm\(\s*request_id uuid\s*\)/);
+  assert.match(migration, /create or replace function public\.equip_user_relic_charm\(\s*charm_id uuid,\s*equipped boolean\s*\)/);
+  assert.match(migration, /data ->> 'slot' = owned_slot/);
+  assert.match(migration, /create or replace function public\.set_user_level_favored\(\s*level_id uuid,\s*favored boolean,\s*title text\s*\)/);
+  assert.match(migration, /caller_role not in \('admin', 'lead_mod', 'mod'\)/);
+  assert.match(migration, /\{favored_badge\}/);
+  assert.match(migration, /'"crown"'::jsonb/);
+  assert.match(migration, /create table if not exists private\.favor_reconciliation_audit/);
+  assert.match(migration, /audit_kind in \('mirror_mismatch', 'duplicate_level'\)/);
+  assert.match(migration, /revoke insert, update, delete on table public\.user_levels from anon, authenticated/);
+  assert.match(migration, /revoke insert, update, delete on table public\.user_relics from anon, authenticated/);
+  assert.match(migration, /revoke insert, update, delete on table public\.user_relic_charms from anon, authenticated/);
+  assert.match(migration, /grant execute on function public\.save_user_relic_with_favor\(jsonb, uuid\) to authenticated/);
+  assert.match(migration, /grant execute on function public\.roll_user_relic_charm\(uuid\) to authenticated/);
+  assert.match(migration, /grant execute on function public\.equip_user_relic_charm\(uuid, boolean\) to authenticated/);
+  assert.match(migration, /grant execute on function public\.set_user_level_favored\(uuid, boolean, text\) to authenticated/);
+});
+
+test("Forge, Profile, and Admin contain no generic durable relic or Favor writes", () => {
+  assert.doesNotMatch(forgePage, /UserLevel\.update|UserRelic\.update|UserRelic\.create|calculateRelicFavorCost/);
+  assert.doesNotMatch(profilePage, /UserRelicCharm\.update|UserRelicCharm\.create/);
+  assert.doesNotMatch(adminPage, /UserLevel\.update/);
+  assert.match(forgePage, /saveUserRelic\(/);
+  assert.match(profilePage, /rollUserRelicCharm\(/);
+  assert.match(profilePage, /setEquippedCharm\(/);
+  assert.match(adminPage, /setUserLevelFavored\(/);
+});
