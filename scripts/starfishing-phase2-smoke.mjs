@@ -10,8 +10,13 @@ export const KNOWN_LIVE_PROJECT_REF = "wdypokgdqgvqpyabvshq";
 
 const ENABLE_MIGRATION_ENV = "STARFISHING_E2E_ENABLE_MIGRATION";
 const REQUIRED_ENV = Object.freeze([
+  "STARFISHING_E2E_PROJECT_REF",
   "STARFISHING_E2E_SUPABASE_URL",
   "STARFISHING_E2E_SUPABASE_PUBLISHABLE_KEY",
+  "STARFISHING_E2E_FIXTURE_MARKER",
+  "STARFISHING_E2E_TEARDOWN_CONTRACT",
+  "STARFISHING_E2E_USER_A_STARTING_FAVOR",
+  "STARFISHING_E2E_USER_B_STARTING_FAVOR",
   "STARFISHING_E2E_USER_A_EMAIL",
   "STARFISHING_E2E_USER_A_PASSWORD",
   "STARFISHING_E2E_USER_B_EMAIL",
@@ -36,6 +41,22 @@ const MIN_FORGE_PAYLOAD = Object.freeze({
 
 const MAX_FORGE_COST = 133;
 const MIN_FORGE_COST = 43;
+const TEARDOWN_CONTRACT = "DELETE_DISPOSABLE_PROJECT_AFTER_RUN";
+const PHASE_2_OWNER_TABLES = Object.freeze([
+  "game_catches",
+  "user_fishpedia",
+  "currency_accounts",
+  "currency_ledger",
+  "user_material_balances",
+  "material_ledger",
+  "user_achievements",
+  "user_trophies",
+  "user_relics",
+  "user_relic_charms",
+]);
+const FRESH_EMPTY_TABLES = Object.freeze(
+  PHASE_2_OWNER_TABLES.filter((table) => !["currency_accounts", "currency_ledger"].includes(table)),
+);
 
 function requiredValue(env, key) {
   const value = env[key]?.trim();
@@ -55,6 +76,17 @@ function isPrivilegedSupabaseKey(key) {
   }
 }
 
+function safeNonNegativeInteger(value, key) {
+  if (!/^(0|[1-9][0-9]*)$/.test(value)) {
+    throw new Error(`${key} must be a JavaScript-safe non-negative integer.`);
+  }
+  const result = Number(value);
+  if (!Number.isSafeInteger(result)) {
+    throw new Error(`${key} must be a JavaScript-safe non-negative integer.`);
+  }
+  return result;
+}
+
 export function getPhase2SmokeConfig(env = process.env) {
   if (env.STARFISHING_E2E_DISPOSABLE !== "1") {
     throw new Error(
@@ -64,6 +96,14 @@ export function getPhase2SmokeConfig(env = process.env) {
 
   for (const key of REQUIRED_ENV) requiredValue(env, key);
 
+  const projectRef = requiredValue(env, "STARFISHING_E2E_PROJECT_REF").toLowerCase();
+  if (!/^[a-z0-9]{20}$/.test(projectRef)) {
+    throw new Error("STARFISHING_E2E_PROJECT_REF must be the exact 20-character Supabase project ref.");
+  }
+  if (projectRef === KNOWN_LIVE_PROJECT_REF) {
+    throw new Error(`Refusing known live Foxfam Supabase project ${KNOWN_LIVE_PROJECT_REF}.`);
+  }
+
   const supabaseUrl = requiredValue(env, "STARFISHING_E2E_SUPABASE_URL");
   let parsedUrl;
   try {
@@ -71,11 +111,29 @@ export function getPhase2SmokeConfig(env = process.env) {
   } catch {
     throw new Error("STARFISHING_E2E_SUPABASE_URL must be an absolute URL.");
   }
-  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-    throw new Error("STARFISHING_E2E_SUPABASE_URL must use http or https.");
+  const exactHost = `${projectRef}.supabase.co`;
+  if (
+    parsedUrl.protocol !== "https:" ||
+    parsedUrl.hostname !== exactHost ||
+    parsedUrl.host !== exactHost ||
+    parsedUrl.pathname !== "/" ||
+    parsedUrl.search ||
+    parsedUrl.hash ||
+    parsedUrl.username ||
+    parsedUrl.password
+  ) {
+    throw new Error(
+      `STARFISHING_E2E_SUPABASE_URL must be the exact standard Supabase project host https://${exactHost}.`,
+    );
   }
-  if (`${parsedUrl.hostname}${parsedUrl.pathname}`.includes(KNOWN_LIVE_PROJECT_REF)) {
-    throw new Error(`Refusing known live Foxfam Supabase project ${KNOWN_LIVE_PROJECT_REF}.`);
+
+  const fixtureMarker = requiredValue(env, "STARFISHING_E2E_FIXTURE_MARKER").toLowerCase();
+  if (!/^[a-z0-9][a-z0-9-]{7,63}$/.test(fixtureMarker)) {
+    throw new Error("STARFISHING_E2E_FIXTURE_MARKER must be a unique lowercase fixture marker.");
+  }
+  const teardownContract = requiredValue(env, "STARFISHING_E2E_TEARDOWN_CONTRACT");
+  if (teardownContract !== TEARDOWN_CONTRACT) {
+    throw new Error(`STARFISHING_E2E_TEARDOWN_CONTRACT must equal ${TEARDOWN_CONTRACT}.`);
   }
 
   const userA = {
@@ -89,6 +147,14 @@ export function getPhase2SmokeConfig(env = process.env) {
   if (userA.email.toLowerCase() === userB.email.toLowerCase()) {
     throw new Error("Phase 2 smoke requires two distinct test accounts.");
   }
+  for (const [label, user] of [
+    ["user A", userA],
+    ["user B", userB],
+  ]) {
+    if (!user.email.toLowerCase().includes(fixtureMarker)) {
+      throw new Error(`${label} email must contain the fixture marker ${fixtureMarker}.`);
+    }
+  }
   const publishableKey = requiredValue(env, "STARFISHING_E2E_SUPABASE_PUBLISHABLE_KEY");
   if (isPrivilegedSupabaseKey(publishableKey)) {
     throw new Error("Refusing a privileged Supabase key. Use the disposable project's publishable/anon key.");
@@ -99,16 +165,52 @@ export function getPhase2SmokeConfig(env = process.env) {
     publishableKey,
     userA,
     userB,
+    projectRef,
+    fixtureMarker,
+    teardownContract,
+    expectedStartingFavor: {
+      userA: safeNonNegativeInteger(
+        requiredValue(env, "STARFISHING_E2E_USER_A_STARTING_FAVOR"),
+        "STARFISHING_E2E_USER_A_STARTING_FAVOR",
+      ),
+      userB: safeNonNegativeInteger(
+        requiredValue(env, "STARFISHING_E2E_USER_B_STARTING_FAVOR"),
+        "STARFISHING_E2E_USER_B_STARTING_FAVOR",
+      ),
+    },
   };
 }
 
 export function assertExplicitEnableMigration(source, migrationPath) {
+  const uncommentedSource = source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/--[^\r\n]*/g, "");
   const castGrant = /grant\s+execute\s+on\s+function\s+public\.start_starfishing_cast\(\)\s+to\s+authenticated\s*;/i;
   const claimGrant = /grant\s+execute\s+on\s+function\s+public\.claim_starfishing_catch\(\s*uuid\s*,\s*uuid\s*,\s*text\s*,\s*integer\s*,\s*integer\s*,\s*integer\s*\)\s+to\s+authenticated\s*;/i;
-  if (!castGrant.test(source) || !claimGrant.test(source)) {
+  if (!castGrant.test(uncommentedSource) || !claimGrant.test(uncommentedSource)) {
     throw new Error(
       `${migrationPath} must explicitly grant both Starfishing RPCs to authenticated. The smoke harness will never enable them itself.`,
     );
+  }
+}
+
+export function assertFreshFixtureState(label, state, expectedFavor) {
+  for (const table of FRESH_EMPTY_TABLES) {
+    if (!Array.isArray(state[table]) || state[table].length !== 0) {
+      throw new Error(`${label} fresh fixture has prior mutable state in ${table}.`);
+    }
+  }
+  const account = requireSingleRow(`${label} starting Favor account`, state.currency_accounts);
+  if (numeric(account.balance, `${label} starting Favor`) !== expectedFavor) {
+    throw new Error(
+      `${label} expected starting Favor ${expectedFavor}, received ${account.balance}. Recreate the fixture.`,
+    );
+  }
+  const nonOpeningLedger = (state.currency_ledger || []).filter(
+    (entry) => entry.source_type !== "legacy_opening_balance",
+  );
+  if (nonOpeningLedger.length > 0) {
+    throw new Error(`${label} fresh fixture has prior mutable state in currency_ledger.`);
   }
 }
 
@@ -189,6 +291,87 @@ function assertUnchanged(before, after, label) {
   assert.deepEqual(after, before, `${label} changed despite a rejected transaction`);
 }
 
+function assertSameTimestamp(actual, expected, label) {
+  const actualTime = Date.parse(actual);
+  const expectedTime = Date.parse(expected);
+  assert.ok(Number.isFinite(actualTime), `${label} persisted timestamp is invalid`);
+  assert.ok(Number.isFinite(expectedTime), `${label} response timestamp is invalid`);
+  assert.equal(actualTime, expectedTime, `${label} timestamp differs`);
+}
+
+async function readFixtureState(client, userId, label) {
+  const state = {};
+  for (const table of PHASE_2_OWNER_TABLES) {
+    const columns = table === "currency_ledger" ? "source_type" : table === "currency_accounts" ? "balance" : "id";
+    const result = await expectPass(`${label} preflight read ${table}`, () =>
+      client.from(table).select(columns).eq("user_id", userId),
+    );
+    state[table] = result.data;
+  }
+  return state;
+}
+
+async function verifyFreshFixture(client, userId, label, expectedFavor) {
+  const state = await readFixtureState(client, userId, label);
+  assertFreshFixtureState(label, state, expectedFavor);
+  console.log(`PASS ${label} is a fresh deterministic fixture`);
+}
+
+async function readFavorMirror(client, userId, label) {
+  const result = await expectPass(`${label} read Favor compatibility mirror`, () =>
+    client
+      .from("user_levels")
+      .select("id,user_id,data,created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true })
+      .limit(1),
+  );
+  return requireSingleRow(`${label} Favor mirror`, result.data);
+}
+
+async function verifyMaterialRewards(client, userId, claimId, catchId, materials) {
+  assert.ok(Array.isArray(materials) && materials.length > 0, "Starfishing claim must award fixture materials");
+  const materialKeys = materials.map((material) => material.key);
+  assert.equal(new Set(materialKeys).size, materialKeys.length, "Claim material keys must be unique");
+
+  const balanceRows = (
+    await expectPass("read claim material balances", () =>
+      client.from("user_material_balances").select("user_id,material_key,balance").in("material_key", materialKeys),
+    )
+  ).data;
+  const ledgerRows = (
+    await expectPass("read claim material ledger", () =>
+      client
+        .from("material_ledger")
+        .select("user_id,material_key,amount,balance_after,source_type,source_id,idempotency_key")
+        .eq("source_type", "starfishing_catch")
+        .eq("idempotency_key", claimId),
+    )
+  ).data;
+  assert.equal(balanceRows.length, materials.length, "Material balance row count differs from claim");
+  assert.equal(ledgerRows.length, materials.length, "Material ledger row count differs from claim");
+
+  for (const material of materials) {
+    const balance = requireSingleRow(
+      `${material.key} material balance`,
+      balanceRows.filter((row) => row.material_key === material.key),
+    );
+    const ledger = requireSingleRow(
+      `${material.key} material ledger`,
+      ledgerRows.filter((row) => row.material_key === material.key),
+    );
+    assert.equal(numeric(balance.balance, `${material.key} balance`), numeric(material.balance, `${material.key} claim balance`));
+    assert.equal(numeric(ledger.amount, `${material.key} ledger amount`), numeric(material.delta, `${material.key} claim delta`));
+    assert.equal(
+      numeric(ledger.balance_after, `${material.key} ledger balance`),
+      numeric(material.balance, `${material.key} claim balance`),
+    );
+    assert.equal(balance.user_id, userId);
+    assert.equal(ledger.user_id, userId);
+    assert.equal(ledger.source_id, catchId);
+  }
+}
+
 async function verifyForge(client, userId) {
   const ensured = await expectPass("Forge ensure relic", () => client.rpc("ensure_user_relic"));
   const relicId = ensured.data.id;
@@ -202,81 +385,124 @@ async function verifyForge(client, userId) {
   const beforeAccount = requireSingleRow("Favor account", beforeAccountResult.data);
   const balance = numeric(beforeAccount.balance, "Forge Favor balance");
   const investedFavor = numeric(beforeRelic.data?.favor_spent ?? 0, "Forge invested Favor");
-  const maximumFavorDue = Math.max(0, MAX_FORGE_COST - investedFavor);
+  if (investedFavor !== 0) {
+    throw new Error(`Forge fixture must start with zero invested Favor; received ${investedFavor}.`);
+  }
+  if (balance < MIN_FORGE_COST || balance >= MAX_FORGE_COST) {
+    throw new Error(
+      `Forge fixture balance must be between ${MIN_FORGE_COST} and ${MAX_FORGE_COST - 1} Favor after the claim; received ${balance}.`,
+    );
+  }
+
   const maximumRequestId = randomUUID();
   const maximumAttempt = await client.rpc("save_user_relic_with_favor", {
     relic_payload: MAX_FORGE_PAYLOAD,
     request_id: maximumRequestId,
   });
 
-  if (maximumAttempt.error && /relic forge is closed/i.test(errorText(maximumAttempt.error))) {
-    console.log("SKIP Forge transaction checks: disposable database relic_roll_gate is closed.");
-  } else if (balance < maximumFavorDue) {
-    assert.ok(maximumAttempt.error, "Maximum Forge save should reject an insufficient balance");
-    assert.match(errorText(maximumAttempt.error), /insufficient favor balance/i);
-    console.log("PASS Forge insufficient balance rejected");
-
-    const afterRelicResult = await expectPass("Forge read relic after rollback", () =>
-      client.from("user_relics").select("id,user_id,data,updated_at").eq("id", relicId),
-    );
-    const afterAccountResult = await expectPass("Forge read Favor after rollback", () =>
-      client.from("currency_accounts").select("balance").eq("currency_key", "favor"),
-    );
-    assertUnchanged(beforeRelic, requireSingleRow("relic", afterRelicResult.data), "Relic");
-    assert.equal(
-      numeric(requireSingleRow("Favor account", afterAccountResult.data).balance, "Favor balance after rollback"),
-      balance,
-    );
-
-    const repeatedFailure = await client.rpc("save_user_relic_with_favor", {
-      relic_payload: MAX_FORGE_PAYLOAD,
-      request_id: maximumRequestId,
-    });
-    assert.ok(repeatedFailure.error, "Rolled-back Forge request should reject again");
-    assert.match(errorText(repeatedFailure.error), /insufficient favor balance/i);
-    console.log("PASS Forge failed request leaves no replay receipt");
-
-    const minimumFavorDue = Math.max(0, MIN_FORGE_COST - investedFavor);
-    if (balance >= minimumFavorDue) {
-      const successRequestId = randomUUID();
-      const firstSave = await expectPass("Forge affordable save", () =>
-        client.rpc("save_user_relic_with_favor", {
-          relic_payload: MIN_FORGE_PAYLOAD,
-          request_id: successRequestId,
-        }),
-      );
-      const replayedSave = await expectPass("Forge affordable save replay", () =>
-        client.rpc("save_user_relic_with_favor", {
-          relic_payload: MIN_FORGE_PAYLOAD,
-          request_id: successRequestId,
-        }),
-      );
-      assert.equal(firstSave.data.replayed, false);
-      assert.equal(replayedSave.data.replayed, true);
-      assert.equal(replayedSave.data.relic.id, firstSave.data.relic.id);
-      assert.equal(replayedSave.data.favor.balance, firstSave.data.favor.balance);
-    } else {
-      console.log(
-        `SKIP successful Forge replay: test account has ${balance} Favor; ${minimumFavorDue} additional Favor required.`,
-      );
-    }
-  } else {
-    if (maximumAttempt.error) throw new Error(`Forge maximum save failed: ${errorText(maximumAttempt.error)}`);
-    assert.equal(maximumAttempt.data.replayed, false);
-    const replayedSave = await expectPass("Forge maximum save replay", () =>
-      client.rpc("save_user_relic_with_favor", {
-        relic_payload: MAX_FORGE_PAYLOAD,
-        request_id: maximumRequestId,
-      }),
-    );
-    assert.equal(replayedSave.data.replayed, true);
-    assert.equal(replayedSave.data.relic.id, maximumAttempt.data.relic.id);
-    assert.equal(replayedSave.data.favor.balance, maximumAttempt.data.favor.balance);
-    console.log(`SKIP Forge insufficient-balance case: test account already has ${balance} Favor.`);
+  assert.ok(maximumAttempt.error, "Maximum Forge save should reject an insufficient balance");
+  if (/relic forge is closed/i.test(errorText(maximumAttempt.error))) {
+    throw new Error("Forge fixture gate must be open before running the smoke harness.");
   }
+  assert.match(errorText(maximumAttempt.error), /insufficient favor balance/i);
+  console.log("PASS Forge insufficient balance rejected");
+
+  const afterRelicResult = await expectPass("Forge read relic after rollback", () =>
+    client.from("user_relics").select("id,user_id,data,updated_at").eq("id", relicId),
+  );
+  const afterAccountResult = await expectPass("Forge read Favor after rollback", () =>
+    client.from("currency_accounts").select("balance").eq("currency_key", "favor"),
+  );
+  assertUnchanged(beforeRelic, requireSingleRow("relic", afterRelicResult.data), "Relic");
+  assert.equal(
+    numeric(requireSingleRow("Favor account", afterAccountResult.data).balance, "Favor balance after rollback"),
+    balance,
+  );
+  const failedLedger = (
+    await expectPass("Forge read failed request ledger", () =>
+      client.from("currency_ledger").select("id").eq("idempotency_key", maximumRequestId),
+    )
+  ).data;
+  assert.equal(failedLedger.length, 0, "Rejected Forge request persisted a ledger row");
+
+  const repeatedFailure = await client.rpc("save_user_relic_with_favor", {
+    relic_payload: MAX_FORGE_PAYLOAD,
+    request_id: maximumRequestId,
+  });
+  assert.ok(repeatedFailure.error, "Rolled-back Forge request should reject again");
+  assert.match(errorText(repeatedFailure.error), /insufficient favor balance/i);
+  console.log("PASS Forge failed request leaves no replay receipt");
+
+  const successRequestId = randomUUID();
+  const firstSave = await expectPass("Forge affordable save", () =>
+    client.rpc("save_user_relic_with_favor", {
+      relic_payload: MIN_FORGE_PAYLOAD,
+      request_id: successRequestId,
+    }),
+  );
+  const replayedSave = await expectPass("Forge affordable save replay", () =>
+    client.rpc("save_user_relic_with_favor", {
+      relic_payload: MIN_FORGE_PAYLOAD,
+      request_id: successRequestId,
+    }),
+  );
+  assert.equal(firstSave.data.replayed, false);
+  assert.equal(replayedSave.data.replayed, true);
+  assert.equal(replayedSave.data.relic.id, firstSave.data.relic.id);
+  assert.equal(replayedSave.data.favor.balance, firstSave.data.favor.balance);
+  assert.equal(numeric(firstSave.data.favor.delta, "Forge Favor delta"), -MIN_FORGE_COST);
+  assert.equal(numeric(firstSave.data.favor.balance, "Forge result balance"), balance - MIN_FORGE_COST);
+
+  const persistedRelic = requireSingleRow(
+    "persisted Forge relic",
+    (
+      await expectPass("Forge read persisted relic", () =>
+        client.from("user_relics").select("id,user_id,data,updated_at").eq("id", relicId),
+      )
+    ).data,
+  );
+  assert.equal(persistedRelic.data.name, MIN_FORGE_PAYLOAD.name);
+  assert.equal(persistedRelic.user_id, userId);
+  assert.equal(persistedRelic.data.base_type, MIN_FORGE_PAYLOAD.base_type);
+  assert.equal(persistedRelic.data.theme, MIN_FORGE_PAYLOAD.theme);
+  assert.equal(persistedRelic.data.lore, MIN_FORGE_PAYLOAD.lore);
+  assert.deepEqual(persistedRelic.data.effects, MIN_FORGE_PAYLOAD.effects);
+  assert.equal(numeric(persistedRelic.data.favor_spent, "persisted invested Favor"), MIN_FORGE_COST);
+
+  const forgeLedger = requireSingleRow(
+    "Forge Favor ledger",
+    (
+      await expectPass("Forge read successful Favor ledger", () =>
+        client
+          .from("currency_ledger")
+          .select("amount,balance_after,source_type,source_id,idempotency_key")
+          .eq("currency_key", "favor")
+          .eq("idempotency_key", successRequestId),
+      )
+    ).data,
+  );
+  assert.equal(forgeLedger.source_type, "relic_forge_save");
+  assert.equal(forgeLedger.source_id, successRequestId);
+  assert.equal(numeric(forgeLedger.amount, "Forge ledger amount"), -MIN_FORGE_COST);
+  assert.equal(
+    numeric(forgeLedger.balance_after, "Forge ledger balance"),
+    numeric(firstSave.data.favor.balance, "Forge result balance"),
+  );
+
+  const finalAccount = requireSingleRow(
+    "Forge final Favor account",
+    (
+      await expectPass("Forge read final Favor account", () =>
+        client.from("currency_accounts").select("balance").eq("currency_key", "favor"),
+      )
+    ).data,
+  );
+  const finalMirror = await readFavorMirror(client, userId, "Forge");
+  assert.equal(numeric(finalAccount.balance, "Forge account balance"), numeric(firstSave.data.favor.balance, "Forge result balance"));
+  assert.equal(numeric(finalMirror.data?.points, "Forge mirror points"), numeric(firstSave.data.favor.balance, "Forge result balance"));
 
   await expectRejected("owner direct relic update", () =>
-    client.from("user_relics").update({ data: beforeRelic.data }).eq("id", relicId),
+    client.from("user_relics").update({ data: persistedRelic.data }).eq("id", relicId),
   );
   await expectRejected("owner direct Favor account update", () =>
     client.from("currency_accounts").update({ balance }).eq("user_id", userId).eq("currency_key", "favor"),
@@ -286,9 +512,8 @@ async function verifyForge(client, userId) {
 function resolveEnableMigration(env, cwd) {
   const configuredPath = requiredValue(env, ENABLE_MIGRATION_ENV);
   const migrationPath = path.resolve(cwd, configuredPath);
-  const migrationsRoot = `${path.resolve(cwd, "supabase/migrations")}${path.sep}`;
-  if (!migrationPath.startsWith(migrationsRoot) || !migrationPath.endsWith(".sql")) {
-    throw new Error(`${ENABLE_MIGRATION_ENV} must point to a SQL file under supabase/migrations.`);
+  if (!migrationPath.endsWith(".sql")) {
+    throw new Error(`${ENABLE_MIGRATION_ENV} must point to an operator-provided SQL file.`);
   }
   let source;
   try {
@@ -297,14 +522,16 @@ function resolveEnableMigration(env, cwd) {
     throw new Error(`Could not read ${configuredPath}: ${error.message}`);
   }
   assertExplicitEnableMigration(source, configuredPath);
-  return configuredPath;
+  return migrationPath;
 }
 
 export async function runPhase2Smoke({ env = process.env, cwd = process.cwd() } = {}) {
   const config = getPhase2SmokeConfig(env);
   const enableMigration = resolveEnableMigration(env, cwd);
-  console.log(`PREFLIGHT disposable target accepted; RPC enable contract: ${enableMigration}`);
-  console.log("PREFLIGHT no users will be created or deleted; no migration will be applied by this harness.");
+  console.log(`PREFLIGHT disposable project ${config.projectRef} accepted; RPC enable contract: ${enableMigration}`);
+  console.log(
+    `PREFLIGHT fresh fixture ${config.fixtureMarker}; teardown contract ${config.teardownContract}; no users, grants, or migrations will be changed.`,
+  );
 
   const clientA = createSmokeClient(config);
   const clientB = createSmokeClient(config);
@@ -313,6 +540,10 @@ export async function runPhase2Smoke({ env = process.env, cwd = process.cwd() } 
   const userB = await signIn(clientB, "user B", config.userB);
   assert.notEqual(userA.id, userB.id, "Test credentials resolved to the same authenticated user");
 
+  await verifyFreshFixture(clientA, userA.id, "user A", config.expectedStartingFavor.userA);
+  await verifyFreshFixture(clientB, userB.id, "user B", config.expectedStartingFavor.userB);
+
+  const castStartedAt = performance.now();
   const castResult = await clientA.rpc("start_starfishing_cast");
   if (castResult.error) {
     const availability = classifyRpcAvailabilityError(castResult.error);
@@ -335,16 +566,41 @@ export async function runPhase2Smoke({ env = process.env, cwd = process.cwd() } 
   const cast = castResult.data;
   assert.ok(cast.ticket_id, "Cast response is missing ticket_id");
   assert.ok(cast.fish_key, "Cast response is missing fish_key");
-  const waitMs = millisecondsUntil(cast.not_before);
-  assert.ok(waitMs <= 30000, `Cast not_before is unexpectedly far away (${waitMs}ms)`);
-  if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
 
   const claimId = randomUUID();
+  const earlyParams = buildClaimParams({
+    ticketId: cast.ticket_id,
+    idempotencyKey: randomUUID(),
+    qteLength: cast.qte_length,
+    durationMs: performance.now() - castStartedAt,
+  });
+  await expectRejected(
+    "too-early Starfishing claim",
+    () => clientA.rpc("claim_starfishing_catch", earlyParams),
+    /claim is too early/i,
+  );
+
+  const crossUserParams = buildClaimParams({
+    ticketId: cast.ticket_id,
+    idempotencyKey: randomUUID(),
+    qteLength: cast.qte_length,
+    durationMs: performance.now() - castStartedAt,
+  });
+  await expectRejected(
+    "cross-user Starfishing claim",
+    () => clientB.rpc("claim_starfishing_catch", crossUserParams),
+    /does not belong to caller/i,
+  );
+
+  const waitMs = millisecondsUntil(cast.not_before);
+  assert.ok(waitMs <= 30000, `Cast not_before is unexpectedly far away (${waitMs}ms)`);
+  await new Promise((resolve) => setTimeout(resolve, waitMs));
+
   const claimParams = buildClaimParams({
     ticketId: cast.ticket_id,
     idempotencyKey: claimId,
     qteLength: cast.qte_length,
-    durationMs: waitMs,
+    durationMs: performance.now() - castStartedAt,
   });
   const firstClaim = (await expectPass("first Starfishing claim", () =>
     clientA.rpc("claim_starfishing_catch", claimParams),
@@ -360,11 +616,18 @@ export async function runPhase2Smoke({ env = process.env, cwd = process.cwd() } 
   const catchRows = (await expectPass("read claim catch", () =>
     clientA
       .from("game_catches")
-      .select("id,user_id,fish_key,idempotency_key,result_snapshot")
+      .select("id,user_id,fish_key,size,idempotency_key,play_evidence,result_snapshot,created_at")
       .eq("idempotency_key", claimId),
   )).data;
   const catchRow = requireSingleRow("catch", catchRows);
   assert.equal(catchRow.id, firstClaim.catch.id);
+  assert.equal(catchRow.user_id, userA.id);
+  assert.deepEqual(catchRow.result_snapshot, firstClaim);
+  assert.equal(numeric(catchRow.play_evidence.qte_action_count, "persisted QTE actions"), claimParams.claim_qte_action_count);
+  assert.equal(numeric(catchRow.play_evidence.miss_count, "persisted misses"), claimParams.claim_miss_count);
+  assert.equal(numeric(catchRow.play_evidence.duration_ms, "persisted duration"), claimParams.claim_duration_ms);
+  assert.equal(Number(catchRow.size), Number(firstClaim.catch.size));
+  assertSameTimestamp(catchRow.created_at, firstClaim.catch.caught_at, "catch");
 
   const ledgerRows = (await expectPass("read claim Favor ledger", () =>
     clientA
@@ -375,47 +638,45 @@ export async function runPhase2Smoke({ env = process.env, cwd = process.cwd() } 
       .eq("idempotency_key", claimId),
   )).data;
   const ledgerRow = requireSingleRow("ledger", ledgerRows);
+  assert.equal(ledgerRow.user_id, userA.id);
   assert.equal(ledgerRow.source_id, firstClaim.catch.id);
+  assert.equal(numeric(ledgerRow.amount, "ledger amount"), numeric(firstClaim.favor.delta, "claim Favor delta"));
   assert.equal(numeric(ledgerRow.balance_after, "ledger balance"), numeric(firstClaim.favor.balance, "claim balance"));
 
   const fishpediaRows = (await expectPass("read matching Fishpedia row", () =>
     clientA
       .from("user_fishpedia")
-      .select("user_id,fish_key,caught_count,smallest_size,largest_size")
+      .select("user_id,fish_key,caught_count,smallest_size,largest_size,first_caught_at,last_caught_at")
       .eq("fish_key", firstClaim.catch.fish_key),
   )).data;
   const fishpediaRow = requireSingleRow("Fishpedia", fishpediaRows);
   assert.equal(fishpediaRow.caught_count, firstClaim.fishpedia.caught_count);
+  assert.equal(Number(fishpediaRow.smallest_size), Number(firstClaim.fishpedia.smallest_size));
+  assert.equal(Number(fishpediaRow.largest_size), Number(firstClaim.fishpedia.largest_size));
+  assertSameTimestamp(fishpediaRow.first_caught_at, firstClaim.fishpedia.first_caught_at, "Fishpedia first catch");
+  assertSameTimestamp(fishpediaRow.last_caught_at, firstClaim.fishpedia.last_caught_at, "Fishpedia last catch");
+
+  await verifyMaterialRewards(clientA, userA.id, claimId, firstClaim.catch.id, firstClaim.materials);
 
   const accountRows = (await expectPass("read authoritative Favor account", () =>
     clientA.from("currency_accounts").select("user_id,balance").eq("currency_key", "favor"),
   )).data;
   const accountRow = requireSingleRow("Favor account", accountRows);
-  const mirrorRows = (await expectPass("read Favor compatibility mirror", () =>
-    clientA
-      .from("user_levels")
-      .select("id,user_id,data,created_at")
-      .eq("user_id", userA.id)
-      .order("created_at", { ascending: true })
-      .limit(1),
-  )).data;
-  const mirrorRow = requireSingleRow("Favor mirror", mirrorRows);
+  const mirrorRow = await readFavorMirror(clientA, userA.id, "Starfishing");
   assert.equal(numeric(accountRow.balance, "account balance"), numeric(mirrorRow.data?.points, "mirror points"));
   assert.equal(numeric(accountRow.balance, "account balance"), numeric(firstClaim.favor.balance, "claim balance"));
 
-  const crossUserCatchRead = await expectPass("cross-user catch read is filtered", () =>
-    clientB.from("game_catches").select("id").eq("id", firstClaim.catch.id),
-  );
-  assert.equal(crossUserCatchRead.data.length, 0);
-  const crossUserFishpediaRead = await expectPass("cross-user Fishpedia read is filtered", () =>
-    clientB.from("user_fishpedia").select("fish_key").eq("user_id", userA.id),
-  );
-  assert.equal(crossUserFishpediaRead.data.length, 0);
+  await verifyForge(clientA, userA.id);
+  for (const table of PHASE_2_OWNER_TABLES) {
+    const crossUserRead = await expectPass(`cross-user ${table} read is filtered`, () =>
+      clientB.from(table).select("user_id").eq("user_id", userA.id),
+    );
+    assert.equal(crossUserRead.data.length, 0, `user B could read user A rows in ${table}`);
+  }
   await expectRejected("cross-user catch write", () =>
     clientB.from("game_catches").update({ duplicate_policy: "keep" }).eq("id", firstClaim.catch.id),
   );
 
-  await verifyForge(clientA, userA.id);
   console.log(`Phase 2 database/RLS smoke complete for claim ${claimId}.`);
 }
 
