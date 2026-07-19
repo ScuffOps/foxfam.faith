@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { communityClient, LOGIN_EVENT_NAME, supabase } from "@/api/communityClient";
 import LoginDialog from "@/components/auth/LoginDialog";
+import { classifyAuthFailure } from "@/lib/authFailure";
 
 const AuthContext = createContext();
 
@@ -41,12 +42,7 @@ export const AuthProvider = ({ children }) => {
       setUser(currentUser);
       setIsAuthenticated(true);
     } catch (error) {
-      if (error.status && error.status !== 401) {
-        setAuthError({
-          type: "unknown",
-          message: error.message || "Unable to load your account.",
-        });
-      }
+      setAuthError(classifyAuthFailure(error));
       setUser(null);
       setIsAuthenticated(false);
     } finally {
@@ -55,6 +51,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async (shouldRedirect = true) => {
+    setAuthError(null);
     setUser(null);
     setIsAuthenticated(false);
     await communityClient.auth.logout(shouldRedirect ? window.location.href : "");

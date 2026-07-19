@@ -4,6 +4,7 @@ import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import { isAuthUnavailable } from '@/lib/authFailure';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
@@ -33,7 +34,13 @@ import CommunityWordle from './pages/CommunityWordle';
 import WordGarden from './pages/WordGarden';
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const {
+    isLoadingAuth,
+    isLoadingPublicSettings,
+    authError,
+    navigateToLogin,
+    checkUserAuth,
+  } = useAuth();
 
   // Show loading spinner while checking app public settings or auth
   if (isLoadingPublicSettings || isLoadingAuth) {
@@ -52,6 +59,13 @@ const AuthenticatedApp = () => {
       // Redirect to login automatically
       navigateToLogin();
       return null;
+    } else if (isAuthUnavailable(authError)) {
+      return (
+        <AuthServiceUnavailable
+          message={authError.message}
+          onRetry={checkUserAuth}
+        />
+      );
     }
   }
 
@@ -107,6 +121,27 @@ const AuthenticatedApp = () => {
     </Routes>
   );
 };
+
+function AuthServiceUnavailable({ message, onRetry }) {
+  return (
+    <main className="fixed inset-0 flex items-center justify-center bg-[#e8eef0] p-5 text-[#3f4857]">
+      <section className="w-full max-w-md rounded-lg border-2 border-[#707989] bg-[#f6f3ee] p-6 text-center shadow-[5px_5px_0_#c7bbb0]" role="alert">
+        <p className="text-[10px] font-bold uppercase text-[#7c6f72]">Priory connection</p>
+        <h1 className="mt-2 font-heading text-xl font-bold">Foxfam service unavailable</h1>
+        <p className="mt-2 text-sm leading-6 text-[#657080]">
+          {message || "Foxfam could not verify your session. Your saved data has not been changed."}
+        </p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-5 rounded-md border-2 border-[#5e6978] bg-[#d9e6e6] px-4 py-2 text-sm font-bold shadow-[2px_2px_0_#b8aaa4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6596a4]"
+        >
+          Retry connection
+        </button>
+      </section>
+    </main>
+  );
+}
 
 
 function App() {

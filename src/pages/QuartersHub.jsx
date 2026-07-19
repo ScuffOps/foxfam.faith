@@ -15,6 +15,7 @@ import "@/components/quarters/quarters-scene.css";
 import { Button } from "@/components/ui/button";
 import { communityClient } from "@/api/communityClient";
 import { useAuth } from "@/lib/AuthContext";
+import { isAuthUnavailable } from "@/lib/authFailure";
 import { getPrivateUserKey } from "@/lib/communityActor";
 import { GAME_WORLD_ORDER } from "@/lib/gameHubCatalog";
 import { DEFAULT_RELIC } from "@/lib/relicCharms";
@@ -37,6 +38,8 @@ export default function QuartersHub() {
     user,
     isAuthenticated,
     isLoadingAuth,
+    authError,
+    checkUserAuth,
   } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -206,6 +209,24 @@ export default function QuartersHub() {
           <p className="mt-3 text-sm font-bold">Opening your Quarters...</p>
         </div>
       </div>
+    );
+  }
+
+  if (isAuthUnavailable(authError)) {
+    return (
+      <main className="mx-auto max-w-2xl animate-fade-in space-y-4">
+        <section className="rounded-lg border-2 border-[#707989] bg-[#f6f3ee] p-6 text-center text-[#3f4857] shadow-[4px_4px_0_#c7bbb0]" role="alert">
+          <p className="text-[10px] font-bold uppercase text-[#7c6f72]">Quarters connection</p>
+          <h1 className="mt-2 font-heading text-xl font-bold">Quarters service unavailable</h1>
+          <p className="mt-2 text-sm leading-6 text-[#657080]">
+            {authError.message || "Foxfam could not verify your session. Your saved Quarters have not been changed."}
+          </p>
+          <Button type="button" variant="outline" className="mt-5" onClick={checkUserAuth}>
+            Retry connection
+          </Button>
+        </section>
+        <StarfishingProgressCard status="unavailable" compact />
+      </main>
     );
   }
 

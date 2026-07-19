@@ -16,6 +16,7 @@ import ProgressionLoop from "@/components/ProgressionLoop";
 import { loadStarfishingProgression } from "@/games/starfishing/api/starfishingProgressionClient";
 import { getPrivateUserKey } from "@/lib/communityActor";
 import { useAuth } from "@/lib/AuthContext";
+import { isAuthUnavailable } from "@/lib/authFailure";
 import { getRoleLabel } from "@/lib/roles";
 import { getPublicAvatar, getPublicDisplayName } from "@/lib/userIdentity";
 import { loadCharmRollEligibility, loadUserRelicInventory, rollUserRelicCharm, setEquippedCharm } from "@/lib/relicService";
@@ -28,6 +29,8 @@ export default function Profile() {
     user,
     isAuthenticated,
     isLoadingAuth,
+    authError,
+    checkUserAuth,
   } = useAuth();
   const { toast } = useToast();
   const [level, setLevel] = useState(null);
@@ -163,6 +166,24 @@ export default function Profile() {
     return (
       <div className="flex items-center justify-center py-24">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (isAuthUnavailable(authError)) {
+    return (
+      <div className="mx-auto max-w-2xl animate-fade-in space-y-4">
+        <section className="rounded-lg border-2 border-[#707989] bg-[#f6f3ee] p-6 text-center text-[#3f4857] shadow-[4px_4px_0_#c7bbb0]" role="alert">
+          <p className="text-[10px] font-bold uppercase text-[#7c6f72]">Profile connection</p>
+          <h1 className="mt-2 font-heading text-xl font-bold">Profile service unavailable</h1>
+          <p className="mt-2 text-sm leading-6 text-[#657080]">
+            {authError.message || "Foxfam could not verify your session. Your saved profile has not been changed."}
+          </p>
+          <Button type="button" variant="outline" className="mt-5" onClick={checkUserAuth}>
+            Retry connection
+          </Button>
+        </section>
+        <StarfishingProgressCard status="unavailable" compact />
       </div>
     );
   }
