@@ -13,11 +13,18 @@ Date: 2026-07-18
 
 | Check | Result |
 | --- | --- |
-| Node test suite | PASS: 227/227 |
+| Node test suite | PASS: 232/232 |
 | `eslint --quiet` | PASS |
 | `tsc -p ./jsconfig.json` | PASS |
 | `vite build` | PASS |
 | `git diff --check` | PASS |
+
+- Unresolved valid cast tickets are reused to prevent rerolls.
+- Claims require the exact QTE action count, zero misses, server-enforced
+  `not_before` and expiry bounds, and a plausible duration with tolerance.
+- Signed-in users can preselect Keep, Release for Favor, or Convert to forge
+  dust without exposing duplicate status.
+- Starfishing authentication outages block local fallback.
 
 ## Browser QA
 
