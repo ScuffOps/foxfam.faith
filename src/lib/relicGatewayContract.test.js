@@ -34,7 +34,7 @@ test("relic service sends narrow RPC payloads with no client costs or user targe
       if (name === "roll_user_relic_charm") {
         return { data: { id: charmId, charm_key: "ash-thread", slot: "ribbon" }, error: null };
       }
-      if (name === "equip_user_relic_charm") {
+      if (name === "set_equipped_relic_charm") {
         return { data: [{ id: charmId, charm_key: "ash-thread", slot: "ribbon", equipped: true }], error: null };
       }
       return { data: { id: levelId, is_favored: true, favored_title: "Starlit" }, error: null };
@@ -67,7 +67,10 @@ test("relic service sends narrow RPC payloads with no client costs or user targe
       },
     },
     { name: "roll_user_relic_charm", params: { request_id: requestId } },
-    { name: "equip_user_relic_charm", params: { charm_id: charmId, equipped: true } },
+    {
+      name: "set_equipped_relic_charm",
+      params: { target_charm_id: charmId, should_equip: true },
+    },
     {
       name: "set_user_level_favored",
       params: { level_id: levelId, favored: true, title: "Starlit" },
@@ -167,7 +170,11 @@ test("displayed relic costs remain in exact parity with the server allow-list", 
   }
 });
 
-test("migration owns charm rolls, slot-exclusive equips, Favored metadata, and final revocation", () => {
+test("migration owns charm rolls, achievement-safe slot-exclusive equips, Favored metadata, and final revocation", () => {
+  const equipFunction = migration.slice(
+    migration.indexOf("create or replace function public.set_equipped_relic_charm("),
+    migration.indexOf("create or replace function public.set_user_level_favored("),
+  );
   assert.match(migration, /create or replace function public\.roll_user_relic_charm\(\s*request_id uuid\s*\)/);
   assert.match(
     migration,
@@ -177,8 +184,44 @@ test("migration owns charm rolls, slot-exclusive equips, Favored metadata, and f
     migration,
     /on conflict \(user_id, \(data ->> 'instance_id'\)\)[\s\S]*do nothing/,
   );
-  assert.match(migration, /create or replace function public\.equip_user_relic_charm\(\s*charm_id uuid,\s*equipped boolean\s*\)/);
-  assert.match(migration, /data ->> 'slot' = owned_slot/);
+  assert.match(
+    equipFunction,
+    /create or replace function public\.set_equipped_relic_charm\(\s*target_charm_id uuid,\s*should_equip boolean\s*\)/,
+  );
+  assert.match(
+    equipFunction,
+    /select charm\.\*[\s\S]*where charm\.id = target_charm_id[\s\S]*and charm\.user_id = caller_id[\s\S]*for update/,
+  );
+  assert.match(
+    equipFunction,
+    /if caller_id is null then[\s\S]*errcode = '42501'[\s\S]*Authentication required/,
+  );
+  assert.match(
+    equipFunction,
+    /if owned_charm\.id is null then[\s\S]*Charm is not owned by the caller/,
+  );
+  assert.match(
+    equipFunction,
+    /owned_charm\.data #>> '\{source,type\}' = 'achievement'[\s\S]*from public\.user_achievements as unlocked[\s\S]*join public\.achievement_catalog as achievement/,
+  );
+  assert.match(equipFunction, /data ->> 'slot' = owned_slot/);
+  assert.match(
+    equipFunction,
+    /perform charm\.id[\s\S]*order by charm\.id[\s\S]*for update/,
+  );
+  assert.match(
+    equipFunction,
+    /achievement\.reward ->> 'slot' = owned_slot/,
+  );
+  assert.match(
+    equipFunction,
+    /where charm\.user_id = caller_id[\s\S]*and charm\.id <> target_charm_id/,
+  );
+  assert.ok(
+    equipFunction.indexOf("perform charm.id") < equipFunction.indexOf("if should_equip then"),
+    "all trusted same-slot rows must be locked before slot-exclusive updates",
+  );
+  assert.match(equipFunction, /return charm_snapshot/);
   assert.match(migration, /create or replace function public\.set_user_level_favored\(\s*level_id uuid,\s*favored boolean,\s*title text\s*\)/);
   assert.match(migration, /caller_role not in \('admin', 'lead_mod', 'mod'\)/);
   assert.match(migration, /\{favored_badge\}/);
@@ -190,7 +233,9 @@ test("migration owns charm rolls, slot-exclusive equips, Favored metadata, and f
   assert.match(migration, /revoke insert, update, delete on table public\.user_relic_charms from anon, authenticated/);
   assert.match(migration, /grant execute on function public\.save_user_relic_with_favor\(jsonb, uuid\) to authenticated/);
   assert.match(migration, /grant execute on function public\.roll_user_relic_charm\(uuid\) to authenticated/);
-  assert.match(migration, /grant execute on function public\.equip_user_relic_charm\(uuid, boolean\) to authenticated/);
+  assert.match(migration, /revoke execute on function public\.set_equipped_relic_charm\(uuid, boolean\) from public, anon/);
+  assert.match(migration, /grant execute on function public\.set_equipped_relic_charm\(uuid, boolean\) to authenticated/);
+  assert.match(migration, /drop function if exists public\.equip_user_relic_charm\(uuid, boolean\)/);
   assert.match(migration, /grant execute on function public\.set_user_level_favored\(uuid, boolean, text\) to authenticated/);
 });
 

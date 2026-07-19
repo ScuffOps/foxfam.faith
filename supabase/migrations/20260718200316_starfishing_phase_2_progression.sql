@@ -199,14 +199,14 @@ values
     'Gentle Return',
     'Release your first duplicate catch for Favor.',
     '{"type":"duplicate_release_count","count":1}'::jsonb,
-    '{"kind":"cosmetic","effect_key":"merciful-tide","label":"Merciful Tide","rarity":"rare","effects":{"catch_effect":"merciful-tide"}}'::jsonb
+    '{"kind":"charm","charm_key":"merciful-tide","label":"Merciful Tide","rarity":"rare","slot":"catch-fx","effects":{"catch_effect":"merciful-tide"}}'::jsonb
   ),
   (
     'pocket-constellation',
     'Pocket Constellation',
     'Catch a fish within the lowest 5% of its canonical size span.',
     '{"type":"size_percentile","direction":"lowest","percentile":5}'::jsonb,
-    '{"kind":"profile_particle","effect_key":"pocket-star","label":"Pocket Star","rarity":"epic","effects":{"profile_particle":"pocket-star"}}'::jsonb
+    '{"kind":"charm","charm_key":"pocket-star","label":"Pocket Star","rarity":"epic","slot":"profile-particle","effects":{"profile_particle":"pocket-star"}}'::jsonb
   ),
   (
     'myth-in-moonwater',
@@ -220,7 +220,7 @@ values
     'Celestial Archivist',
     'Catch every active fish in the current catalog.',
     '{"type":"active_catalog_completion"}'::jsonb,
-    '{"kind":"profile_frame","effect_key":"fishpedia-frame","label":"Fishpedia Frame","rarity":"mythic","effects":{"profile_frame":"fishpedia-frame"},"trophy_key":"celestial-archivist"}'::jsonb
+    '{"kind":"charm","charm_key":"fishpedia-frame","label":"Fishpedia Frame","rarity":"mythic","slot":"profile-frame","effects":{"profile_frame":"fishpedia-frame"},"trophy_key":"celestial-archivist"}'::jsonb
   ),
   (
     'hundred-lights',
@@ -2813,9 +2813,9 @@ on public.user_relic_charms (user_id, (data ->> 'instance_id'))
 where data ->> 'source' = 'relic_roll'
   and nullif(data ->> 'instance_id', '') is not null;
 
-create or replace function public.equip_user_relic_charm(
-  charm_id uuid,
-  equipped boolean
+create or replace function public.set_equipped_relic_charm(
+  target_charm_id uuid,
+  should_equip boolean
 )
 returns jsonb
 language plpgsql
@@ -2833,7 +2833,7 @@ begin
   if caller_id is null then
     raise exception using errcode = '42501', message = 'Authentication required';
   end if;
-  if charm_id is null or equipped is null then
+  if target_charm_id is null or should_equip is null then
     raise exception using errcode = '22023', message = 'Charm and equipped state are required';
   end if;
 
@@ -2844,38 +2844,94 @@ begin
   where relic.user_id = caller_id
   for update;
 
-  perform charm.id
-  from public.user_relic_charms as charm
-  where charm.user_id = caller_id
-  for update;
-
   select charm.*
   into owned_charm
   from public.user_relic_charms as charm
-  where charm.id = charm_id
-    and charm.user_id = caller_id;
+  where charm.id = target_charm_id
+    and charm.user_id = caller_id
+  for update;
 
   if owned_charm.id is null then
     raise exception using errcode = '42501', message = 'Charm is not owned by the caller';
   end if;
-  owned_slot := owned_charm.data ->> 'slot';
+  if owned_charm.data #>> '{source,type}' = 'achievement' then
+    select achievement.reward ->> 'slot'
+    into owned_slot
+    from public.user_achievements as unlocked
+    join public.achievement_catalog as achievement
+      on achievement.achievement_key = unlocked.achievement_key
+    where unlocked.user_id = caller_id
+      and unlocked.achievement_key = owned_charm.data #>> '{source,key}'
+      and achievement.active
+      and achievement.reward ->> 'kind' = 'charm'
+      and achievement.reward ->> 'charm_key' = owned_charm.data ->> 'charm_key';
+  else
+    owned_slot := owned_charm.data ->> 'slot';
+  end if;
   if nullif(owned_slot, '') is null then
     raise exception using errcode = '22023', message = 'Charm slot is invalid';
   end if;
 
-  if equipped then
-    update public.user_relic_charms
-    set data = pg_catalog.jsonb_set(data, '{equipped}', 'false'::jsonb, true)
-    where user_id = caller_id
-      and id <> charm_id
-      and data ->> 'slot' = owned_slot
-      and data ->> 'equipped' = 'true';
+  perform charm.id
+  from public.user_relic_charms as charm
+  where charm.user_id = caller_id
+    and (
+      (
+        charm.data #>> '{source,type}' = 'achievement'
+        and exists (
+          select 1
+          from public.user_achievements as unlocked
+          join public.achievement_catalog as achievement
+            on achievement.achievement_key = unlocked.achievement_key
+          where unlocked.user_id = caller_id
+            and unlocked.achievement_key = charm.data #>> '{source,key}'
+            and achievement.active
+            and achievement.reward ->> 'kind' = 'charm'
+            and achievement.reward ->> 'charm_key' = charm.data ->> 'charm_key'
+            and achievement.reward ->> 'slot' = owned_slot
+        )
+      )
+      or (
+        charm.data #>> '{source,type}' is distinct from 'achievement'
+        and charm.data ->> 'slot' = owned_slot
+      )
+    )
+  order by charm.id
+  for update of charm;
+
+  if should_equip then
+    update public.user_relic_charms as charm
+    set data = pg_catalog.jsonb_set(charm.data, '{equipped}', 'false'::jsonb, true)
+    where charm.user_id = caller_id
+      and charm.id <> target_charm_id
+      and charm.data ->> 'equipped' = 'true'
+      and (
+        (
+          charm.data #>> '{source,type}' = 'achievement'
+          and exists (
+            select 1
+            from public.user_achievements as unlocked
+            join public.achievement_catalog as achievement
+              on achievement.achievement_key = unlocked.achievement_key
+            where unlocked.user_id = caller_id
+              and unlocked.achievement_key = charm.data #>> '{source,key}'
+              and achievement.active
+              and achievement.reward ->> 'kind' = 'charm'
+              and achievement.reward ->> 'charm_key' = charm.data ->> 'charm_key'
+              and achievement.reward ->> 'slot' = owned_slot
+          )
+        )
+        or (
+          charm.data #>> '{source,type}' is distinct from 'achievement'
+          and charm.data ->> 'slot' = owned_slot
+        )
+      );
   end if;
 
-  update public.user_relic_charms
-  set data = pg_catalog.jsonb_set(data, '{equipped}', pg_catalog.to_jsonb(equipped), true)
-  where id = charm_id
-    and user_id = caller_id;
+  update public.user_relic_charms as charm
+  set data = pg_catalog.jsonb_set(charm.data, '{equipped}', pg_catalog.to_jsonb(should_equip), true)
+  where charm.id = target_charm_id
+    and charm.user_id = caller_id;
 
   select coalesce(
     pg_catalog.jsonb_agg(pg_catalog.to_jsonb(charm.id::text) order by charm.created_at),
@@ -3125,8 +3181,9 @@ grant execute on function public.save_user_relic_with_favor(jsonb, uuid) to auth
 revoke execute on function public.roll_user_relic_charm(uuid) from public, anon;
 grant execute on function public.roll_user_relic_charm(uuid) to authenticated;
 
-revoke execute on function public.equip_user_relic_charm(uuid, boolean) from public, anon;
-grant execute on function public.equip_user_relic_charm(uuid, boolean) to authenticated;
+drop function if exists public.equip_user_relic_charm(uuid, boolean);
+revoke execute on function public.set_equipped_relic_charm(uuid, boolean) from public, anon;
+grant execute on function public.set_equipped_relic_charm(uuid, boolean) to authenticated;
 
 revoke execute on function public.set_user_level_favored(uuid, boolean, text) from public, anon;
 grant execute on function public.set_user_level_favored(uuid, boolean, text) to authenticated;

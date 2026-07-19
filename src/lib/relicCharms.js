@@ -48,6 +48,12 @@ export const RELIC_CHARM_CATALOG = [
   { key: "eclipse-lens", name: "Eclipse Lens", rarity: "epic", slot: "core", kind: "lens", description: "A smoked lens that turns glow into omen." },
   { key: "last-vow-core", name: "Last Vow Core", rarity: "mythic", slot: "core", kind: "core", description: "A mythic core made from a promise that survived the dark." },
   { key: "forsaken-halo", name: "Forsaken Halo", rarity: "mythic", slot: "halo", kind: "halo", description: "A fractured halo with no white edge, only colored fire." },
+  { key: "starlit-bobber", name: "Starlit Bobber", rarity: "uncommon", slot: "fishing", kind: "achievement", description: "A first-light bobber that brightens Favor gathered from the moonwater.", effects: { favor_multiplier_bps: 500 } },
+  { key: "merciful-tide", name: "Merciful Tide", rarity: "rare", slot: "catch-fx", kind: "achievement", description: "A gentle wake that follows stars returned to the celestial tide.", effects: { catch_effect: "merciful-tide" } },
+  { key: "pocket-star", name: "Pocket Star", rarity: "epic", slot: "profile-particle", kind: "achievement", description: "A tiny companion star earned by finding the smallest lights.", effects: { profile_particle: "pocket-star" } },
+  { key: "glassfin-comet", name: "Glassfin Comet", rarity: "mythic", slot: "fishing", kind: "achievement", description: "A mythic glassfin that draws rare constellations nearer.", effects: { rare_bite_bonus_bps: 300 } },
+  { key: "fishpedia-frame", name: "Fishpedia Frame", rarity: "mythic", slot: "profile-frame", kind: "achievement", description: "A celestial archive frame reserved for a completed Fishpedia.", effects: { profile_frame: "fishpedia-frame" } },
+  { key: "century-chain", name: "Century Chain", rarity: "epic", slot: "fishing", kind: "achievement", description: "One luminous link for every patient catch.", effects: { material_multiplier_bps: 750 } },
 ];
 
 export const DEFAULT_RELIC = {
@@ -92,6 +98,9 @@ export function normalizeRelic(relic = {}) {
 
 export function normalizeCharm(charm = {}) {
   const definition = getCharmDefinition(charm.charm_key || charm.key);
+  const effects = charm.effects && typeof charm.effects === "object" && !Array.isArray(charm.effects)
+    ? charm.effects
+    : (definition.effects || {});
   return {
     charm_key: definition.key,
     name: charm.name || definition.name,
@@ -99,6 +108,7 @@ export function normalizeCharm(charm = {}) {
     slot: charm.slot || definition.slot,
     kind: charm.kind || definition.kind,
     description: charm.description || definition.description,
+    effects,
     equipped: Boolean(charm.equipped),
     acquired_at: charm.acquired_at || new Date().toISOString(),
     source: charm.source || "relic_roll",

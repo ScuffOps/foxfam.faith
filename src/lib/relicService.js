@@ -108,9 +108,9 @@ export function createRelicService(client = supabase) {
     },
 
     async setCharmEquipped(charmId, equipped) {
-      const { data, error } = await rpcClient().rpc("equip_user_relic_charm", {
-        charm_id: requireUuid(charmId, "Charm"),
-        equipped: Boolean(equipped),
+      const { data, error } = await rpcClient().rpc("set_equipped_relic_charm", {
+        target_charm_id: requireUuid(charmId, "Charm"),
+        should_equip: Boolean(equipped),
       });
       if (error) throw normalizeRpcError(error, "Charm could not be equipped.");
       if (!Array.isArray(data)) throw new Error("Charm equip returned an invalid response.");
