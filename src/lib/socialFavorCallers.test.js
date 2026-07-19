@@ -70,12 +70,10 @@ test("reachable Top Ideas and Roadmap praise through the Favor gateway before re
   assert.ok(roadmapPraise.indexOf("await awardPoints") < roadmapPraise.indexOf("await loadData"));
 });
 
-test("PollCard metadata edits never submit poll vote fields and BlessingCard uses a synchronous praise latch", () => {
-  const pollSave = handlerSource(pollCard, "handleSaveEdit", "handleVote");
+test("PollCard disables unsafe generic metadata edits and BlessingCard uses a synchronous praise latch", () => {
   const blessingPraise = handlerSource(blessingCard, "handlePraise", "loadComments");
 
-  assert.doesNotMatch(pollSave, /CommunityPost\.get|poll_options|votes|voted_by/);
-  assert.match(pollCard, /disabled\s+title="Poll option labels cannot be edited here"/);
+  assert.doesNotMatch(pollCard, /handleSaveEdit|setEditing|editForm|aria-label="Edit poll"/);
   assert.match(blessingCard, /useRef/);
   assert.match(blessingPraise, /if \(praiseRequestRef\.current\) return;/);
   assert.match(blessingPraise, /praiseRequestRef\.current = true;/);
@@ -83,4 +81,10 @@ test("PollCard metadata edits never submit poll vote fields and BlessingCard use
   assert.match(blessingPraise, /!award\.replayed && award\.favor\.delta > 0/);
   assert.match(blessingPraise, /finally \{\s+praiseRequestRef\.current = false;\s+setPraising\(false\)/);
   assert.match(blessingCard, /disabled=\{praising\}/);
+});
+
+test("IdeaCard praise effects require a new positive authoritative award", () => {
+  const ideaPraise = handlerSource(ideaCard, "handleUpvote", "handleApprove");
+
+  assert.match(ideaPraise, /!hasUpvoted && !award\.replayed && award\.favor\.delta > 0/);
 });

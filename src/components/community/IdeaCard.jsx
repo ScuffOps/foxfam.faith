@@ -55,7 +55,7 @@ export default function IdeaCard({ post, isAdmin, user, onRefresh }) {
     setUpvoting(true);
     try {
       const award = await awardPoints(user, "praise-idea", post.id);
-      if (!hasUpvoted) {
+      if (!hasUpvoted && !award.replayed && award.favor.delta > 0) {
         setVoteBurst((value) => value + 1);
         window.setTimeout(() => setVoteBurst(0), PRAISE_BURST_DURATION_MS);
       }
