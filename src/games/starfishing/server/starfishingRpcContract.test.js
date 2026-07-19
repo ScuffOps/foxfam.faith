@@ -474,11 +474,45 @@ test("migration defines locked security-definer game and Favor transactions", ()
     3,
   );
   assert.match(migration, /update public\.game_cast_tickets\s+set consumed_at = cast_created_at\s+where user_id = caller_id\s+and consumed_at is null/);
-  assert.match(migration, /from public\.user_relic_charms\s+where user_id = caller_id\s+and data ->> 'equipped' = 'true'\s+and data ->> 'slot' = 'fishing'/);
   assert.match(migration, /least\(2500/);
   assert.match(migration, /least\(500/);
   assert.match(migration, /least\(1000/);
   assert.match(migration, /when 'mythic' then 0/);
+});
+
+test("Starfishing derives equipped bonuses from unlocked catalog rewards, never charm effect JSON", () => {
+  const migration = readFileSync(
+    new URL("../../../../supabase/migrations/20260718200316_starfishing_phase_2_progression.sql", import.meta.url),
+    "utf8",
+  );
+  const startFunction = migration.slice(
+    migration.indexOf("create or replace function public.start_starfishing_cast()"),
+    migration.indexOf("create or replace function public.claim_starfishing_catch("),
+  );
+  const claimFunction = migration.slice(
+    migration.indexOf("create or replace function public.claim_starfishing_catch("),
+    migration.indexOf("create or replace function private.assert_relic_forge_open("),
+  );
+
+  for (const functionSql of [startFunction, claimFunction]) {
+    assert.doesNotMatch(functionSql, /charm\.data #>> '\{effects,/);
+    assert.match(
+      functionSql,
+      /from public\.user_relic_charms as charm\s+join public\.user_achievements as unlocked/,
+    );
+    assert.match(
+      functionSql,
+      /join public\.achievement_catalog as achievement[\s\S]*achievement\.reward ->> 'slot' = 'fishing'/,
+    );
+    assert.match(
+      functionSql,
+      /achievement\.reward #>> '\{effects,favor_multiplier_bps\}'/,
+    );
+    assert.match(
+      functionSql,
+      /unlocked\.achievement_key = charm\.data #>> '\{source,key\}'/,
+    );
+  }
 });
 
 test("migration captures authoritative clocks after locks and bounds rarity weighting", () => {

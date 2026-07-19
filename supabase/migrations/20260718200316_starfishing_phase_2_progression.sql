@@ -1414,29 +1414,29 @@ begin
   select
     least(2500, coalesce(pg_catalog.sum(
       case
-        when data #>> '{effects,favor_multiplier_bps}' ~ '^[0-9]{1,9}$'
-          then (data #>> '{effects,favor_multiplier_bps}')::numeric
+        when achievement.reward #>> '{effects,favor_multiplier_bps}' ~ '^[0-9]{1,9}$'
+          then (achievement.reward #>> '{effects,favor_multiplier_bps}')::numeric
         else 0
       end
     ), 0))::integer,
     least(2500, coalesce(pg_catalog.sum(
       case
-        when data #>> '{effects,material_multiplier_bps}' ~ '^[0-9]{1,9}$'
-          then (data #>> '{effects,material_multiplier_bps}')::numeric
+        when achievement.reward #>> '{effects,material_multiplier_bps}' ~ '^[0-9]{1,9}$'
+          then (achievement.reward #>> '{effects,material_multiplier_bps}')::numeric
         else 0
       end
     ), 0))::integer,
     least(500, coalesce(pg_catalog.sum(
       case
-        when data #>> '{effects,rare_bite_bonus_bps}' ~ '^[0-9]{1,9}$'
-          then (data #>> '{effects,rare_bite_bonus_bps}')::numeric
+        when achievement.reward #>> '{effects,rare_bite_bonus_bps}' ~ '^[0-9]{1,9}$'
+          then (achievement.reward #>> '{effects,rare_bite_bonus_bps}')::numeric
         else 0
       end
     ), 0))::integer,
     least(1000, coalesce(pg_catalog.sum(
       case
-        when data #>> '{effects,size_floor_bps}' ~ '^[0-9]{1,9}$'
-          then (data #>> '{effects,size_floor_bps}')::numeric
+        when achievement.reward #>> '{effects,size_floor_bps}' ~ '^[0-9]{1,9}$'
+          then (achievement.reward #>> '{effects,size_floor_bps}')::numeric
         else 0
       end
     ), 0))::integer
@@ -1445,10 +1445,19 @@ begin
     material_multiplier_bps,
     rare_bite_bonus_bps,
     size_floor_bps
-  from public.user_relic_charms
-  where user_id = caller_id
-    and data ->> 'equipped' = 'true'
-    and data ->> 'slot' = 'fishing';
+  from public.user_relic_charms as charm
+  join public.user_achievements as unlocked
+    on unlocked.user_id = charm.user_id
+    and unlocked.achievement_key = charm.data #>> '{source,key}'
+  join public.achievement_catalog as achievement
+    on achievement.achievement_key = unlocked.achievement_key
+  where charm.user_id = caller_id
+    and charm.data ->> 'equipped' = 'true'
+    and charm.data #>> '{source,type}' = 'achievement'
+    and charm.data ->> 'charm_key' = achievement.reward ->> 'charm_key'
+    and achievement.active
+    and achievement.reward ->> 'kind' = 'charm'
+    and achievement.reward ->> 'slot' = 'fishing';
 
   if rare_bite_bonus_bps > 0 then
     cast_applied_effects := cast_applied_effects || pg_catalog.jsonb_build_array(
@@ -1734,29 +1743,29 @@ begin
   select
     least(2500, coalesce(pg_catalog.sum(
       case
-        when data #>> '{effects,favor_multiplier_bps}' ~ '^[0-9]{1,9}$'
-          then (data #>> '{effects,favor_multiplier_bps}')::numeric
+        when achievement.reward #>> '{effects,favor_multiplier_bps}' ~ '^[0-9]{1,9}$'
+          then (achievement.reward #>> '{effects,favor_multiplier_bps}')::numeric
         else 0
       end
     ), 0))::integer,
     least(2500, coalesce(pg_catalog.sum(
       case
-        when data #>> '{effects,material_multiplier_bps}' ~ '^[0-9]{1,9}$'
-          then (data #>> '{effects,material_multiplier_bps}')::numeric
+        when achievement.reward #>> '{effects,material_multiplier_bps}' ~ '^[0-9]{1,9}$'
+          then (achievement.reward #>> '{effects,material_multiplier_bps}')::numeric
         else 0
       end
     ), 0))::integer,
     least(500, coalesce(pg_catalog.sum(
       case
-        when data #>> '{effects,rare_bite_bonus_bps}' ~ '^[0-9]{1,9}$'
-          then (data #>> '{effects,rare_bite_bonus_bps}')::numeric
+        when achievement.reward #>> '{effects,rare_bite_bonus_bps}' ~ '^[0-9]{1,9}$'
+          then (achievement.reward #>> '{effects,rare_bite_bonus_bps}')::numeric
         else 0
       end
     ), 0))::integer,
     least(1000, coalesce(pg_catalog.sum(
       case
-        when data #>> '{effects,size_floor_bps}' ~ '^[0-9]{1,9}$'
-          then (data #>> '{effects,size_floor_bps}')::numeric
+        when achievement.reward #>> '{effects,size_floor_bps}' ~ '^[0-9]{1,9}$'
+          then (achievement.reward #>> '{effects,size_floor_bps}')::numeric
         else 0
       end
     ), 0))::integer
@@ -1765,10 +1774,19 @@ begin
     material_multiplier_bps,
     rare_bite_bonus_bps,
     size_floor_bps
-  from public.user_relic_charms
-  where user_id = caller_id
-    and data ->> 'equipped' = 'true'
-    and data ->> 'slot' = 'fishing';
+  from public.user_relic_charms as charm
+  join public.user_achievements as unlocked
+    on unlocked.user_id = charm.user_id
+    and unlocked.achievement_key = charm.data #>> '{source,key}'
+  join public.achievement_catalog as achievement
+    on achievement.achievement_key = unlocked.achievement_key
+  where charm.user_id = caller_id
+    and charm.data ->> 'equipped' = 'true'
+    and charm.data #>> '{source,type}' = 'achievement'
+    and charm.data ->> 'charm_key' = achievement.reward ->> 'charm_key'
+    and achievement.active
+    and achievement.reward ->> 'kind' = 'charm'
+    and achievement.reward ->> 'slot' = 'fishing';
 
   claim_applied_effects := claim_ticket.applied_effects;
   if favor_multiplier_bps > 0 then
@@ -2535,8 +2553,6 @@ begin
     end if;
   end loop;
 
-  perform private.assert_relic_forge_open(caller_id);
-  perform public.ensure_user_relic();
   payload_hash := pg_catalog.md5(relic_payload::text);
 
   insert into private.relic_forge_receipts (
@@ -2570,6 +2586,9 @@ begin
     end if;
     return pg_catalog.jsonb_set(existing_result, '{replayed}', 'true'::jsonb, true);
   end if;
+
+  perform private.assert_relic_forge_open(caller_id);
+  perform public.ensure_user_relic();
 
   select relic.*
   into relic_row
@@ -2679,7 +2698,6 @@ begin
     raise exception using errcode = '22023', message = 'Charm roll request id is required';
   end if;
 
-  perform private.assert_relic_forge_open(caller_id);
   perform public.ensure_user_relic();
 
   select relic.id
@@ -2703,6 +2721,8 @@ begin
       'updated_at', existing_charm.updated_at
     ) || existing_charm.data;
   end if;
+
+  perform private.assert_relic_forge_open(caller_id);
 
   rarity_roll := pg_catalog.random() * 100;
   selected_rarity := case

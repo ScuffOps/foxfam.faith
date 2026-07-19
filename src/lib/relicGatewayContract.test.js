@@ -122,6 +122,34 @@ test("migration owns forge validation, canonical costs, receipts, and balance de
   assert.match(migration, /Relic request id was reused with a different payload/);
 });
 
+test("completed Forge and charm request replays return before the current gate check", () => {
+  const saveFunction = migration.slice(
+    migration.indexOf("create or replace function public.save_user_relic_with_favor("),
+    migration.indexOf("create or replace function public.roll_user_relic_charm("),
+  );
+  const rollFunction = migration.slice(
+    migration.indexOf("create or replace function public.roll_user_relic_charm("),
+    migration.indexOf("create unique index if not exists user_relic_charms_one_roll_instance"),
+  );
+  const saveGateIndex = saveFunction.indexOf("perform private.assert_relic_forge_open(caller_id);");
+  const saveReplayIndex = saveFunction.indexOf(
+    "return pg_catalog.jsonb_set(existing_result, '{replayed}', 'true'::jsonb, true);",
+  );
+  const saveConflictIndex = saveFunction.indexOf(
+    "message = 'Relic request id was reused with a different payload'",
+  );
+  const rollGateIndex = rollFunction.indexOf("perform private.assert_relic_forge_open(caller_id);");
+  const rollReplayIndex = rollFunction.indexOf("if existing_charm.id is not null then");
+
+  assert.ok(saveReplayIndex >= 0 && saveReplayIndex < saveGateIndex);
+  assert.ok(saveConflictIndex >= 0 && saveConflictIndex < saveGateIndex);
+  assert.ok(rollReplayIndex >= 0 && rollReplayIndex < rollGateIndex);
+  assert.ok(
+    rollGateIndex > rollFunction.indexOf("from public.user_relics as relic"),
+    "the serialized existing-roll lookup must finish before a new roll checks the gate",
+  );
+});
+
 test("displayed relic costs remain in exact parity with the server allow-list", () => {
   for (const base of RELIC_BASES) {
     assert.match(
