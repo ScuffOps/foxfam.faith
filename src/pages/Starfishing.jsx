@@ -27,7 +27,6 @@ import {
   failServerClaim,
   FISHPEDIA_STORAGE_KEY,
   getOwnerPendingClaimEnvelope,
-  getSignedInClaimPolicy,
   isClaimContextCurrent,
   planStarfishingSessionTransition,
   readLocalJson,
@@ -36,6 +35,7 @@ import {
   removeOwnerPendingClaimEnvelope,
   REWARD_LOG_STORAGE_KEY,
   restorePendingClaimSnapshot,
+  selectSignedInDuplicatePolicy,
   STARFISHING_PHASES,
   tickStarfishing,
   upsertOwnerPendingClaimEnvelope,
@@ -43,6 +43,7 @@ import {
   writeLocalJson,
 } from "@/games/starfishing/simulation/starfishingRules";
 import { DUPLICATE_POLICIES } from "@/lib/gameRewards";
+import { classifyAuthFailure, isAuthUnavailable } from "@/lib/authFailure";
 import "@/games/starfishing/ui/starfishing.css";
 
 const DUPLICATE_CHOICES = [
@@ -51,7 +52,6 @@ const DUPLICATE_CHOICES = [
   { key: DUPLICATE_POLICIES.convert, label: "Distill to Star Glass", description: "Preview forge material conversion." },
 ];
 const SIGNED_IN_CLAIM_CHOICE = {
-  key: DUPLICATE_POLICIES.keep,
   label: "Verify this catch",
   description: "The observatory will determine its size, duplicate status, and rewards.",
 };
@@ -61,6 +61,7 @@ const AUTH_MODES = {
   checking: "checking",
   guest: "guest",
   signedIn: "signed-in",
+  unavailable: "unavailable",
 };
 
 function readPendingClaimStore() {
@@ -193,6 +194,7 @@ export default function Starfishing() {
   const [progression, setProgression] = useState(null);
   const [isProgressionLoading, setIsProgressionLoading] = useState(true);
   const [progressionError, setProgressionError] = useState("");
+  const [sessionError, setSessionError] = useState(null);
   const [authRevision, setAuthRevision] = useState(0);
   const stateRef = useRef(state);
   const fishpediaRef = useRef(localFishpedia);
@@ -266,6 +268,7 @@ export default function Starfishing() {
       setState(initial);
       setProgression(null);
       setProgressionError("");
+      setSessionError(null);
     }
 
     if (nextOwnerId) {
@@ -278,6 +281,20 @@ export default function Starfishing() {
     }
 
     return transition;
+  }, [cancelClaimDelay]);
+
+  const applyUnavailableSession = useCallback((authError) => {
+    sessionEpochRef.current += 1;
+    sessionOwnerIdRef.current = "";
+    cancelClaimDelay();
+    const initial = createInitialStarfishingState();
+    stateRef.current = initial;
+    setState(initial);
+    setProgression(null);
+    setProgressionError("");
+    setSessionError(authError);
+    setAuthMode(AUTH_MODES.unavailable);
+    setIsProgressionLoading(false);
   }, [cancelClaimDelay]);
 
   useEffect(() => {
@@ -325,8 +342,13 @@ export default function Starfishing() {
       let profile;
       try {
         profile = await communityClient.auth.me();
-      } catch {
+      } catch (error) {
         if (!mountedRef.current || authLoadGenerationRef.current !== loadGeneration) return;
+        const authError = classifyAuthFailure(error);
+        if (isAuthUnavailable(authError)) {
+          applyUnavailableSession(authError);
+          return;
+        }
         applySessionTransition("", { scheduleReload: false });
         if (!sessionOwnerIdRef.current) {
           setAuthMode(AUTH_MODES.guest);
@@ -375,7 +397,14 @@ export default function Starfishing() {
       }
     }
     loadSessionProgression();
-  }, [applySessionTransition, authRevision, isCurrentClaimContext]);
+  }, [applySessionTransition, applyUnavailableSession, authRevision, isCurrentClaimContext]);
+
+  const retrySessionCheck = useCallback(() => {
+    setSessionError(null);
+    setAuthMode(AUTH_MODES.checking);
+    setIsProgressionLoading(true);
+    setAuthRevision((revision) => revision + 1);
+  }, []);
 
   const commitState = useCallback((nextState) => {
     if (!mountedRef.current) return;
@@ -416,7 +445,7 @@ export default function Starfishing() {
       requestServerCast();
       return;
     }
-    if (authMode === AUTH_MODES.checking) return;
+    if ([AUTH_MODES.checking, AUTH_MODES.unavailable].includes(authMode)) return;
     setState((current) => applyStarfishingAction(current, action, fishpediaRef.current));
   }, [authMode, progression, requestServerCast]);
 
@@ -426,7 +455,7 @@ export default function Starfishing() {
   }, []);
 
   useGameControls({
-    enabled: authMode !== AUTH_MODES.checking
+    enabled: ![AUTH_MODES.checking, AUTH_MODES.unavailable].includes(authMode)
       && (authMode !== AUTH_MODES.signedIn || Boolean(progression))
       && ![
       STARFISHING_PHASES.caught,
@@ -490,7 +519,7 @@ export default function Starfishing() {
       const claiming = beginServerClaim(
         stateRef.current,
         window.crypto.randomUUID(),
-        getSignedInClaimPolicy(),
+        stateRef.current.selectedDuplicatePolicy,
         telemetry,
       );
       writePendingClaimSnapshot(createPendingClaimSnapshot(
@@ -579,7 +608,9 @@ export default function Starfishing() {
         >
           {authMode === AUTH_MODES.checking
             ? "Checking session"
-            : authMode === AUTH_MODES.signedIn ? "Portal rewards" : "Local preview"}
+            : authMode === AUTH_MODES.unavailable
+              ? "Session unavailable"
+              : authMode === AUTH_MODES.signedIn ? "Portal rewards" : "Local preview"}
         </span>
       )}
       sidebar={(
@@ -592,7 +623,7 @@ export default function Starfishing() {
               <span>The line is holding. Size, duplicate status, and rewards remain unverified.</span>
               <button
                 type="button"
-                onClick={() => handleCatchChoice(SIGNED_IN_CLAIM_CHOICE.key)}
+                onClick={() => handleCatchChoice()}
               >
                 <Fish aria-hidden="true" />
                 <span>
@@ -613,9 +644,15 @@ export default function Starfishing() {
               state={state}
               rewardIntent={latestRewardIntent}
               authMode={authMode}
+              authError={sessionError}
               isProgressionLoading={isProgressionLoading}
               isProgressionUnavailable={authMode === AUTH_MODES.signedIn && !isProgressionLoading && !progression}
               progression={progression}
+              duplicatePolicy={state.selectedDuplicatePolicy}
+              onDuplicatePolicyChange={(policy) => {
+                commitState(selectSignedInDuplicatePolicy(stateRef.current, policy));
+              }}
+              onRetryAuth={retrySessionCheck}
               onCast={() => dispatchAction(GAME_ACTIONS.primary)}
               onQteAction={dispatchAction}
               onReset={handleReset}
@@ -639,13 +676,17 @@ export default function Starfishing() {
       </div>
       <FishpediaPanel
         fishpedia={localFishpedia}
-        authoritativeRows={authMode === AUTH_MODES.signedIn ? progression?.fishpedia || [] : null}
+        authoritativeRows={authMode === AUTH_MODES.guest ? null : progression?.fishpedia || []}
       />
       <p className="starfishing-safety-note">
         <BookOpen aria-hidden="true" />
-        {authMode === AUTH_MODES.signedIn
-          ? progressionError || "Signed-in catches are recorded only after the portal validates them."
-          : "Catch records and reward intents stay on this device in local preview mode."}
+        {authMode === AUTH_MODES.unavailable
+          ? sessionError?.message
+          : authMode === AUTH_MODES.signedIn
+            ? progressionError || "Signed-in catches are recorded only after the portal validates them."
+            : authMode === AUTH_MODES.checking
+              ? "Checking your portal session before enabling catches."
+              : "Catch records and reward intents stay on this device in local preview mode."}
       </p>
     </GameShell>
   );

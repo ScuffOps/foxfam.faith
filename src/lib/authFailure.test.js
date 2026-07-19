@@ -35,6 +35,7 @@ test("provider, app, Profile, and Quarters preserve unavailable auth distinctly"
   const appSource = readFileSync(join(here, "../App.jsx"), "utf8");
   const profileSource = readFileSync(join(here, "../pages/Profile.jsx"), "utf8");
   const quartersSource = readFileSync(join(here, "../pages/QuartersHub.jsx"), "utf8");
+  const starfishingSource = readFileSync(join(here, "../pages/Starfishing.jsx"), "utf8");
 
   assert.match(authSource, /classifyAuthFailure\(error\)/);
   assert.match(authSource, /setAuthError\(classifyAuthFailure\(error\)\)/);
@@ -46,4 +47,12 @@ test("provider, app, Profile, and Quarters preserve unavailable auth distinctly"
   assert.match(profileSource, /Profile service unavailable/);
   assert.match(quartersSource, /isAuthUnavailable\(authError\)/);
   assert.match(quartersSource, /Quarters service unavailable/);
+  assert.match(starfishingSource, /classifyAuthFailure\(error\)/);
+  assert.match(starfishingSource, /isAuthUnavailable\(authError\)/);
+  assert.match(starfishingSource, /AUTH_MODES\.unavailable/);
+  assert.match(starfishingSource, /retrySessionCheck/);
+  assert.doesNotMatch(
+    starfishingSource,
+    /catch\s*\([^)]*\)\s*\{[\s\S]{0,300}setAuthMode\(AUTH_MODES\.guest\)/,
+  );
 });

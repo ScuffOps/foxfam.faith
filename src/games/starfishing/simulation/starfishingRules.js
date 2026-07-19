@@ -19,7 +19,11 @@ export const FISHPEDIA_STORAGE_KEY = "foxfam_starfishing_fishpedia_v1";
 export const REWARD_LOG_STORAGE_KEY = "foxfam_starfishing_reward_log_v1";
 
 const DEFAULT_WAIT_MS = 1200;
-const SIGNED_IN_CLAIM_POLICY = DUPLICATE_POLICIES.keep;
+const SIGNED_IN_DUPLICATE_POLICIES = new Set([
+  DUPLICATE_POLICIES.keep,
+  DUPLICATE_POLICIES.release,
+  DUPLICATE_POLICIES.convert,
+]);
 const QTE_WINDOW_MS = {
   common: 2200,
   uncommon: 1900,
@@ -51,6 +55,7 @@ export function createInitialStarfishingState() {
     lastRewardIntent: null,
     serverTicket: null,
     pendingClaim: null,
+    selectedDuplicatePolicy: DUPLICATE_POLICIES.keep,
     serverError: null,
     claimError: null,
     escapedReason: "",
@@ -60,8 +65,18 @@ export function createInitialStarfishingState() {
   };
 }
 
-export function getSignedInClaimPolicy() {
-  return SIGNED_IN_CLAIM_POLICY;
+export function selectSignedInDuplicatePolicy(state, duplicatePolicy) {
+  if (
+    !SIGNED_IN_DUPLICATE_POLICIES.has(duplicatePolicy)
+    || ![STARFISHING_PHASES.idle, STARFISHING_PHASES.escaped].includes(state.phase)
+  ) {
+    return state;
+  }
+
+  return {
+    ...state,
+    selectedDuplicatePolicy: duplicatePolicy,
+  };
 }
 
 export function isClaimContextCurrent({

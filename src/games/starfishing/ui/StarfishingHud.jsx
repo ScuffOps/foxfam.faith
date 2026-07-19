@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { GAME_ACTIONS } from "@/games/shared/input/actions";
 import { STARFISHING_PHASES } from "@/games/starfishing/simulation/starfishingRules";
+import { DUPLICATE_POLICIES } from "@/lib/gameRewards";
 
 const ACTION_META = {
   "qte-left": { label: "Left", icon: ArrowLeft, action: GAME_ACTIONS.moveLeft, key: "A / Left" },
@@ -28,26 +29,53 @@ const PHASE_COPY = {
   escaped: ["A soft escape", "Cast again when you are ready."],
 };
 
+const DUPLICATE_POLICY_OPTIONS = [
+  {
+    key: DUPLICATE_POLICIES.keep,
+    label: "Keep duplicate",
+    description: "Keep duplicates in your celestial collection.",
+  },
+  {
+    key: DUPLICATE_POLICIES.release,
+    label: "Release for Favor",
+    description: "Release duplicates for server-calculated Favor.",
+  },
+  {
+    key: DUPLICATE_POLICIES.convert,
+    label: "Convert to forge dust",
+    description: "Distill duplicates into server-calculated forge materials.",
+  },
+];
+
 export default function StarfishingHud({
   state,
   rewardIntent,
   authMode = "guest",
+  authError = null,
   isProgressionLoading = false,
   isProgressionUnavailable = false,
   progression = null,
+  duplicatePolicy = DUPLICATE_POLICIES.keep,
   onCast,
   onQteAction,
   onReset,
   onRetryClaim,
   onReturnWithoutReward,
+  onDuplicatePolicyChange,
+  onRetryAuth,
 }) {
   const prompt = ACTION_META[state.qtePattern[state.qteIndex]];
-  const [title, detail] = PHASE_COPY[state.phase] || PHASE_COPY.idle;
+  const isAuthUnavailable = authMode === "unavailable";
+  const [title, detail] = isAuthUnavailable
+    ? ["Session check paused", authError?.message || "Foxfam could not verify your session."]
+    : PHASE_COPY[state.phase] || PHASE_COPY.idle;
   const isPending = [
     STARFISHING_PHASES.requestingCast,
     STARFISHING_PHASES.claiming,
   ].includes(state.phase);
   const isSignedIn = authMode === "signed-in";
+  const canChooseDuplicatePolicy = isSignedIn
+    && [STARFISHING_PHASES.idle, STARFISHING_PHASES.escaped].includes(state.phase);
   const claim = state.lastClaim;
   const displayError = state.claimError || state.serverError;
 
@@ -61,7 +89,13 @@ export default function StarfishingHud({
         {displayError?.message || state.escapedReason || detail}
       </p>
 
-      {state.phase === STARFISHING_PHASES.qte && prompt ? (
+      {isAuthUnavailable ? (
+        <div className="reel-panel__recovery">
+          <button type="button" onClick={onRetryAuth}>
+            <RotateCcw aria-hidden="true" /> Retry session check
+          </button>
+        </div>
+      ) : state.phase === STARFISHING_PHASES.qte && prompt ? (
         <div className="reel-qte">
           <p>Next pull <kbd>{prompt.key}</kbd></p>
           <div className="reel-qte__progress" aria-label={`Reel step ${state.qteIndex + 1} of ${state.qtePattern.length}`}>
@@ -106,6 +140,29 @@ export default function StarfishingHud({
             : <><CircleDot aria-hidden="true" /> Cast line <kbd>Space</kbd></>}
         </button>
       )}
+
+      {canChooseDuplicatePolicy ? (
+        <fieldset className="reel-policy">
+          <legend>When the catch is a duplicate</legend>
+          <div>
+            {DUPLICATE_POLICY_OPTIONS.map((option) => (
+              <label key={option.key} title={option.description}>
+                <input
+                  type="radio"
+                  name="starfishing-duplicate-policy"
+                  value={option.key}
+                  checked={duplicatePolicy === option.key}
+                  onChange={() => onDuplicatePolicyChange(option.key)}
+                />
+                <span>{option.label}</span>
+              </label>
+            ))}
+          </div>
+          <small>
+            The portal checks duplicate status after the catch. New discoveries are always kept.
+          </small>
+        </fieldset>
+      ) : null}
 
       {isPending ? (
         <p className="reel-panel__announcement" role="status">

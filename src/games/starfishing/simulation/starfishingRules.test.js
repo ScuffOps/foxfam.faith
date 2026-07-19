@@ -13,13 +13,13 @@ import {
   failServerCast,
   failServerClaim,
   getOwnerPendingClaimEnvelope,
-  getSignedInClaimPolicy,
   isClaimContextCurrent,
   planStarfishingSessionTransition,
   receiveServerClaim,
   receiveServerTicket,
   removeOwnerPendingClaimEnvelope,
   restorePendingClaimSnapshot,
+  selectSignedInDuplicatePolicy,
   STARFISHING_PHASES,
   tickStarfishing,
   upsertOwnerPendingClaimEnvelope,
@@ -202,8 +202,16 @@ describe("starfishingRules", () => {
     assert.deepEqual(claiming.lastCatch, caught.lastCatch);
   });
 
-  it("always uses keep as the neutral signed-in preclaim policy", () => {
-    assert.equal(getSignedInClaimPolicy(), "keep");
+  it("stores a signed-in duplicate policy only before a cast", () => {
+    const initial = createInitialStarfishingState();
+    const selected = selectSignedInDuplicatePolicy(initial, "release");
+    const casting = beginServerCast(selected);
+
+    assert.equal(initial.selectedDuplicatePolicy, "keep");
+    assert.equal(selected.selectedDuplicatePolicy, "release");
+    assert.equal(casting.selectedDuplicatePolicy, "release");
+    assert.equal(selectSignedInDuplicatePolicy(casting, "convert"), casting);
+    assert.equal(selectSignedInDuplicatePolicy(initial, "none"), initial);
   });
 
   it("records authoritative claim data and returns to idle", () => {
