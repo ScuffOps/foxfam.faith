@@ -1760,9 +1760,14 @@ begin
     raise exception using errcode = '22023', message = 'Cast ticket catalog version is unavailable';
   end if;
 
-  claim_min_duration_ms := pg_catalog.ceil(
-    pg_catalog.extract(epoch from (claim_ticket.not_before - claim_ticket.created_at)) * 1000
-  )::integer;
+  claim_min_duration_ms := greatest(
+    250,
+    pg_catalog.ceil(
+      pg_catalog.extract(epoch from (claim_ticket.not_before - claim_ticket.created_at)) * 1000
+    )::integer
+      - (claim_fish.qte_length * 150)
+      - 350
+  );
   claim_max_duration_ms := least(
     600000,
     pg_catalog.floor(
@@ -1771,7 +1776,9 @@ begin
   );
 
   -- Browser telemetry is supporting evidence, not cryptographic anti-cheat.
-  -- It must still describe a complete, zero-miss QTE coherent with this server ticket.
+  -- The lower bound removes the server's per-step pacing budget and allows modest
+  -- client scheduler/input tolerance while still rejecting zero-duration claims.
+  -- Telemetry must describe a complete, zero-miss QTE coherent with this ticket.
   if claim_qte_action_count <> claim_fish.qte_length then
     raise exception using errcode = '22023', message = 'QTE action count does not match cast ticket';
   end if;

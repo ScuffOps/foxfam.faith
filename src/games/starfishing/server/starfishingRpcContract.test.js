@@ -590,8 +590,27 @@ test("claim requires coherent successful QTE telemetry derived from the server t
 
   assert.match(
     claimFunction,
-    /claim_min_duration_ms := pg_catalog\.ceil\(\s*pg_catalog\.extract\(epoch from \(claim_ticket\.not_before - claim_ticket\.created_at\)\) \* 1000\s*\)::integer/,
+    /claim_min_duration_ms := greatest\(\s*250,\s*pg_catalog\.ceil\(\s*pg_catalog\.extract\(epoch from \(claim_ticket\.not_before - claim_ticket\.created_at\)\) \* 1000\s*\)::integer\s*- \(claim_fish\.qte_length \* 150\)\s*- 350\s*\)/,
   );
+  assert.doesNotMatch(
+    claimFunction,
+    /claim_min_duration_ms := pg_catalog\.ceil\(/,
+  );
+  for (let qteLength = 1; qteLength <= 16; qteLength += 1) {
+    const ticketNotBeforeMs = 1200 + (qteLength * 150);
+    const toleratedMinimumMs = Math.max(
+      250,
+      ticketNotBeforeMs - (qteLength * 150) - 350,
+    );
+    assert.ok(
+      1200 >= toleratedMinimumMs,
+      `current fast QTE timing must pass for length ${qteLength}`,
+    );
+    assert.ok(
+      0 < toleratedMinimumMs,
+      `zero-duration claims must fail for length ${qteLength}`,
+    );
+  }
   assert.match(
     claimFunction,
     /claim_max_duration_ms := least\(\s*600000,\s*pg_catalog\.floor\(\s*pg_catalog\.extract\(epoch from \(claim_ticket\.expires_at - claim_ticket\.created_at\)\) \* 1000\s*\)::integer\s*\)/,
