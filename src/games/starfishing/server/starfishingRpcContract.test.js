@@ -546,6 +546,79 @@ test("migration captures authoritative clocks after locks and bounds rarity weig
   assert.match(startFunction, /% non-mythic rarity weighting/);
 });
 
+test("start cast reuses the caller's locked unexpired ticket instead of rerolling", () => {
+  const migration = readFileSync(
+    new URL("../../../../supabase/migrations/20260718200316_starfishing_phase_2_progression.sql", import.meta.url),
+    "utf8",
+  );
+  const startFunction = migration.slice(
+    migration.indexOf("create or replace function public.start_starfishing_cast()"),
+    migration.indexOf("create or replace function public.claim_starfishing_catch("),
+  );
+
+  assert.match(
+    startFunction,
+    /select ticket_row, fish_row\.qte_length\s+into existing_ticket, existing_qte_length\s+from public\.game_cast_tickets as ticket_row\s+left join public\.game_fish_catalog as fish_row\s+on fish_row\.fish_key = ticket_row\.fish_key\s+and fish_row\.catalog_version = ticket_row\.catalog_version\s+where ticket_row\.user_id = caller_id\s+and ticket_row\.consumed_at is null\s+and ticket_row\.expires_at > cast_created_at\s+order by ticket_row\.created_at\s+limit 1\s+for update of ticket_row/,
+  );
+  assert.match(
+    startFunction,
+    /if existing_ticket\.id is not null and existing_qte_length is null then\s+raise exception using errcode = '22023', message = 'Existing cast ticket catalog version is unavailable';\s+end if;/,
+  );
+  assert.match(
+    startFunction,
+    /if existing_ticket\.id is not null then\s+return pg_catalog\.jsonb_build_object\(\s*'ticket_id', existing_ticket\.id,\s*'fish_key', existing_ticket\.fish_key,\s*'qte_length', existing_qte_length,\s*'applied_effects', existing_ticket\.applied_effects,\s*'not_before', existing_ticket\.not_before,\s*'expires_at', existing_ticket\.expires_at\s*\);\s+end if;/,
+  );
+  assert.match(
+    startFunction,
+    /update public\.game_cast_tickets\s+set consumed_at = cast_created_at\s+where user_id = caller_id\s+and consumed_at is null\s+and expires_at <= cast_created_at/,
+  );
+  assert.doesNotMatch(
+    startFunction,
+    /set consumed_at = cast_created_at\s+where user_id = caller_id\s+and consumed_at is null;/,
+  );
+});
+
+test("claim requires coherent successful QTE telemetry derived from the server ticket", () => {
+  const migration = readFileSync(
+    new URL("../../../../supabase/migrations/20260718200316_starfishing_phase_2_progression.sql", import.meta.url),
+    "utf8",
+  );
+  const claimFunction = migration.slice(
+    migration.indexOf("create or replace function public.claim_starfishing_catch("),
+    migration.indexOf("create or replace function private.assert_relic_forge_open("),
+  );
+
+  assert.match(
+    claimFunction,
+    /claim_min_duration_ms := pg_catalog\.ceil\(\s*pg_catalog\.extract\(epoch from \(claim_ticket\.not_before - claim_ticket\.created_at\)\) \* 1000\s*\)::integer/,
+  );
+  assert.match(
+    claimFunction,
+    /claim_max_duration_ms := least\(\s*600000,\s*pg_catalog\.floor\(\s*pg_catalog\.extract\(epoch from \(claim_ticket\.expires_at - claim_ticket\.created_at\)\) \* 1000\s*\)::integer\s*\)/,
+  );
+  assert.match(
+    claimFunction,
+    /if claim_qte_action_count <> claim_fish\.qte_length then\s+raise exception using errcode = '22023', message = 'QTE action count does not match cast ticket';\s+end if;/,
+  );
+  assert.match(
+    claimFunction,
+    /if claim_miss_count <> 0 then\s+raise exception using errcode = '22023', message = 'QTE misses are not eligible for a catch';\s+end if;/,
+  );
+  assert.match(
+    claimFunction,
+    /if claim_duration_ms < claim_min_duration_ms\s+or claim_duration_ms > claim_max_duration_ms then\s+raise exception using errcode = '22023', message = 'Claim duration is not plausible for cast ticket';\s+end if;/,
+  );
+  assert.match(
+    claimFunction,
+    /Browser telemetry is supporting evidence, not cryptographic anti-cheat/,
+  );
+  assert.ok(
+    claimFunction.indexOf("claim_created_at < claim_ticket.not_before")
+      < claimFunction.indexOf("claim_qte_action_count <> claim_fish.qte_length"),
+    "server not_before validation must precede telemetry acceptance",
+  );
+});
+
 test("claim migration validates inputs, snapshots before insert, and locks execution down", () => {
   const migration = readFileSync(
     new URL("../../../../supabase/migrations/20260718200316_starfishing_phase_2_progression.sql", import.meta.url),

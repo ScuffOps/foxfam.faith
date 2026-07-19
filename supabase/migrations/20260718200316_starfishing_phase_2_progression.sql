@@ -1382,6 +1382,8 @@ declare
   material_multiplier_bps integer := 0;
   rare_bite_bonus_bps integer := 0;
   size_floor_bps integer := 0;
+  existing_ticket public.game_cast_tickets%rowtype;
+  existing_qte_length smallint;
   selected_fish public.game_fish_catalog%rowtype;
 begin
   if (select auth.uid()) is null then
@@ -1406,10 +1408,39 @@ begin
 
   cast_created_at := pg_catalog.clock_timestamp();
 
+  select ticket_row, fish_row.qte_length
+  into existing_ticket, existing_qte_length
+  from public.game_cast_tickets as ticket_row
+  left join public.game_fish_catalog as fish_row
+    on fish_row.fish_key = ticket_row.fish_key
+    and fish_row.catalog_version = ticket_row.catalog_version
+  where ticket_row.user_id = caller_id
+    and ticket_row.consumed_at is null
+    and ticket_row.expires_at > cast_created_at
+  order by ticket_row.created_at
+  limit 1
+  for update of ticket_row;
+
+  if existing_ticket.id is not null and existing_qte_length is null then
+    raise exception using errcode = '22023', message = 'Existing cast ticket catalog version is unavailable';
+  end if;
+
+  if existing_ticket.id is not null then
+    return pg_catalog.jsonb_build_object(
+      'ticket_id', existing_ticket.id,
+      'fish_key', existing_ticket.fish_key,
+      'qte_length', existing_qte_length,
+      'applied_effects', existing_ticket.applied_effects,
+      'not_before', existing_ticket.not_before,
+      'expires_at', existing_ticket.expires_at
+    );
+  end if;
+
   update public.game_cast_tickets
   set consumed_at = cast_created_at
   where user_id = caller_id
-    and consumed_at is null;
+    and consumed_at is null
+    and expires_at <= cast_created_at;
 
   select
     least(2500, coalesce(pg_catalog.sum(
@@ -1608,6 +1639,8 @@ declare
   claim_result_snapshot jsonb;
   claim_ticket public.game_cast_tickets%rowtype;
   claim_fish public.game_fish_catalog%rowtype;
+  claim_min_duration_ms integer;
+  claim_max_duration_ms integer;
   existing_fishpedia public.user_fishpedia%rowtype;
   claim_duplicate boolean;
   effective_duplicate_policy text;
@@ -1725,6 +1758,29 @@ begin
 
   if claim_fish.fish_key is null then
     raise exception using errcode = '22023', message = 'Cast ticket catalog version is unavailable';
+  end if;
+
+  claim_min_duration_ms := pg_catalog.ceil(
+    pg_catalog.extract(epoch from (claim_ticket.not_before - claim_ticket.created_at)) * 1000
+  )::integer;
+  claim_max_duration_ms := least(
+    600000,
+    pg_catalog.floor(
+      pg_catalog.extract(epoch from (claim_ticket.expires_at - claim_ticket.created_at)) * 1000
+    )::integer
+  );
+
+  -- Browser telemetry is supporting evidence, not cryptographic anti-cheat.
+  -- It must still describe a complete, zero-miss QTE coherent with this server ticket.
+  if claim_qte_action_count <> claim_fish.qte_length then
+    raise exception using errcode = '22023', message = 'QTE action count does not match cast ticket';
+  end if;
+  if claim_miss_count <> 0 then
+    raise exception using errcode = '22023', message = 'QTE misses are not eligible for a catch';
+  end if;
+  if claim_duration_ms < claim_min_duration_ms
+    or claim_duration_ms > claim_max_duration_ms then
+    raise exception using errcode = '22023', message = 'Claim duration is not plausible for cast ticket';
   end if;
 
   select fishpedia_row.*
