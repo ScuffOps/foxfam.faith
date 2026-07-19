@@ -6,6 +6,7 @@ import PrioryCourtyard from "@/components/quarters/PrioryCourtyard";
 import QuartersHud from "@/components/quarters/QuartersHud";
 import StationPanel from "@/components/quarters/StationPanel";
 import { moveSceneCursor } from "@/components/quarters/quartersSceneModel";
+import StarfishingProgressCard from "@/components/relics/StarfishingProgressCard";
 import "@/components/quarters/quarters-scene.css";
 import { Button } from "@/components/ui/button";
 import { communityClient } from "@/api/communityClient";
@@ -17,6 +18,7 @@ import { loadRelicRollGate, loadUserRelicInventory } from "@/lib/relicService";
 import { GAME_ACTIONS } from "@/games/shared/input/actions";
 import { useGameControls } from "@/games/shared/input/useGameControls";
 import { DEFAULT_FAMILIAR } from "@/games/shared/familiar/familiarCatalog";
+import { loadStarfishingProgression } from "@/games/starfishing/api/starfishingProgressionClient";
 
 const STATION_ROUTES = {
   forge: "/relic-forge",
@@ -33,6 +35,8 @@ export default function QuartersHub() {
   const [user, setUser] = useState(null);
   const [level, setLevel] = useState(null);
   const [relicInventory, setRelicInventory] = useState({ relic: null, charms: [] });
+  const [starfishingProgression, setStarfishingProgression] = useState(null);
+  const [starfishingStatus, setStarfishingStatus] = useState("loading");
   const [gate, setGate] = useState(null);
   const [scene, setScene] = useState("quarters");
   const [cursor, setCursor] = useState({ x: 50, y: 65 });
@@ -47,9 +51,14 @@ export default function QuartersHub() {
       setNotice("");
       try {
         const me = await communityClient.auth.me().catch(() => null);
-        const [inventory, loadedGate] = await Promise.all([
+        const [inventory, loadedGate, starfishingResult] = await Promise.all([
           me ? loadUserRelicInventory().catch(() => ({ relic: DEFAULT_RELIC, charms: [] })) : Promise.resolve({ relic: DEFAULT_RELIC, charms: [] }),
           loadRelicRollGate().catch(() => null),
+          me
+            ? loadStarfishingProgression()
+              .then((progression) => ({ progression, available: true }))
+              .catch(() => ({ progression: null, available: false }))
+            : Promise.resolve({ progression: null, available: false }),
         ]);
         const userKey = getPrivateUserKey(me);
         const levels = userKey ? await communityClient.entities.UserLevel.filter({ user_key: userKey }).catch(() => []) : [];
@@ -57,12 +66,16 @@ export default function QuartersHub() {
         if (!mounted) return;
         setUser(me);
         setRelicInventory(inventory);
+        setStarfishingProgression(starfishingResult.progression);
+        setStarfishingStatus(me ? (starfishingResult.available ? "ready" : "unavailable") : "signed-out");
         setGate(loadedGate);
         setLevel(levels[0] || null);
         if (!me) setNotice("Guest preview: real Favor, forge grants, and saved decor unlock after sign-in.");
       } catch (loadError) {
         if (!mounted) return;
         setRelicInventory({ relic: DEFAULT_RELIC, charms: [] });
+        setStarfishingProgression(null);
+        setStarfishingStatus("unavailable");
         setGate(null);
         setNotice(loadError?.message || "Local preview: live Quarters storage is unavailable.");
       } finally {
@@ -184,6 +197,15 @@ export default function QuartersHub() {
             onOpen={openStation}
           />
         ) : null}
+      </div>
+
+      <div className="mt-4 max-w-xl">
+        <StarfishingProgressCard
+          progression={starfishingProgression}
+          charms={relicInventory.charms}
+          status={starfishingStatus}
+          compact
+        />
       </div>
 
       <p className="sr-only">

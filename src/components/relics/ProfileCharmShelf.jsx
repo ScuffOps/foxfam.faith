@@ -3,7 +3,8 @@ import { ChevronDown, Loader2, Search, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import RelicCharmIcon from "@/components/relics/RelicCharmIcon";
-import { RELIC_RARITY_META } from "@/lib/relicCharms";
+import { groupCharmsByRarity, RELIC_RARITY_META } from "@/lib/relicCharms";
+import { setEquippedCharm } from "@/lib/relicService";
 
 const RARITY_ORDER = ["mythic", "epic", "rare", "uncommon", "common"];
 
@@ -14,10 +15,17 @@ function formatAcquiredDate(value) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
 }
 
-export default function ProfileCharmShelf({ charms = [], groupedCharms = {}, equippingId = "", onToggleCharm }) {
+export default function ProfileCharmShelf({
+  charms = [],
+  equipmentService = setEquippedCharm,
+  onCharmsChange,
+}) {
   const [query, setQuery] = useState("");
   const [rarityFilter, setRarityFilter] = useState("all");
   const [collapsedGroups, setCollapsedGroups] = useState({});
+  const [equippingId, setEquippingId] = useState("");
+  const [actionError, setActionError] = useState("");
+  const groupedCharms = useMemo(() => groupCharmsByRarity(charms), [charms]);
   const filteredGroupedCharms = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return RARITY_ORDER.reduce((groups, rarity) => {
@@ -39,6 +47,19 @@ export default function ProfileCharmShelf({ charms = [], groupedCharms = {}, equ
   }, [groupedCharms, query, rarityFilter]);
   const filteredCount = Object.values(filteredGroupedCharms).reduce((sum, items) => sum + items.length, 0);
 
+  const handleToggleCharm = async (charm) => {
+    setActionError("");
+    setEquippingId(charm.id);
+    try {
+      const authoritativeCharms = await equipmentService(charm, charms, !charm.equipped);
+      onCharmsChange?.(authoritativeCharms);
+    } catch {
+      setActionError("The charm clasp did not settle. Refresh and try again.");
+    } finally {
+      setEquippingId("");
+    }
+  };
+
   return (
     <section className="rounded-xl border border-border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -53,6 +74,12 @@ export default function ProfileCharmShelf({ charms = [], groupedCharms = {}, equ
           {charms.length} owned
         </span>
       </div>
+
+      {actionError ? (
+        <p className="mt-3 rounded-md border border-destructive/35 bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">
+          {actionError}
+        </p>
+      ) : null}
 
       {charms.length === 0 ? (
         <div className="mt-4 rounded-lg border border-dashed border-border bg-secondary/25 p-6 text-center text-xs text-muted-foreground">
@@ -103,7 +130,8 @@ export default function ProfileCharmShelf({ charms = [], groupedCharms = {}, equ
                         key={charm.id || charm.instance_id || charm.charm_key}
                         charm={charm}
                         busy={equippingId === charm.id}
-                        onToggle={() => onToggleCharm(charm)}
+                        equipmentBusy={Boolean(equippingId)}
+                        onToggle={() => handleToggleCharm(charm)}
                       />
                     ))}
                   </div>
@@ -118,7 +146,7 @@ export default function ProfileCharmShelf({ charms = [], groupedCharms = {}, equ
   );
 }
 
-function CharmShelfCard({ charm, busy, onToggle }) {
+function CharmShelfCard({ charm, busy, equipmentBusy, onToggle }) {
   const rarity = RELIC_RARITY_META[charm.rarity] || RELIC_RARITY_META.common;
 
   return (
@@ -144,8 +172,21 @@ function CharmShelfCard({ charm, busy, onToggle }) {
           <p className="mt-1 text-[10px] uppercase tracking-[0.16em] opacity-75">{charm.slot} slot</p>
           <p className="mt-2 line-clamp-3 text-xs leading-5 opacity-80">{charm.description}</p>
           <p className="mt-3 text-[11px] opacity-70">Acquired {formatAcquiredDate(charm.acquired_at)}</p>
-          <Button type="button" size="sm" variant={charm.equipped ? "default" : "outline"} onClick={onToggle} disabled={busy} className="mt-3 w-full">
-            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : charm.equipped ? "Unequip" : "Equip"}
+          <Button
+            type="button"
+            size="sm"
+            variant={charm.equipped ? "default" : "outline"}
+            onClick={onToggle}
+            disabled={busy || equipmentBusy}
+            aria-pressed={Boolean(charm.equipped)}
+            className="mt-3 w-full"
+          >
+            {busy ? (
+              <>
+                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                {charm.equipped ? "Unequipping..." : "Equipping..."}
+              </>
+            ) : charm.equipped ? "Unequip" : "Equip"}
           </Button>
         </div>
       </div>

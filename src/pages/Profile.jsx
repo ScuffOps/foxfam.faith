@@ -6,14 +6,16 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import RelicPreview from "@/components/relics/RelicPreview";
 import ProfileCharmShelf from "@/components/relics/ProfileCharmShelf";
+import StarfishingProgressCard from "@/components/relics/StarfishingProgressCard";
 import RankBadge from "@/components/RankBadge";
 import ProgressionLoop from "@/components/ProgressionLoop";
+import { loadStarfishingProgression } from "@/games/starfishing/api/starfishingProgressionClient";
 import { getPrivateUserKey } from "@/lib/communityActor";
 import { useAuth } from "@/lib/AuthContext";
 import { getRoleLabel } from "@/lib/roles";
 import { getPublicAvatar, getPublicDisplayName } from "@/lib/userIdentity";
 import { loadCharmRollEligibility, loadUserRelicInventory, rollUserRelicCharm, setEquippedCharm } from "@/lib/relicService";
-import { groupCharmsByRarity, RELIC_RARITY_META } from "@/lib/relicCharms";
+import { RELIC_RARITY_META } from "@/lib/relicCharms";
 import { getProfileRelicTeaser } from "@/lib/profileRelicTeasers";
 
 function getRelicLoadMessage(error) {
@@ -33,9 +35,10 @@ export default function Profile() {
   const [level, setLevel] = useState(null);
   const [relic, setRelic] = useState(null);
   const [charms, setCharms] = useState([]);
+  const [starfishingProgression, setStarfishingProgression] = useState(null);
+  const [starfishingStatus, setStarfishingStatus] = useState("loading");
   const [loading, setLoading] = useState(true);
   const [rolling, setRolling] = useState(false);
-  const [equippingId, setEquippingId] = useState("");
   const [rollEligibility, setRollEligibility] = useState({ canRoll: false, reason: "Checking stream status..." });
   const [error, setError] = useState("");
 
@@ -44,18 +47,25 @@ export default function Profile() {
     setLoading(true);
     try {
       const me = await communityClient.auth.me();
-      const [levels, inventory] = await Promise.all([
+      const [levels, inventory, starfishingResult] = await Promise.all([
         communityClient.entities.UserLevel.filter({ user_key: getPrivateUserKey(me) }).catch(() => []),
         loadUserRelicInventory(),
+        loadStarfishingProgression()
+          .then((progression) => ({ progression, available: true }))
+          .catch(() => ({ progression: null, available: false })),
       ]);
       const eligibility = await loadCharmRollEligibility();
       setUser(me);
       setLevel(levels[0] || null);
       setRelic(inventory.relic);
       setCharms(inventory.charms);
+      setStarfishingProgression(starfishingResult.progression);
+      setStarfishingStatus(starfishingResult.available ? "ready" : "unavailable");
       setRollEligibility(eligibility);
     } catch (loadError) {
       setUser(null);
+      setStarfishingProgression(null);
+      setStarfishingStatus("signed-out");
       setError(getRelicLoadMessage(loadError));
     } finally {
       setLoading(false);
@@ -66,9 +76,9 @@ export default function Profile() {
     loadProfile();
   }, []);
 
-  const groupedCharms = useMemo(() => groupCharmsByRarity(charms), [charms]);
   const equippedCount = charms.filter((charm) => charm.equipped).length;
   const relicTeaser = useMemo(() => user ? getProfileRelicTeaser(user) : null, [user]);
+  const equipProfileCharm = (...args) => setEquippedCharm(...args);
 
   const handleRollCharm = async () => {
     setRolling(true);
@@ -85,19 +95,6 @@ export default function Profile() {
       });
     } finally {
       setRolling(false);
-    }
-  };
-
-  const handleToggleCharm = async (charm) => {
-    setEquippingId(charm.id);
-    try {
-      const updatedCharms = await setEquippedCharm(charm, charms, !charm.equipped);
-      setCharms(updatedCharms);
-      toast({ title: charm.equipped ? "Charm detached" : "Charm attached", description: charm.name });
-    } catch {
-      toast({ title: "Charm could not be equipped", description: "Refresh and try again.", variant: "destructive" });
-    } finally {
-      setEquippingId("");
     }
   };
 
@@ -120,6 +117,9 @@ export default function Profile() {
         <Button className="mt-5 gap-2" onClick={openLogin}>
           <LogIn className="h-4 w-4" /> Sign in
         </Button>
+        <div className="mt-6 text-left">
+          <StarfishingProgressCard status="signed-out" compact />
+        </div>
       </div>
     );
   }
@@ -195,6 +195,12 @@ export default function Profile() {
         </div>
       </section>
 
+      <StarfishingProgressCard
+        progression={starfishingProgression}
+        charms={charms}
+        status={starfishingStatus}
+      />
+
       <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <RelicPreview relic={relic} charms={charms} />
 
@@ -219,9 +225,8 @@ export default function Profile() {
 
       <ProfileCharmShelf
         charms={charms}
-        groupedCharms={groupedCharms}
-        equippingId={equippingId}
-        onToggleCharm={handleToggleCharm}
+        equipmentService={equipProfileCharm}
+        onCharmsChange={setCharms}
       />
     </div>
   );
