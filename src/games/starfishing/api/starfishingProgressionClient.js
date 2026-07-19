@@ -206,6 +206,10 @@ function normalizeFishpediaRow(row) {
   };
 }
 
+function normalizeActiveFishRow(row) {
+  return requireNonEmptyString(row?.fish_key);
+}
+
 function normalizeCatchRow(row) {
   return {
     id: requireUuidResponse(row?.id),
@@ -263,6 +267,7 @@ function normalizeProgression(rows) {
     throw progressionError("STARFISHING_INVALID_RESPONSE");
   }
   return {
+    activeFishKeys: rows.catalog.map(normalizeActiveFishRow),
     fishpedia: rows.fishpedia.map(normalizeFishpediaRow),
     recentCatches: rows.catches.map(normalizeCatchRow),
     favorBalance: favorRows.length === 0
@@ -325,6 +330,11 @@ export function createStarfishingProgressionClient(client = supabase) {
     async loadStarfishingProgression() {
       const database = requireReadClient(client);
       const ownerId = await getOwnerId(database);
+      const catalog = await executeRead(() => database
+        .from("game_fish_catalog")
+        .select("fish_key")
+        .eq("active", true)
+        .order("fish_key", { ascending: true }));
       const fishpedia = await executeRead(() => database
         .from("user_fishpedia")
         .select("fish_key,caught_count,smallest_size,largest_size,first_caught_at,last_caught_at")
@@ -358,7 +368,15 @@ export function createStarfishingProgressionClient(client = supabase) {
         .eq("user_id", ownerId)
         .order("acquired_at", { ascending: false }));
 
-      return normalizeProgression({ fishpedia, catches, favor, materials, achievements, trophies });
+      return normalizeProgression({
+        catalog,
+        fishpedia,
+        catches,
+        favor,
+        materials,
+        achievements,
+        trophies,
+      });
     },
   };
 }

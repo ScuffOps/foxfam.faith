@@ -73,7 +73,14 @@ export default function StarfishingProgressCard({
         </div>
       </div>
 
-      <div className="mt-4" aria-label="Fishpedia completion">
+      <div
+        className="mt-4"
+        role="progressbar"
+        aria-label="Fishpedia completion"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={model.completionPercent}
+      >
         <div className="h-3 overflow-hidden rounded-sm border border-[#707989] bg-[#ddd7d1]">
           <div
             className="h-full bg-[#7aa8ad] transition-[width]"
@@ -114,7 +121,7 @@ export default function StarfishingProgressCard({
             <Keepsake icon={BookOpen} label="Profile frame" value={model.profileFrame.name} />
           ) : null}
           {model.selectedTrophy ? (
-            <Keepsake icon={Trophy} label="Displayed trophy" value={model.selectedTrophy.title} />
+            <Keepsake icon={Trophy} label="Newest trophy" value={model.selectedTrophy.title} />
           ) : null}
         </div>
       ) : null}

@@ -255,6 +255,10 @@ test("authenticated 42501 mutation failures are rejected without prompting sign-
 
 test("loadStarfishingProgression scopes every private read to the authenticated owner", async () => {
   const { client: rawClient, calls } = createReadClient({
+    game_fish_catalog: [
+      { fish_key: "comet-koi" },
+      { fish_key: "lunar-guppy" },
+    ],
     user_fishpedia: [{
       fish_key: "lunar-guppy",
       caught_count: 2,
@@ -296,12 +300,14 @@ test("loadStarfishingProgression scopes every private read to the authenticated 
   const progression = await client.loadStarfishingProgression();
 
   assert.equal(progression.favorBalance, 18);
+  assert.deepEqual(progression.activeFishKeys, ["comet-koi", "lunar-guppy"]);
   assert.equal(progression.fishpedia[0].fishKey, "lunar-guppy");
   assert.equal(progression.recentCatches[0].duplicatePolicy, "keep");
   assert.equal(progression.materials[0].materialKey, "star-glass");
   assert.equal(progression.achievements[0].achievementKey, "first-light");
   assert.equal(progression.trophies[0].trophyKey, "first-light");
   assert.deepEqual(calls.map(({ table }) => table), [
+    "game_fish_catalog",
     "user_fishpedia",
     "game_catches",
     "currency_accounts",
@@ -309,9 +315,11 @@ test("loadStarfishingProgression scopes every private read to the authenticated 
     "user_achievements",
     "user_trophies",
   ]);
-  for (const call of calls) {
+  for (const call of calls.filter(({ table }) => table !== "game_fish_catalog")) {
     assert.deepEqual(call.filters[0], ["user_id", userId]);
   }
+  const catalogCall = calls.find(({ table }) => table === "game_fish_catalog");
+  assert.deepEqual(catalogCall.filters, [["active", true]]);
   const accountCall = calls.find(({ table }) => table === "currency_accounts");
   assert.deepEqual(accountCall.filters[1], ["currency_key", "favor"]);
 });

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import IsometricRoom from "@/components/quarters/IsometricRoom";
@@ -7,6 +7,10 @@ import QuartersHud from "@/components/quarters/QuartersHud";
 import StationPanel from "@/components/quarters/StationPanel";
 import { moveSceneCursor } from "@/components/quarters/quartersSceneModel";
 import StarfishingProgressCard from "@/components/relics/StarfishingProgressCard";
+import {
+  classifyProgressionLoadError,
+  planProgressSurfaceSession,
+} from "@/components/relics/starfishingProgressModel";
 import "@/components/quarters/quarters-scene.css";
 import { Button } from "@/components/ui/button";
 import { communityClient } from "@/api/communityClient";
@@ -28,13 +32,18 @@ const STATION_ROUTES = {
 };
 
 export default function QuartersHub() {
-  const { openLogin } = useAuth();
+  const {
+    openLogin,
+    user,
+    isAuthenticated,
+    isLoadingAuth,
+  } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
-  const [user, setUser] = useState(null);
   const [level, setLevel] = useState(null);
   const [relicInventory, setRelicInventory] = useState({ relic: null, charms: [] });
+  const [loadedOwnerId, setLoadedOwnerId] = useState("");
   const [starfishingProgression, setStarfishingProgression] = useState(null);
   const [starfishingStatus, setStarfishingStatus] = useState("loading");
   const [gate, setGate] = useState(null);
@@ -42,53 +51,97 @@ export default function QuartersHub() {
   const [cursor, setCursor] = useState({ x: 50, y: 65 });
   const [selectedStation, setSelectedStation] = useState("forge");
   const familiar = DEFAULT_FAMILIAR;
+  const loadEpochRef = useRef(0);
+  const previousOwnerRef = useRef("");
+  const activeOwnerRef = useRef("");
+  const ownerId = isAuthenticated && user?.id ? user.id : "";
+  const privateUserKey = getPrivateUserKey(user);
+  activeOwnerRef.current = ownerId;
 
   useEffect(() => {
-    let mounted = true;
+    const plan = planProgressSurfaceSession({
+      isLoadingAuth,
+      isAuthenticated,
+      userId: ownerId,
+      previousUserId: previousOwnerRef.current,
+      epoch: loadEpochRef.current,
+    });
+    loadEpochRef.current = plan.nextEpoch;
+    previousOwnerRef.current = plan.ownerId;
+    const loadEpoch = plan.nextEpoch;
+    let cancelled = false;
 
-    async function loadQuarters() {
-      setLoading(true);
-      setNotice("");
-      try {
-        const me = await communityClient.auth.me().catch(() => null);
-        const [inventory, loadedGate, starfishingResult] = await Promise.all([
-          me ? loadUserRelicInventory().catch(() => ({ relic: DEFAULT_RELIC, charms: [] })) : Promise.resolve({ relic: DEFAULT_RELIC, charms: [] }),
-          loadRelicRollGate().catch(() => null),
-          me
-            ? loadStarfishingProgression()
-              .then((progression) => ({ progression, available: true }))
-              .catch(() => ({ progression: null, available: false }))
-            : Promise.resolve({ progression: null, available: false }),
-        ]);
-        const userKey = getPrivateUserKey(me);
-        const levels = userKey ? await communityClient.entities.UserLevel.filter({ user_key: userKey }).catch(() => []) : [];
+    if (plan.shouldClear) {
+      setLoadedOwnerId("");
+      setLevel(null);
+      setRelicInventory({ relic: DEFAULT_RELIC, charms: [] });
+      setStarfishingProgression(null);
+      setGate(null);
+    }
+    setNotice(plan.status === "signed-out"
+      ? "Guest preview: real Favor, forge grants, and saved decor unlock after sign-in."
+      : "");
+    setStarfishingStatus(plan.status);
+    setLoading(isLoadingAuth || plan.shouldLoad);
 
-        if (!mounted) return;
-        setUser(me);
-        setRelicInventory(inventory);
-        setStarfishingProgression(starfishingResult.progression);
-        setStarfishingStatus(me ? (starfishingResult.available ? "ready" : "unavailable") : "signed-out");
-        setGate(loadedGate);
-        setLevel(levels[0] || null);
-        if (!me) setNotice("Guest preview: real Favor, forge grants, and saved decor unlock after sign-in.");
-      } catch (loadError) {
-        if (!mounted) return;
-        setRelicInventory({ relic: DEFAULT_RELIC, charms: [] });
-        setStarfishingProgression(null);
-        setStarfishingStatus("unavailable");
-        setGate(null);
-        setNotice(loadError?.message || "Local preview: live Quarters storage is unavailable.");
-      } finally {
-        if (mounted) setLoading(false);
-      }
+    if (!plan.shouldLoad) {
+      return () => { cancelled = true; };
     }
 
-    loadQuarters();
-    return () => { mounted = false; };
-  }, []);
+    async function loadQuartersOwner() {
+      const [inventoryResult, gateResult, levelsResult, starfishingResult] = await Promise.all([
+        loadUserRelicInventory()
+          .then((inventory) => ({ data: inventory, error: null }))
+          .catch((loadError) => ({ data: null, error: loadError })),
+        loadRelicRollGate()
+          .then((loadedGate) => ({ data: loadedGate, error: null }))
+          .catch((loadError) => ({ data: null, error: loadError })),
+        communityClient.entities.UserLevel
+          .filter({ user_key: privateUserKey })
+          .then((levels) => ({ data: levels, error: null }))
+          .catch((loadError) => ({ data: [], error: loadError })),
+        loadStarfishingProgression()
+          .then((progression) => ({ data: progression, error: null }))
+          .catch((loadError) => ({ data: null, error: loadError })),
+      ]);
+
+      if (
+        cancelled
+        || loadEpochRef.current !== loadEpoch
+        || activeOwnerRef.current !== ownerId
+      ) return;
+
+      setLoadedOwnerId(ownerId);
+      setRelicInventory(inventoryResult.data || { relic: DEFAULT_RELIC, charms: [] });
+      setGate(gateResult.data);
+      setLevel(levelsResult.data[0] || null);
+      setStarfishingProgression(starfishingResult.data);
+      setStarfishingStatus(
+        starfishingResult.error
+          ? classifyProgressionLoadError(starfishingResult.error)
+          : "ready",
+      );
+      if (inventoryResult.error || gateResult.error || levelsResult.error) {
+        setNotice("Some Quarters records are resting. Your saved data has not been replaced.");
+      }
+      setLoading(false);
+    }
+
+    loadQuartersOwner();
+    return () => { cancelled = true; };
+  }, [isAuthenticated, isLoadingAuth, ownerId, privateUserKey]);
 
   const worlds = useMemo(() => GAME_WORLD_ORDER, []);
-  const favor = Math.max(0, Number(level?.points || 0));
+  const hasCurrentOwnerData = Boolean(ownerId) && loadedOwnerId === ownerId;
+  const visibleLevel = hasCurrentOwnerData ? level : null;
+  const visibleInventory = hasCurrentOwnerData
+    ? relicInventory
+    : { relic: DEFAULT_RELIC, charms: [] };
+  const visibleProgression = hasCurrentOwnerData ? starfishingProgression : null;
+  const visibleStarfishingStatus = hasCurrentOwnerData
+    ? starfishingStatus
+    : (ownerId ? "loading" : "signed-out");
+  const favor = Math.max(0, Number(visibleLevel?.points || 0));
 
   const openStation = useCallback((stationKey) => {
     if (stationKey === "decorate") {
@@ -201,15 +254,15 @@ export default function QuartersHub() {
 
       <div className="mt-4 max-w-xl">
         <StarfishingProgressCard
-          progression={starfishingProgression}
-          charms={relicInventory.charms}
-          status={starfishingStatus}
+          progression={visibleProgression}
+          charms={visibleInventory.charms}
+          status={visibleStarfishingStatus}
           compact
         />
       </div>
 
       <p className="sr-only">
-        Forge access is {gate?.enabled ? "open" : "restricted"}. Loaded {relicInventory.charms.length} charms.
+        Forge access is {gate?.enabled ? "open" : "restricted"}. Loaded {visibleInventory.charms.length} charms.
       </p>
     </main>
   );

@@ -5,8 +5,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  classifyProgressionLoadError,
   formatBasisPointBonus,
   getStarfishingProgressModel,
+  planProgressSurfaceSession,
 } from "./starfishingProgressModel.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -53,9 +55,18 @@ const charms = [
 test("progress model reports canonical Fishpedia completion and recent achievement titles", () => {
   const model = getStarfishingProgressModel({
     progression: {
+      activeFishKeys: [
+        "ember-mote",
+        "lunar-guppy",
+        "aurora-minnow",
+        "comet-koi",
+        "eclipse-ray",
+        "veri-starwhale",
+      ],
       fishpedia: [
         { fishKey: "lunar-guppy", caughtCount: 2 },
         { fishKey: "comet-koi", caughtCount: 1 },
+        { fishKey: "retired-nebula", caughtCount: 99 },
       ],
       achievements: [
         { achievementKey: "first-light", unlockedAt: "2026-07-18T12:00:00.000Z" },
@@ -77,7 +88,12 @@ test("progress model reports canonical Fishpedia completion and recent achieveme
 
 test("progress model labels equipped fishing passives from basis points", () => {
   const model = getStarfishingProgressModel({
-    progression: { fishpedia: [], achievements: [], trophies: [] },
+    progression: {
+      activeFishKeys: ["ember-mote"],
+      fishpedia: [],
+      achievements: [],
+      trophies: [],
+    },
     charms,
   });
 
@@ -91,6 +107,7 @@ test("progress model labels equipped fishing passives from basis points", () => 
 test("progress model selects the equipped profile frame and matching trophy", () => {
   const model = getStarfishingProgressModel({
     progression: {
+      activeFishKeys: ["ember-mote"],
       fishpedia: [],
       achievements: [],
       trophies: [{
@@ -109,7 +126,12 @@ test("progress model selects the equipped profile frame and matching trophy", ()
 
 test("progress model has quiet empty states", () => {
   const model = getStarfishingProgressModel({
-    progression: { fishpedia: [], achievements: [], trophies: [] },
+    progression: {
+      activeFishKeys: ["ember-mote"],
+      fishpedia: [],
+      achievements: [],
+      trophies: [],
+    },
     charms: [],
   });
 
@@ -119,6 +141,77 @@ test("progress model has quiet empty states", () => {
   assert.deepEqual(model.fishingBonuses, []);
 });
 
+test("signed-in completion has no bundled catalog fallback", () => {
+  const model = getStarfishingProgressModel({
+    progression: {
+      fishpedia: [{ fishKey: "lunar-guppy", caughtCount: 2 }],
+      achievements: [],
+      trophies: [],
+    },
+    charms: [],
+  });
+
+  assert.equal(model.totalCount, 0);
+  assert.equal(model.discoveredCount, 0);
+  assert.equal(model.completionPercent, 0);
+});
+
+test("session plan clears stale account data before reactive loads", () => {
+  assert.deepEqual(planProgressSurfaceSession({
+    isLoadingAuth: false,
+    isAuthenticated: true,
+    userId: "user-a",
+    previousUserId: "",
+    epoch: 3,
+  }), {
+    ownerId: "user-a",
+    nextEpoch: 4,
+    status: "loading",
+    shouldLoad: true,
+    shouldClear: true,
+  });
+
+  assert.deepEqual(planProgressSurfaceSession({
+    isLoadingAuth: false,
+    isAuthenticated: true,
+    userId: "user-b",
+    previousUserId: "user-a",
+    epoch: 4,
+  }), {
+    ownerId: "user-b",
+    nextEpoch: 5,
+    status: "loading",
+    shouldLoad: true,
+    shouldClear: true,
+  });
+
+  assert.deepEqual(planProgressSurfaceSession({
+    isLoadingAuth: false,
+    isAuthenticated: false,
+    userId: "",
+    previousUserId: "user-a",
+    epoch: 5,
+  }), {
+    ownerId: "",
+    nextEpoch: 6,
+    status: "signed-out",
+    shouldLoad: false,
+    shouldClear: true,
+  });
+});
+
+test("progression errors distinguish expired auth from transport unavailability", () => {
+  assert.equal(
+    classifyProgressionLoadError({ code: "STARFISHING_AUTH_REQUIRED" }),
+    "signed-out",
+  );
+  assert.equal(classifyProgressionLoadError({ status: 401 }), "signed-out");
+  assert.equal(
+    classifyProgressionLoadError({ code: "STARFISHING_TEMPORARILY_UNAVAILABLE" }),
+    "unavailable",
+  );
+});
+
 test("progress card and shelf expose accessible status and durable equipment controls", () => {
   const cardSource = readFileSync(join(here, "StarfishingProgressCard.jsx"), "utf8");
   const shelfSource = readFileSync(join(here, "ProfileCharmShelf.jsx"), "utf8");
@@ -126,14 +219,21 @@ test("progress card and shelf expose accessible status and durable equipment con
   const quartersSource = readFileSync(join(here, "../../pages/QuartersHub.jsx"), "utf8");
 
   assert.match(cardSource, /role="status"/);
-  assert.match(cardSource, /aria-label="Fishpedia completion"/);
+  assert.match(cardSource, /role="progressbar"/);
+  assert.match(cardSource, /aria-valuenow=\{model\.completionPercent\}/);
   assert.match(cardSource, /No stars catalogued yet/);
   assert.match(shelfSource, /setEquippedCharm/);
   assert.match(shelfSource, /aria-pressed=\{Boolean\(charm\.equipped\)\}/);
   assert.match(shelfSource, /disabled=\{busy/);
   assert.doesNotMatch(shelfSource, /setCharms\(\(current\)/);
   assert.match(profileSource, /loadStarfishingProgression/);
+  assert.match(profileSource, /useAuth\(\)/);
+  assert.match(profileSource, /loadEpochRef/);
+  assert.doesNotMatch(profileSource, /communityClient\.auth\.me/);
   assert.match(profileSource, /<StarfishingProgressCard/);
   assert.match(quartersSource, /loadStarfishingProgression/);
+  assert.match(quartersSource, /useAuth\(\)/);
+  assert.match(quartersSource, /loadEpochRef/);
+  assert.doesNotMatch(quartersSource, /communityClient\.auth\.me/);
   assert.match(quartersSource, /<StarfishingProgressCard/);
 });

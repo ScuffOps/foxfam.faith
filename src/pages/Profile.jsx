@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Dice5, Gem, Loader2, LogIn, Settings, Shield, Sparkles, WandSparkles } from "lucide-react";
 import { communityClient } from "@/api/communityClient";
@@ -7,6 +7,10 @@ import { useToast } from "@/components/ui/use-toast";
 import RelicPreview from "@/components/relics/RelicPreview";
 import ProfileCharmShelf from "@/components/relics/ProfileCharmShelf";
 import StarfishingProgressCard from "@/components/relics/StarfishingProgressCard";
+import {
+  classifyProgressionLoadError,
+  planProgressSurfaceSession,
+} from "@/components/relics/starfishingProgressModel";
 import RankBadge from "@/components/RankBadge";
 import ProgressionLoop from "@/components/ProgressionLoop";
 import { loadStarfishingProgression } from "@/games/starfishing/api/starfishingProgressionClient";
@@ -18,72 +22,125 @@ import { loadCharmRollEligibility, loadUserRelicInventory, rollUserRelicCharm, s
 import { RELIC_RARITY_META } from "@/lib/relicCharms";
 import { getProfileRelicTeaser } from "@/lib/profileRelicTeasers";
 
-function getRelicLoadMessage(error) {
-  if (error?.status === 401 || error?.message === "Authentication required") {
-    return "Sign in to claim your relic.";
-  }
-  if (error?.message?.includes("Supabase is not configured")) {
-    return "Relic storage is not configured in this local preview.";
-  }
-  return "Profile relics could not be loaded.";
-}
-
 export default function Profile() {
-  const { openLogin } = useAuth();
+  const {
+    openLogin,
+    user,
+    isAuthenticated,
+    isLoadingAuth,
+  } = useAuth();
   const { toast } = useToast();
-  const [user, setUser] = useState(null);
   const [level, setLevel] = useState(null);
   const [relic, setRelic] = useState(null);
   const [charms, setCharms] = useState([]);
+  const [loadedOwnerId, setLoadedOwnerId] = useState("");
   const [starfishingProgression, setStarfishingProgression] = useState(null);
   const [starfishingStatus, setStarfishingStatus] = useState("loading");
   const [loading, setLoading] = useState(true);
   const [rolling, setRolling] = useState(false);
   const [rollEligibility, setRollEligibility] = useState({ canRoll: false, reason: "Checking stream status..." });
   const [error, setError] = useState("");
-
-  const loadProfile = async () => {
-    setError("");
-    setLoading(true);
-    try {
-      const me = await communityClient.auth.me();
-      const [levels, inventory, starfishingResult] = await Promise.all([
-        communityClient.entities.UserLevel.filter({ user_key: getPrivateUserKey(me) }).catch(() => []),
-        loadUserRelicInventory(),
-        loadStarfishingProgression()
-          .then((progression) => ({ progression, available: true }))
-          .catch(() => ({ progression: null, available: false })),
-      ]);
-      const eligibility = await loadCharmRollEligibility();
-      setUser(me);
-      setLevel(levels[0] || null);
-      setRelic(inventory.relic);
-      setCharms(inventory.charms);
-      setStarfishingProgression(starfishingResult.progression);
-      setStarfishingStatus(starfishingResult.available ? "ready" : "unavailable");
-      setRollEligibility(eligibility);
-    } catch (loadError) {
-      setUser(null);
-      setStarfishingProgression(null);
-      setStarfishingStatus("signed-out");
-      setError(getRelicLoadMessage(loadError));
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loadEpochRef = useRef(0);
+  const previousOwnerRef = useRef("");
+  const activeOwnerRef = useRef("");
+  const ownerId = isAuthenticated && user?.id ? user.id : "";
+  const privateUserKey = getPrivateUserKey(user);
+  activeOwnerRef.current = ownerId;
 
   useEffect(() => {
-    loadProfile();
-  }, []);
+    const plan = planProgressSurfaceSession({
+      isLoadingAuth,
+      isAuthenticated,
+      userId: ownerId,
+      previousUserId: previousOwnerRef.current,
+      epoch: loadEpochRef.current,
+    });
+    loadEpochRef.current = plan.nextEpoch;
+    previousOwnerRef.current = plan.ownerId;
+    const loadEpoch = plan.nextEpoch;
+    let cancelled = false;
 
-  const equippedCount = charms.filter((charm) => charm.equipped).length;
+    if (plan.shouldClear) {
+      setLoadedOwnerId("");
+      setLevel(null);
+      setRelic(null);
+      setCharms([]);
+      setStarfishingProgression(null);
+      setRollEligibility({ canRoll: false, reason: "Checking stream status..." });
+    }
+    setError("");
+    setStarfishingStatus(plan.status);
+    setLoading(isLoadingAuth || plan.shouldLoad);
+
+    if (!plan.shouldLoad) {
+      return () => { cancelled = true; };
+    }
+
+    async function loadProfileOwner() {
+      const [levelsResult, inventoryResult, eligibilityResult, starfishingResult] = await Promise.all([
+        communityClient.entities.UserLevel
+          .filter({ user_key: privateUserKey })
+          .then((levels) => ({ data: levels, error: null }))
+          .catch((loadError) => ({ data: [], error: loadError })),
+        loadUserRelicInventory()
+          .then((inventory) => ({ data: inventory, error: null }))
+          .catch((loadError) => ({ data: null, error: loadError })),
+        loadCharmRollEligibility()
+          .then((eligibility) => ({ data: eligibility, error: null }))
+          .catch((loadError) => ({ data: null, error: loadError })),
+        loadStarfishingProgression()
+          .then((progression) => ({ data: progression, error: null }))
+          .catch((loadError) => ({ data: null, error: loadError })),
+      ]);
+
+      if (
+        cancelled
+        || loadEpochRef.current !== loadEpoch
+        || activeOwnerRef.current !== ownerId
+      ) return;
+
+      setLoadedOwnerId(ownerId);
+      setLevel(levelsResult.data[0] || null);
+      setRelic(inventoryResult.data?.relic || null);
+      setCharms(inventoryResult.data?.charms || []);
+      setRollEligibility(eligibilityResult.data || {
+        canRoll: false,
+        reason: "The forge gate could not be checked.",
+      });
+      setStarfishingProgression(starfishingResult.data);
+      setStarfishingStatus(
+        starfishingResult.error
+          ? classifyProgressionLoadError(starfishingResult.error)
+          : "ready",
+      );
+      if (inventoryResult.error || levelsResult.error) {
+        setError("Some profile relic records could not be loaded.");
+      }
+      setLoading(false);
+    }
+
+    loadProfileOwner();
+    return () => { cancelled = true; };
+  }, [isAuthenticated, isLoadingAuth, ownerId, privateUserKey]);
+
+  const hasCurrentOwnerData = Boolean(ownerId) && loadedOwnerId === ownerId;
+  const visibleCharms = hasCurrentOwnerData ? charms : [];
+  const visibleLevel = hasCurrentOwnerData ? level : null;
+  const visibleRelic = hasCurrentOwnerData ? relic : null;
+  const visibleProgression = hasCurrentOwnerData ? starfishingProgression : null;
+  const visibleStarfishingStatus = hasCurrentOwnerData
+    ? starfishingStatus
+    : (ownerId ? "loading" : "signed-out");
+  const equippedCount = visibleCharms.filter((charm) => charm.equipped).length;
   const relicTeaser = useMemo(() => user ? getProfileRelicTeaser(user) : null, [user]);
   const equipProfileCharm = (...args) => setEquippedCharm(...args);
 
   const handleRollCharm = async () => {
+    const actionOwnerId = ownerId;
     setRolling(true);
     try {
       const charm = await rollUserRelicCharm();
+      if (activeOwnerRef.current !== actionOwnerId) return;
       setCharms((current) => [charm, ...current]);
       const rarity = RELIC_RARITY_META[charm.rarity]?.label || "Charm";
       toast({ title: `${rarity} charm acquired`, description: charm.name });
@@ -94,8 +151,12 @@ export default function Profile() {
         variant: "destructive",
       });
     } finally {
-      setRolling(false);
+      if (activeOwnerRef.current === actionOwnerId) setRolling(false);
     }
+  };
+
+  const handleCharmsChange = (nextCharms) => {
+    if (activeOwnerRef.current === loadedOwnerId) setCharms(nextCharms);
   };
 
   if (loading) {
@@ -106,7 +167,7 @@ export default function Profile() {
     );
   }
 
-  if (!user) {
+  if (!isAuthenticated || !user) {
     return (
       <div className="mx-auto max-w-2xl animate-fade-in rounded-xl border border-border bg-card p-6 text-center">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-primary/15 text-primary">
@@ -143,25 +204,25 @@ export default function Profile() {
           <div className="mt-5 grid gap-4 md:grid-cols-[16rem_minmax(0,1fr)]">
             <div className="rounded-lg border border-border bg-secondary/30 p-4">
               <RankBadge
-                points={level?.points || 0}
+                points={visibleLevel?.points || 0}
                 showProgress
-                isFavored={Boolean(level?.is_favored)}
-                favoredTitle={level?.favored_title}
+                isFavored={Boolean(visibleLevel?.is_favored)}
+                favoredTitle={visibleLevel?.favored_title}
               />
               <div className="mt-4">
                 <ProgressionLoop
-                  points={level?.points || 0}
+                  points={visibleLevel?.points || 0}
                   compact
                   framed={false}
-                  isFavored={Boolean(level?.is_favored)}
-                  favoredTitle={level?.favored_title}
+                  isFavored={Boolean(visibleLevel?.is_favored)}
+                  favoredTitle={visibleLevel?.favored_title}
                 />
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
-              <ProfileStat icon={Gem} label="Owned charms" value={charms.length} />
+              <ProfileStat icon={Gem} label="Owned charms" value={visibleCharms.length} />
               <ProfileStat icon={Shield} label="Attached" value={equippedCount} />
-              <ProfileStat icon={Sparkles} label="Favor" value={level?.points || 0} />
+              <ProfileStat icon={Sparkles} label="Favor" value={visibleLevel?.points || 0} />
             </div>
           </div>
         </div>
@@ -196,13 +257,13 @@ export default function Profile() {
       </section>
 
       <StarfishingProgressCard
-        progression={starfishingProgression}
-        charms={charms}
-        status={starfishingStatus}
+        progression={visibleProgression}
+        charms={visibleCharms}
+        status={visibleStarfishingStatus}
       />
 
       <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <RelicPreview relic={relic} charms={charms} />
+        <RelicPreview relic={visibleRelic} charms={visibleCharms} />
 
         <div className="space-y-4">
           <div className="rounded-xl border border-border bg-card p-4">
@@ -224,9 +285,9 @@ export default function Profile() {
       </section>
 
       <ProfileCharmShelf
-        charms={charms}
+        charms={visibleCharms}
         equipmentService={equipProfileCharm}
-        onCharmsChange={setCharms}
+        onCharmsChange={handleCharmsChange}
       />
     </div>
   );

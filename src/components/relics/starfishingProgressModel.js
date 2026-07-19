@@ -1,5 +1,3 @@
-import { STARFISHING_FISH } from "../../games/starfishing/content/fishCatalog.js";
-
 const ACHIEVEMENT_TITLES = {
   "first-light": "First Light",
   "gentle-return": "Gentle Return",
@@ -36,6 +34,30 @@ export function formatBasisPointBonus(value, label) {
   return `+${Number.isInteger(percent) ? percent : percent.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}% ${label}`;
 }
 
+export function classifyProgressionLoadError(error) {
+  return error?.status === 401 || error?.code === "STARFISHING_AUTH_REQUIRED"
+    ? "signed-out"
+    : "unavailable";
+}
+
+export function planProgressSurfaceSession({
+  isLoadingAuth,
+  isAuthenticated,
+  userId,
+  previousUserId = "",
+  epoch = 0,
+} = {}) {
+  const ownerId = isAuthenticated && typeof userId === "string" ? userId : "";
+  const ownerChanged = ownerId !== previousUserId;
+  return {
+    ownerId,
+    nextEpoch: epoch + 1,
+    status: isLoadingAuth ? "loading" : ownerId ? "loading" : "signed-out",
+    shouldLoad: !isLoadingAuth && Boolean(ownerId),
+    shouldClear: Boolean(isLoadingAuth) || ownerChanged,
+  };
+}
+
 function getFishingBonuses(charms) {
   return charms.flatMap((charm) => {
     if (!charm?.equipped || charm.slot !== "fishing") return [];
@@ -56,15 +78,23 @@ function getFishingBonuses(charms) {
 export function getStarfishingProgressModel({
   progression = {},
   charms = [],
-  catalogTotal = STARFISHING_FISH.length,
+  previewFishKeys = null,
 } = {}) {
   const fishpedia = Array.isArray(progression.fishpedia) ? progression.fishpedia : [];
   const achievements = Array.isArray(progression.achievements) ? progression.achievements : [];
   const trophies = Array.isArray(progression.trophies) ? progression.trophies : [];
-  const safeCatalogTotal = Math.max(0, Number(catalogTotal) || 0);
+  const activeFishKeys = Array.isArray(progression.activeFishKeys)
+    ? progression.activeFishKeys
+    : (Array.isArray(previewFishKeys) ? previewFishKeys : []);
+  const activeFishSet = new Set(activeFishKeys.filter((key) => typeof key === "string" && key));
+  const safeCatalogTotal = activeFishSet.size;
   const discoveredKeys = new Set(
     fishpedia
-      .filter((row) => Number(row?.caughtCount) > 0 && row?.fishKey)
+      .filter((row) => (
+        Number(row?.caughtCount) > 0
+        && row?.fishKey
+        && activeFishSet.has(row.fishKey)
+      ))
       .map((row) => row.fishKey),
   );
   const discoveredCount = Math.min(discoveredKeys.size, safeCatalogTotal);
