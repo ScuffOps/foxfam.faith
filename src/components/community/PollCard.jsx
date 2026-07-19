@@ -10,6 +10,7 @@ import GlassCard from "../GlassCard";
 import RichTextContent from "../RichTextContent";
 import { getCommunityActorKey } from "@/lib/communityActor";
 import CommunityComments from "@/components/community/CommunityComments";
+import { communityPostMetadataService } from "@/lib/communityPostMetadataService";
 
 const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
 
@@ -48,11 +49,11 @@ export default function PollCard({ post, isAdmin, user, onRefresh }) {
   };
 
   const handleApprove = async () => {
-    await communityClient.entities.CommunityPost.update(post.id, { status: "approved" });
+    await communityPostMetadataService.updateMetadata(post.id, { status: "approved" });
     onRefresh();
   };
   const handleReject = async () => {
-    await communityClient.entities.CommunityPost.update(post.id, { status: "rejected" });
+    await communityPostMetadataService.updateMetadata(post.id, { status: "rejected" });
     onRefresh();
   };
   const handleConvert = async () => {
@@ -64,15 +65,15 @@ export default function PollCard({ post, isAdmin, user, onRefresh }) {
       start_date: new Date().toISOString(),
       status: "active",
     });
-    await communityClient.entities.CommunityPost.update(post.id, { status: "converted" });
+    await communityPostMetadataService.updateMetadata(post.id, { status: "converted" });
     onRefresh();
   };
   const handleClose = async () => {
-    await communityClient.entities.CommunityPost.update(post.id, { status: "closed" });
+    await communityPostMetadataService.updateMetadata(post.id, { status: "closed" });
     onRefresh();
   };
   const handleReopen = async () => {
-    await communityClient.entities.CommunityPost.update(post.id, { status: "approved" });
+    await communityPostMetadataService.updateMetadata(post.id, { status: "approved" });
     onRefresh();
   };
 

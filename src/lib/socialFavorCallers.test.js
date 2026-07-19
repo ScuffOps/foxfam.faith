@@ -25,6 +25,8 @@ const blessingForm = readSource("../components/blessings/BlessingForm.jsx");
 const reliquaryCard = readSource("../components/reliquary/ReliquaryEntryCard.jsx");
 const topIdeas = readSource("../components/dashboard/TopIdeas.jsx");
 const roadmap = readSource("../pages/Roadmap.jsx");
+const admin = readSource("../pages/Admin.jsx");
+const communityComments = readSource("../components/community/CommunityComments.jsx");
 const usePoints = readSource("../hooks/usePoints.js");
 const boop = readSource("../components/dashboard/BoopTheFox.jsx");
 
@@ -87,4 +89,14 @@ test("IdeaCard praise effects require a new positive authoritative award", () =>
   const ideaPraise = handlerSource(ideaCard, "handleUpvote", "handleApprove");
 
   assert.match(ideaPraise, /!hasUpvoted && !award\.replayed && award\.favor\.delta > 0/);
+});
+
+test("community post metadata callers use RPC boundaries instead of direct entity updates", () => {
+  for (const source of [communityComments, ideaCard, pollCard, admin, roadmap]) {
+    assert.doesNotMatch(source, /CommunityPost\.update/);
+    assert.match(source, /communityPostMetadataService/);
+  }
+
+  assert.match(communityComments, /syncCommentCount\(post\.id\)/);
+  assert.doesNotMatch(communityComments, /comment_count:\s*\(post\.comment_count/);
 });

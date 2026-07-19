@@ -13,6 +13,7 @@ import { getCommunityActorKey } from "@/lib/communityActor";
 import { PRAISE_BURST_DURATION_MS } from "@/lib/praiseEffects";
 import { awardPoints } from "@/hooks/usePoints";
 import { useLevelUpToast } from "@/hooks/useLevelUpToast";
+import { communityPostMetadataService } from "@/lib/communityPostMetadataService";
 
 const STAGES = [
   { key: "planned", label: "Planned", icon: Clock, color: "text-chart-4", bg: "bg-chart-4/10", border: "border-chart-4/20" },
@@ -45,7 +46,7 @@ export default function Roadmap() {
   const isAdmin = canModerate(user);
 
   const handleStageChange = async (postId, newStage) => {
-    await communityClient.entities.CommunityPost.update(postId, { roadmap_status: newStage });
+    await communityPostMetadataService.updateMetadata(postId, { roadmap_status: newStage });
     loadData();
   };
 
@@ -65,7 +66,7 @@ export default function Roadmap() {
     if (!form.title.trim()) return;
     setSaving(true);
     if (editingPost) {
-      await communityClient.entities.CommunityPost.update(editingPost.id, {
+      await communityPostMetadataService.updateMetadata(editingPost.id, {
         title: form.title,
         description: form.description,
         roadmap_status: form.roadmap_status,

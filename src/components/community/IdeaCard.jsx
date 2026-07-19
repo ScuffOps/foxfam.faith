@@ -15,6 +15,7 @@ import CommunityComments from "@/components/community/CommunityComments";
 import { getCommunityActorKey } from "@/lib/communityActor";
 import { canEditCommunityRecord } from "@/lib/editPermissions";
 import { PRAISE_BURST_DURATION_MS, PRAISE_REFRESH_DELAY_MS } from "@/lib/praiseEffects";
+import { communityPostMetadataService } from "@/lib/communityPostMetadataService";
 
 const typeIcons = {
   idea: Lightbulb,
@@ -41,10 +42,9 @@ export default function IdeaCard({ post, isAdmin, user, onRefresh }) {
 
   const handleSaveEdit = async () => {
     if (!editForm.title.trim()) return;
-    await communityClient.entities.CommunityPost.update(post.id, {
+    await communityPostMetadataService.updateMetadata(post.id, {
       title: editForm.title.trim(),
       description: editForm.description,
-      edited_at: new Date().toISOString(),
     });
     setEditing(false);
     onRefresh?.();
@@ -72,11 +72,11 @@ export default function IdeaCard({ post, isAdmin, user, onRefresh }) {
   };
 
   const handleApprove = async () => {
-    await communityClient.entities.CommunityPost.update(post.id, { status: "approved" });
+    await communityPostMetadataService.updateMetadata(post.id, { status: "approved" });
     onRefresh();
   };
   const handleReject = async () => {
-    await communityClient.entities.CommunityPost.update(post.id, { status: "rejected" });
+    await communityPostMetadataService.updateMetadata(post.id, { status: "rejected" });
     onRefresh();
   };
   const handleConvert = async () => {
@@ -87,22 +87,22 @@ export default function IdeaCard({ post, isAdmin, user, onRefresh }) {
       start_date: new Date().toISOString(),
       status: "active",
     });
-    await communityClient.entities.CommunityPost.update(post.id, { status: "converted" });
+    await communityPostMetadataService.updateMetadata(post.id, { status: "converted" });
     onRefresh();
   };
 
   const handleAddToRoadmap = async () => {
-    await communityClient.entities.CommunityPost.update(post.id, { roadmap_status: "planned" });
+    await communityPostMetadataService.updateMetadata(post.id, { roadmap_status: "planned" });
     onRefresh();
   };
 
   const handleClose = async () => {
-    await communityClient.entities.CommunityPost.update(post.id, { status: "closed" });
+    await communityPostMetadataService.updateMetadata(post.id, { status: "closed" });
     onRefresh();
   };
 
   const handleReopen = async () => {
-    await communityClient.entities.CommunityPost.update(post.id, { status: "approved" });
+    await communityPostMetadataService.updateMetadata(post.id, { status: "approved" });
     onRefresh();
   };
 

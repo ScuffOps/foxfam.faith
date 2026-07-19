@@ -11,6 +11,7 @@ import ActivityChart from "../components/dashboard/ActivityChart";
 import RichTextContent from "../components/RichTextContent";
 import { canManageRoles, canUseAdminPanel, getRoleLabel, ROLE_OPTIONS } from "@/lib/roles";
 import { loadRelicRollGate, setRelicRollGate } from "@/lib/relicService";
+import { communityPostMetadataService } from "@/lib/communityPostMetadataService";
 
 const TABS = [
   { key: "ideas", label: "Ideas & Feedback", icon: Lightbulb },
@@ -90,7 +91,7 @@ export default function Admin() {
 
   // --- Action handlers ---
   const updatePost = async (id, update) => {
-    await communityClient.entities.CommunityPost.update(id, update);
+    await communityPostMetadataService.updateMetadata(id, update);
     loadAll();
   };
   const updateCollab = async (id, status) => {
@@ -148,11 +149,11 @@ export default function Admin() {
       start_date: new Date().toISOString(),
       status: "active",
     });
-    await communityClient.entities.CommunityPost.update(post.id, { status: "converted" });
+    await communityPostMetadataService.updateMetadata(post.id, { status: "converted" });
     loadAll();
   };
   const addToRoadmap = async (id) => {
-    await communityClient.entities.CommunityPost.update(id, { status: "approved", roadmap_status: "planned" });
+    await communityPostMetadataService.updateMetadata(id, { status: "approved", roadmap_status: "planned" });
     loadAll();
   };
 

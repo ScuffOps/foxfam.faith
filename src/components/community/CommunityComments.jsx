@@ -7,6 +7,7 @@ import RichTextContent from "@/components/RichTextContent";
 import { getCommunityActorKey } from "@/lib/communityActor";
 import { canEditCommunityRecord } from "@/lib/editPermissions";
 import { getPublicDisplayName } from "@/lib/userIdentity";
+import { communityPostMetadataService } from "@/lib/communityPostMetadataService";
 
 function sortOldest(items = []) {
   return [...items].sort((a, b) => new Date(a.created_date || 0) - new Date(b.created_date || 0));
@@ -85,9 +86,7 @@ export default function CommunityComments({ post, user, onRefresh }) {
         upvotes: 0,
         upvoted_by: [],
       });
-      await communityClient.entities.CommunityPost.update(post.id, {
-        comment_count: (post.comment_count || 0) + 1,
-      });
+      await communityPostMetadataService.syncCommentCount(post.id);
       setCommentText("");
       setReplyText("");
       setReplyParentId("");
