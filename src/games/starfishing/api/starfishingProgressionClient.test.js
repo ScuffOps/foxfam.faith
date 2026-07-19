@@ -168,6 +168,91 @@ test("claimStarfishingCatch rejects out-of-bounds telemetry before RPC", async (
   assert.equal(rpcCalls, 0);
 });
 
+test("startStarfishingCast rejects signed-out access before RPC", async () => {
+  let rpcCalls = 0;
+  const client = createStarfishingProgressionClient({
+    auth: {
+      async getUser() {
+        return { data: { user: null }, error: null };
+      },
+    },
+    async rpc() {
+      rpcCalls += 1;
+      return { data: validCastTicket, error: null };
+    },
+  });
+
+  await assert.rejects(
+    () => client.startStarfishingCast(),
+    (error) => {
+      assert.equal(error.code, "STARFISHING_AUTH_REQUIRED");
+      assert.equal(error.retryable, false);
+      assert.equal(error.message, "Sign in to sync Starfishing progress.");
+      return true;
+    },
+  );
+  assert.equal(rpcCalls, 0);
+});
+
+test("claimStarfishingCatch rejects signed-out access before RPC", async () => {
+  let rpcCalls = 0;
+  const client = createStarfishingProgressionClient({
+    auth: {
+      async getUser() {
+        return { data: { user: null }, error: null };
+      },
+    },
+    async rpc() {
+      rpcCalls += 1;
+      return { data: validClaimResult, error: null };
+    },
+  });
+
+  await assert.rejects(
+    () => client.claimStarfishingCatch({
+      ticketId,
+      idempotencyKey,
+      duplicatePolicy: "keep",
+      telemetry: { actionCount: 1, missCount: 0, durationMs: 1200 },
+    }),
+    (error) => {
+      assert.equal(error.code, "STARFISHING_AUTH_REQUIRED");
+      assert.equal(error.retryable, false);
+      assert.equal(error.message, "Sign in to sync Starfishing progress.");
+      return true;
+    },
+  );
+  assert.equal(rpcCalls, 0);
+});
+
+test("authenticated 42501 mutation failures are rejected without prompting sign-in", async () => {
+  const client = createStarfishingProgressionClient(createRpcClient(async () => ({
+    data: null,
+    error: {
+      code: "42501",
+      message: "Cast ticket does not belong to caller",
+      details: "foreign user identifier",
+    },
+  })));
+
+  await assert.rejects(
+    () => client.claimStarfishingCatch({
+      ticketId,
+      idempotencyKey,
+      duplicatePolicy: "release",
+      telemetry: { actionCount: 2, missCount: 0, durationMs: 3200 },
+    }),
+    (error) => {
+      assert.equal(error.code, "STARFISHING_REQUEST_REJECTED");
+      assert.equal(error.retryable, false);
+      assert.equal(error.message, "That Starfishing action could not be accepted.");
+      assert.equal("details" in error, false);
+      assert.doesNotMatch(error.message, /ticket|caller|foreign/i);
+      return true;
+    },
+  );
+});
+
 test("loadStarfishingProgression scopes every private read to the authenticated owner", async () => {
   const { client: rawClient, calls } = createReadClient({
     user_fishpedia: [{

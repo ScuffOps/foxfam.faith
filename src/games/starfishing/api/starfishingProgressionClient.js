@@ -68,10 +68,15 @@ function isRetryableTransportError(error) {
   return RETRYABLE_ERROR_CODES.has(code) || code.startsWith("08") || !code;
 }
 
-function normalizeTransportError(error) {
+function normalizeTransportError(error, { authenticated = false } = {}) {
   const code = typeof error?.code === "string" ? error.code : "";
-  if (code === "42501" || code === "PGRST301") {
+  if (code === "PGRST301") {
     return progressionError("STARFISHING_AUTH_REQUIRED");
+  }
+  if (code === "42501") {
+    return progressionError(
+      authenticated ? "STARFISHING_REQUEST_REJECTED" : "STARFISHING_AUTH_REQUIRED",
+    );
   }
   if (code === "22023" || code === "23514") {
     return progressionError("STARFISHING_REQUEST_REJECTED");
@@ -179,9 +184,11 @@ async function executeRead(buildQuery) {
   try {
     result = await buildQuery();
   } catch (error) {
-    throw normalizeTransportError(error);
+    throw normalizeTransportError(error, { authenticated: true });
   }
-  if (result?.error) throw normalizeTransportError(result.error);
+  if (result?.error) {
+    throw normalizeTransportError(result.error, { authenticated: true });
+  }
   if (!Array.isArray(result?.data)) {
     throw progressionError("STARFISHING_INVALID_RESPONSE");
   }
@@ -270,14 +277,18 @@ function normalizeProgression(rows) {
 export function createStarfishingProgressionClient(client = supabase) {
   return {
     async startStarfishingCast() {
+      const database = requireRpcClient(client);
+      await getOwnerId(database);
       let result;
       try {
-        result = await requireRpcClient(client).rpc(START_CAST_RPC);
+        result = await database.rpc(START_CAST_RPC);
       } catch (error) {
         if (error instanceof StarfishingProgressionError) throw error;
-        throw normalizeTransportError(error);
+        throw normalizeTransportError(error, { authenticated: true });
       }
-      if (result?.error) throw normalizeTransportError(result.error);
+      if (result?.error) {
+        throw normalizeTransportError(result.error, { authenticated: true });
+      }
       return normalizeRpcResponse(result?.data, normalizeCastTicket);
     },
 
@@ -296,14 +307,18 @@ export function createStarfishingProgressionClient(client = supabase) {
         claim_duration_ms: requireBoundedInteger(telemetry?.durationMs, 0, 600000),
       };
 
+      const database = requireRpcClient(client);
+      await getOwnerId(database);
       let result;
       try {
-        result = await requireRpcClient(client).rpc(CLAIM_CATCH_RPC, params);
+        result = await database.rpc(CLAIM_CATCH_RPC, params);
       } catch (error) {
         if (error instanceof StarfishingProgressionError) throw error;
-        throw normalizeTransportError(error);
+        throw normalizeTransportError(error, { authenticated: true });
       }
-      if (result?.error) throw normalizeTransportError(result.error);
+      if (result?.error) {
+        throw normalizeTransportError(result.error, { authenticated: true });
+      }
       return normalizeRpcResponse(result?.data, normalizeCatchClaimResult);
     },
 
