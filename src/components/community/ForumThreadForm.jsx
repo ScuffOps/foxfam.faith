@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Paperclip, Upload, X } from "lucide-react";
 import { communityClient } from "@/api/communityClient";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -11,6 +12,9 @@ import { FORUM_SECTIONS, normalizeForumCategory } from "@/lib/forumSections";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { useToast } from "@/components/ui/use-toast";
 import { usePersistentDraft } from "@/hooks/usePersistentDraft";
+import { formatUploadSize, getUploadValidationError } from "@/lib/uploadSafety";
+
+const MAX_FORUM_ATTACHMENTS = 5;
 
 const getInitialForm = (category = "general") => ({
   title: "",
@@ -22,6 +26,8 @@ const getInitialForm = (category = "general") => ({
 export default function ForumThreadForm({ open, onOpenChange, user, onCreated, defaultCategory = "general" }) {
   const { toast } = useToast();
   const [form, setForm, { clearDraft }] = usePersistentDraft("forum-thread.new", getInitialForm(defaultCategory));
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [attachmentError, setAttachmentError] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -30,11 +36,42 @@ export default function ForumThreadForm({ open, onOpenChange, user, onCreated, d
 
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
 
+  const handleFiles = (event) => {
+    const incomingFiles = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (incomingFiles.length === 0) return;
+
+    const availableSlots = MAX_FORUM_ATTACHMENTS - selectedFiles.length;
+    if (availableSlots <= 0 || incomingFiles.length > availableSlots) {
+      setAttachmentError(`Add up to ${MAX_FORUM_ATTACHMENTS} attachments per thread.`);
+      return;
+    }
+
+    const invalidFile = incomingFiles.find((file) => getUploadValidationError(file));
+    if (invalidFile) {
+      setAttachmentError(getUploadValidationError(invalidFile));
+      return;
+    }
+
+    setSelectedFiles((current) => [...current, ...incomingFiles]);
+    setAttachmentError("");
+  };
+
   const handleSubmit = async (event) => {
     event?.preventDefault();
     if (!form.title.trim() || !getRichTextPlainText(form.body)) return;
     setSaving(true);
     try {
+      const attachments = await Promise.all(selectedFiles.map(async (file) => {
+        const uploaded = await communityClient.integrations.Core.UploadFile({ file, folder: "forum-attachments" });
+        return {
+          url: uploaded.file_url,
+          name: file.name,
+          type: file.type || "application/octet-stream",
+          size: file.size,
+        };
+      }));
+
       await communityClient.entities.CommunityThread.create({
         title: form.title.trim(),
         body: form.body,
@@ -45,8 +82,11 @@ export default function ForumThreadForm({ open, onOpenChange, user, onCreated, d
         reactions: 0,
         reacted_by: [],
         is_locked: false,
+        attachments,
       });
       clearDraft(getInitialForm(defaultCategory));
+      setSelectedFiles([]);
+      setAttachmentError("");
       onCreated?.();
       onOpenChange(false);
       toast({ title: "Thread started", description: "Your forum thread is live." });
@@ -104,10 +144,43 @@ export default function ForumThreadForm({ open, onOpenChange, user, onCreated, d
             <Input value={form.tags} onChange={(event) => update("tags", event.target.value)} placeholder="comma, separated, tags" className="mt-1.5 bg-secondary" />
           </div>
 
+          <div>
+            <Label>Images and attachments</Label>
+            <div className="mt-1.5 space-y-2">
+              {selectedFiles.length > 0 ? (
+                <div className="space-y-2">
+                  {selectedFiles.map((file, index) => (
+                    <div key={`${file.name}-${file.lastModified}-${index}`} className="flex items-center gap-2 rounded-lg border border-border bg-secondary/45 px-3 py-2 text-sm">
+                      <Paperclip className="h-4 w-4 shrink-0 text-primary" />
+                      <span className="min-w-0 flex-1 truncate">{file.name}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">{formatUploadSize(file.size)}</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedFiles((current) => current.filter((_, fileIndex) => fileIndex !== index))}
+                        className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                        aria-label={`Remove ${file.name}`}
+                        title="Remove attachment"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-secondary/35 px-3 py-4 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:bg-secondary hover:text-foreground">
+                <Upload className="h-4 w-4" />
+                Add images or files
+                <input type="file" multiple className="hidden" onChange={handleFiles} />
+              </label>
+              <p className="text-xs text-muted-foreground">Up to {MAX_FORUM_ATTACHMENTS} files, 25 MB each. Installers, executables, and scripts are blocked.</p>
+              {attachmentError ? <p className="text-sm text-destructive">{attachmentError}</p> : null}
+            </div>
+          </div>
+
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={saving || !form.title.trim() || !getRichTextPlainText(form.body)}>
-              {saving ? "Starting..." : "Start Thread"}
+              {saving ? "Uploading and starting..." : "Start Thread"}
             </Button>
           </div>
         </form>

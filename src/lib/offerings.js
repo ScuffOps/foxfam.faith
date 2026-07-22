@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getUploadValidationError } from "./uploadSafety.js";
 
 export const OFFERING_STATUS = {
   pending: "pending",
@@ -18,38 +19,8 @@ export const OFFERING_KIND_OPTIONS = [
 const OFFERING_KINDS = new Set(OFFERING_KIND_OPTIONS.map((option) => option.value));
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const DANGEROUS_OFFERING_EXTENSIONS = new Set([
-  "aab", "apk", "app", "appimage", "appx", "appxbundle", "bat", "bin", "cmd", "com",
-  "command", "deb", "dll", "dmg", "drv", "exe", "flatpak", "flatpakref", "flatpakrepo",
-  "ipa", "iso", "jar", "js", "jse", "lnk", "macho", "mpkg", "msi", "msix", "msixbundle",
-  "msp", "pkg", "pif", "ps1", "psm1", "reg", "rpm", "run", "scf", "scr", "sh", "snap",
-  "so", "sys", "url", "vbe", "vbs", "vhd", "vhdx", "wsf", "wsh", "zsh",
-]);
-
-const DANGEROUS_OFFERING_MIME_TYPES = new Set([
-  "application/java-archive",
-  "application/vnd.android.package-archive",
-  "application/vnd.microsoft.portable-executable",
-  "application/x-apple-diskimage",
-  "application/x-bat",
-  "application/x-dosexec",
-  "application/x-executable",
-  "application/x-msdownload",
-  "application/x-msi",
-  "application/x-sh",
-  "application/x-shellscript",
-]);
-
 export function getOfferingFileValidationError(file) {
-  const fileName = String(file?.name || "").trim();
-  const mimeType = String(file?.type || "").trim().toLowerCase();
-  const extension = fileName.includes(".") ? fileName.split(".").pop().toLowerCase() : "";
-
-  if (!fileName) return "Choose a file to upload.";
-  if (DANGEROUS_OFFERING_EXTENSIONS.has(extension) || DANGEROUS_OFFERING_MIME_TYPES.has(mimeType)) {
-    return "Installers, executables, and script files cannot be uploaded for community safety.";
-  }
-  return "";
+  return getUploadValidationError(file);
 }
 
 export const offeringSchema = z

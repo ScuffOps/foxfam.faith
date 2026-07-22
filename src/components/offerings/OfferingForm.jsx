@@ -12,8 +12,8 @@ import { useGuestProfile } from "@/hooks/useGuestProfile";
 import { buildOfferingPayload, getOfferingFileValidationError, OFFERING_KIND_OPTIONS } from "@/lib/offerings";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { usePersistentDraft } from "@/hooks/usePersistentDraft";
+import { formatUploadSize, MAX_COMMUNITY_FILE_SIZE } from "@/lib/uploadSafety";
 
-const MAX_OFFERING_FILE_SIZE = 25 * 1024 * 1024;
 const initialForm = {
   title: "",
   kind: "fanart",
@@ -21,12 +21,6 @@ const initialForm = {
   description: "",
   externalUrl: "",
 };
-
-function getFileSizeLabel(bytes) {
-  if (!bytes) return "";
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 export default function OfferingForm({ open, onOpenChange, user, onCreated }) {
   const { toast } = useToast();
@@ -57,7 +51,7 @@ export default function OfferingForm({ open, onOpenChange, user, onCreated }) {
       event.target.value = "";
       return;
     }
-    if (nextFile.size > MAX_OFFERING_FILE_SIZE) {
+    if (nextFile.size > MAX_COMMUNITY_FILE_SIZE) {
       setError("Please keep offering files under 25 MB for launch.");
       event.target.value = "";
       return;
@@ -155,7 +149,7 @@ export default function OfferingForm({ open, onOpenChange, user, onCreated }) {
               {file && (
                 <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-secondary/45 px-3 py-2 text-sm">
                   <span className="min-w-0 truncate">{file.name}</span>
-                  <span className="shrink-0 text-xs text-muted-foreground">{getFileSizeLabel(file.size)}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{formatUploadSize(file.size)}</span>
                   <button
                     type="button"
                     onClick={() => setFile(null)}

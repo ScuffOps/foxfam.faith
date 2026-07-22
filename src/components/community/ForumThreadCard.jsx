@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { communityClient } from "@/api/communityClient";
-import { Check, ChevronDown, ChevronUp, Edit3, Lock, MessageCircle, Send, Trash2, Unlock, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Download, Edit3, Lock, MessageCircle, Paperclip, Send, Trash2, Unlock, X } from "lucide-react";
 import { useGuestProfile } from "@/hooks/useGuestProfile";
 import GlassCard from "../GlassCard";
 import RichTextContent from "../RichTextContent";
@@ -11,6 +11,72 @@ import PraiseBurst from "../PraiseBurst";
 import { getCommunityActorKey } from "@/lib/communityActor";
 import { canEditCommunityRecord } from "@/lib/editPermissions";
 import { PRAISE_BURST_DURATION_MS, PRAISE_REFRESH_DELAY_MS } from "@/lib/praiseEffects";
+import { formatUploadSize, getUploadValidationError } from "@/lib/uploadSafety";
+
+const MAX_REPLY_ATTACHMENTS = 3;
+
+function getSafeAttachmentUrl(value) {
+  try {
+    const url = new URL(String(value || ""));
+    return url.protocol === "https:" || url.protocol === "http:" ? url.href : "";
+  } catch {
+    return "";
+  }
+}
+
+function ForumAttachments({ attachments, compact = false }) {
+  const safeAttachments = (Array.isArray(attachments) ? attachments : [])
+    .map((attachment) => ({ ...attachment, safeUrl: getSafeAttachmentUrl(attachment?.url) }))
+    .filter((attachment) => attachment.safeUrl);
+
+  if (safeAttachments.length === 0) return null;
+
+  const images = safeAttachments.filter((attachment) => String(attachment.type || "").startsWith("image/"));
+  const files = safeAttachments.filter((attachment) => !String(attachment.type || "").startsWith("image/"));
+
+  return (
+    <div className={compact ? "mt-2 space-y-2" : "space-y-3"}>
+      {images.length > 0 ? (
+        <div className={`grid gap-2 ${images.length > 1 ? "sm:grid-cols-2" : "grid-cols-1"}`}>
+          {images.map((attachment, index) => (
+            <a
+              key={`${attachment.safeUrl}-${index}`}
+              href={attachment.safeUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="block overflow-hidden rounded-lg border border-border bg-secondary/40 focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <img
+                src={attachment.safeUrl}
+                alt={attachment.name || "Forum attachment"}
+                loading="lazy"
+                className={compact ? "max-h-48 w-full object-cover" : "max-h-80 w-full object-contain"}
+              />
+            </a>
+          ))}
+        </div>
+      ) : null}
+      {files.length > 0 ? (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {files.map((attachment, index) => (
+            <a
+              key={`${attachment.safeUrl}-${index}`}
+              href={attachment.safeUrl}
+              target="_blank"
+              rel="noreferrer"
+              download={attachment.name || undefined}
+              className="flex min-w-0 items-center gap-2 rounded-lg border border-border bg-secondary/45 px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+            >
+              <Download className="h-4 w-4 shrink-0 text-primary" />
+              <span className="min-w-0 flex-1 truncate">{attachment.name || "Download attachment"}</span>
+              {attachment.size ? <span className="shrink-0 text-[10px]">{formatUploadSize(attachment.size)}</span> : null}
+            </a>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
   const { toast } = useToast();
@@ -20,6 +86,7 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
   const [comments, setComments] = useState([]);
   const [loadingComments, setLoadingComments] = useState(false);
   const [commentText, setCommentText] = useState("");
+  const [replyFiles, setReplyFiles] = useState([]);
   const [editingThread, setEditingThread] = useState(false);
   const [editThreadForm, setEditThreadForm] = useState({ title: thread.title || "", body: thread.body || "", tags: (thread.tags || []).join(", ") });
   const [editingCommentId, setEditingCommentId] = useState("");
@@ -31,6 +98,22 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
   const hasReacted = (thread.reacted_by || []).includes(actorId);
   const section = getForumSection(thread.category);
   const canEditThread = canEditCommunityRecord(user, thread, { forum: true });
+
+  const handleReplyFiles = (event) => {
+    const incomingFiles = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (incomingFiles.length === 0) return;
+    if (replyFiles.length + incomingFiles.length > MAX_REPLY_ATTACHMENTS) {
+      toast({ title: `Add up to ${MAX_REPLY_ATTACHMENTS} attachments per reply.` });
+      return;
+    }
+    const invalidFile = incomingFiles.find((file) => getUploadValidationError(file));
+    if (invalidFile) {
+      toast({ title: "Attachment blocked", description: getUploadValidationError(invalidFile), variant: "destructive" });
+      return;
+    }
+    setReplyFiles((current) => [...current, ...incomingFiles]);
+  };
 
   const loadComments = async () => {
     setLoadingComments(true);
@@ -70,18 +153,29 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
   };
 
   const handleComment = async () => {
-    if (!commentText.trim() || thread.is_locked) return;
+    if ((!commentText.trim() && replyFiles.length === 0) || thread.is_locked) return;
     setSubmitting(true);
     try {
+      const attachments = await Promise.all(replyFiles.map(async (file) => {
+        const uploaded = await communityClient.integrations.Core.UploadFile({ file, folder: "forum-attachments" });
+        return {
+          url: uploaded.file_url,
+          name: file.name,
+          type: file.type || "application/octet-stream",
+          size: file.size,
+        };
+      }));
       await communityClient.entities.CommunityThreadComment.create({
         thread_id: thread.id,
-        message: commentText.trim(),
+        message: commentText.trim() || "Shared an attachment.",
         author_name: actorName,
+        attachments,
       });
       await communityClient.entities.CommunityThread.update(thread.id, {
         comment_count: (thread.comment_count || 0) + 1,
       });
       setCommentText("");
+      setReplyFiles([]);
       setShowReplies(true);
       loadComments();
       onRefresh();
@@ -192,6 +286,11 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
             <h3 className="font-heading text-lg font-semibold">{thread.title}</h3>
           )}
           <p className="mt-1 text-xs text-muted-foreground">by {thread.author_name || "Favored Fox"}</p>
+          {Array.isArray(thread.attachments) && thread.attachments.length > 0 ? (
+            <span className="mt-2 inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+              <Paperclip className="h-3 w-3" /> {thread.attachments.length} attachment{thread.attachments.length === 1 ? "" : "s"}
+            </span>
+          ) : null}
         </div>
         {(canEditThread || isAdmin) && (
           <div className="flex shrink-0 items-center gap-1">
@@ -255,6 +354,8 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
           <RichTextContent className="text-sm leading-relaxed text-muted-foreground">
             {thread.body}
           </RichTextContent>
+
+          <ForumAttachments attachments={thread.attachments} />
 
           {thread.tags?.length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -328,6 +429,7 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
                       <RichTextContent className="inline text-xs text-muted-foreground" inline>
                         {comment.message}
                       </RichTextContent>
+                      <ForumAttachments attachments={comment.attachments} compact />
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
                     {canEditCommunityRecord(user, comment, { forum: true }) && editingCommentId !== comment.id && (
@@ -366,22 +468,42 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
             ))
           )}
 
-          <div className="mt-2 flex gap-2">
-            <input
-              value={commentText}
-              onChange={(event) => setCommentText(event.target.value)}
-              onKeyDown={(event) => event.key === "Enter" && !event.shiftKey && handleComment()}
-              placeholder={thread.is_locked ? "Thread is locked" : `Reply as ${actorName}...`}
-              disabled={thread.is_locked}
-              className="flex-1 rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
-            />
-            <button
-              onClick={handleComment}
-              disabled={!commentText.trim() || submitting || thread.is_locked}
-              className="rounded-lg bg-primary px-3 py-2 text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
-            >
-              <Send className="h-3.5 w-3.5" />
-            </button>
+          <div className="mt-2 space-y-2">
+            {replyFiles.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {replyFiles.map((file, index) => (
+                  <span key={`${file.name}-${file.lastModified}-${index}`} className="inline-flex max-w-full items-center gap-1 rounded-md bg-secondary px-2 py-1 text-xs text-muted-foreground">
+                    <Paperclip className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{file.name}</span>
+                    <button type="button" onClick={() => setReplyFiles((current) => current.filter((_, fileIndex) => fileIndex !== index))} aria-label={`Remove ${file.name}`}>
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            <div className="flex gap-2">
+              <input
+                value={commentText}
+                onChange={(event) => setCommentText(event.target.value)}
+                onKeyDown={(event) => event.key === "Enter" && !event.shiftKey && handleComment()}
+                placeholder={thread.is_locked ? "Thread is locked" : `Reply as ${actorName}...`}
+                disabled={thread.is_locked}
+                className="min-w-0 flex-1 rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+              />
+              <label className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-border bg-secondary px-3 py-2 text-muted-foreground transition-colors hover:text-foreground" title="Attach images or files">
+                <Paperclip className="h-3.5 w-3.5" />
+                <input type="file" multiple className="hidden" onChange={handleReplyFiles} disabled={thread.is_locked || submitting} />
+              </label>
+              <button
+                onClick={handleComment}
+                disabled={(!commentText.trim() && replyFiles.length === 0) || submitting || thread.is_locked}
+                className="rounded-lg bg-primary px-3 py-2 text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
+                aria-label="Post reply"
+              >
+                <Send className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       )}
