@@ -12,12 +12,13 @@ export const AuthProvider = ({ children }) => {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
 
   useEffect(() => {
-    checkUserAuth();
+    checkUserAuth({ showLoading: true });
 
     if (!supabase) return undefined;
     const { data } = supabase.auth.onAuthStateChange(() => {
       window.setTimeout(() => {
-        checkUserAuth();
+        // Token refreshes and focus changes must not unmount the whole portal.
+        checkUserAuth({ showLoading: false });
       }, 0);
     });
     return () => data.subscription.unsubscribe();
@@ -33,8 +34,8 @@ export const AuthProvider = ({ children }) => {
     return () => window.removeEventListener(LOGIN_EVENT_NAME, openLogin);
   }, []);
 
-  const checkUserAuth = async () => {
-    setIsLoadingAuth(true);
+  const checkUserAuth = async ({ showLoading = false } = {}) => {
+    if (showLoading) setIsLoadingAuth(true);
     setAuthError(null);
     try {
       const currentUser = await communityClient.auth.me();
@@ -50,7 +51,7 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       setIsAuthenticated(false);
     } finally {
-      setIsLoadingAuth(false);
+      if (showLoading) setIsLoadingAuth(false);
     }
   };
 

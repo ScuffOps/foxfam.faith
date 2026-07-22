@@ -51,11 +51,14 @@ function removeDraft(storageKey) {
 export function usePersistentDraft(scope, initialDraft) {
   const storageKey = useMemo(() => `${DRAFT_PREFIX}.${scope}.v1`, [scope]);
   const skipNextWriteRef = useRef(false);
-  const [draft, setDraft] = useState(() => readDraft(storageKey, initialDraft));
+  const [draft, setDraftState] = useState(() => readDraft(storageKey, initialDraft));
+  const draftRef = useRef(draft);
 
   useEffect(() => {
     skipNextWriteRef.current = false;
-    setDraft(readDraft(storageKey, initialDraft));
+    const restoredDraft = readDraft(storageKey, initialDraft);
+    draftRef.current = restoredDraft;
+    setDraftState(restoredDraft);
     // Rehydrate only when the form identity changes.
   }, [storageKey]);
 
@@ -69,15 +72,36 @@ export function usePersistentDraft(scope, initialDraft) {
     writeDraft(storageKey, draft);
   }, [draft, storageKey]);
 
+  useEffect(() => {
+    const flushDraft = () => writeDraft(storageKey, draftRef.current);
+    window.addEventListener("pagehide", flushDraft);
+    document.addEventListener("visibilitychange", flushDraft);
+    return () => {
+      flushDraft();
+      window.removeEventListener("pagehide", flushDraft);
+      document.removeEventListener("visibilitychange", flushDraft);
+    };
+  }, [storageKey]);
+
+  const setDraft = useCallback((nextDraft) => {
+    setDraftState((current) => {
+      const resolvedDraft = typeof nextDraft === "function" ? nextDraft(current) : nextDraft;
+      draftRef.current = resolvedDraft;
+      writeDraft(storageKey, resolvedDraft);
+      return resolvedDraft;
+    });
+  }, [storageKey]);
+
   const updateDraft = useCallback((field, value) => {
     setDraft((current) => ({ ...current, [field]: value }));
-  }, []);
+  }, [setDraft]);
 
   const clearDraft = useCallback(
     (nextDraft = initialDraft) => {
       skipNextWriteRef.current = true;
       removeDraft(storageKey);
-      setDraft(nextDraft);
+      draftRef.current = nextDraft;
+      setDraftState(nextDraft);
     },
     [initialDraft, storageKey]
   );

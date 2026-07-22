@@ -12,13 +12,24 @@ import { Plus, X } from "lucide-react";
 import { awardPoints } from "@/hooks/usePoints";
 import { useLevelUpToast } from "@/hooks/useLevelUpToast";
 import { useToast } from "@/components/ui/use-toast";
+import { usePersistentDraft } from "@/hooks/usePersistentDraft";
+
+const INITIAL_POST = { title: "", description: "", type: "idea" };
+const INITIAL_POLL_OPTIONS = { options: ["", ""] };
 
 export default function PostForm({ open, onOpenChange, onCreated, isMod = false }) {
   const checkLevelUp = useLevelUpToast();
   const { toast } = useToast();
   const { profile } = useGuestProfile();
-  const [form, setForm] = useState({ title: "", description: "", type: "idea" });
-  const [pollOptions, setPollOptions] = useState(["", ""]);
+  const [form, setForm, { clearDraft: clearPostDraft }] = usePersistentDraft("community-post.new", INITIAL_POST);
+  const [pollDraft, setPollDraft, { clearDraft: clearPollDraft }] = usePersistentDraft("community-poll-options.new", INITIAL_POLL_OPTIONS);
+  const pollOptions = pollDraft.options;
+  const setPollOptions = (nextOptions) => {
+    setPollDraft((current) => ({
+      ...current,
+      options: typeof nextOptions === "function" ? nextOptions(current.options) : nextOptions,
+    }));
+  };
   const [saving, setSaving] = useState(false);
 
   const update = (key, val) => setForm((p) => ({ ...p, [key]: val }));
@@ -58,8 +69,8 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
 
       await communityClient.entities.CommunityPost.create(data);
       try { const u = await communityClient.auth.me(); awardPoints(u, "submit_post").then(checkLevelUp); } catch {}
-      setForm({ title: "", description: "", type: "idea" });
-      setPollOptions(["", ""]);
+      clearPostDraft(INITIAL_POST);
+      clearPollDraft(INITIAL_POLL_OPTIONS);
       onCreated?.();
       onOpenChange(false);
       toast({ title: "Post submitted", description: "Your post is in the community queue." });

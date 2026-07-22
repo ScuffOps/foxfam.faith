@@ -12,11 +12,23 @@ import { canBookCollab, canModerate } from "@/lib/roles";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import PublicAvatar from "@/components/PublicAvatar";
 import { getRecordAuthorAvatar, getRecordAuthorName } from "@/lib/publicAuthor";
+import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 
 const DURATION_OPTIONS = ["30 min", "1 hour", "1.5 hours", "2 hours", "2+ hours", "TBD"];
 const REQUEST_TYPES = {
   collab: "collab",
   oneOnOne: "one_on_one",
+};
+
+const INITIAL_REQUEST = {
+  request_type: REQUEST_TYPES.collab,
+  game_category: "",
+  estimated_duration: "",
+  preferred_time: "",
+  contact_preference: "discord",
+  description: "",
+  shared_chat: false,
+  extra_info: "",
 };
 
 const STATUS_STYLES = {
@@ -33,16 +45,7 @@ export default function CollabRequests() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const [form, setForm] = useState({
-    request_type: REQUEST_TYPES.collab,
-    game_category: "",
-    estimated_duration: "",
-    preferred_time: "",
-    contact_preference: "discord",
-    description: "",
-    shared_chat: false,
-    extra_info: "",
-  });
+  const [form, setForm, { clearDraft }] = usePersistentDraft("collab-request.new", INITIAL_REQUEST);
 
   const loadData = async () => {
     setLoading(true);
@@ -99,7 +102,7 @@ export default function CollabRequests() {
       status: "pending",
     });
     toast({ title: isOneOnOne ? "✦ Appointment request submitted!" : "✦ Collab request submitted!", description: "The mod team will review it shortly." });
-    setForm({ request_type: REQUEST_TYPES.collab, game_category: "", estimated_duration: "", preferred_time: "", contact_preference: "discord", description: "", shared_chat: false, extra_info: "" });
+    clearDraft(INITIAL_REQUEST);
     loadData();
     setSubmitting(false);
   };
@@ -191,6 +194,7 @@ export default function CollabRequests() {
                     {DURATION_OPTIONS.map((d) => (
                       <button
                         key={d}
+                        type="button"
                         onClick={() => handleChange("estimated_duration", d)}
                         className={`rounded-lg px-3 py-1 text-xs font-medium border transition-colors ${
                           form.estimated_duration === d
@@ -251,6 +255,7 @@ export default function CollabRequests() {
                     </div>
                   </div>
                   <button
+                    type="button"
                     onClick={() => handleChange("shared_chat", !form.shared_chat)}
                     className={`relative h-5 w-9 rounded-full transition-colors ${form.shared_chat ? "bg-primary" : "bg-border"}`}
                   >

@@ -204,6 +204,20 @@ async function main() {
     await page.waitForTimeout(400);
     if (calls.markRead < 1) failures.push("Opening alerts did not mark notifications read.");
 
+    await page.goto(`${baseUrl}/community`, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(600);
+    await page.getByRole("button", { name: /^New Post$/ }).click();
+    await page.getByPlaceholder("What's on your mind?").fill("Focus-safe community draft");
+    await page.locator(".ql-editor").fill("This community draft survives focus changes and reloads.");
+    await page.keyboard.press("Tab");
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(600);
+    await page.getByRole("button", { name: /^New Post$/ }).click();
+    const communityTitle = await page.getByPlaceholder("What's on your mind?").inputValue();
+    const communityBody = await page.locator(".ql-editor").innerText();
+    if (communityTitle !== "Focus-safe community draft") failures.push("Community title draft did not persist after reload.");
+    if (!communityBody.includes("survives focus changes")) failures.push("Community body draft did not persist after reload.");
+
     await page.goto(`${baseUrl}/reliquary`, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(600);
     await page.getByRole("button", { name: /New Post/i }).click();

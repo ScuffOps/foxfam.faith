@@ -9,6 +9,7 @@ import { canEditCommunityRecord } from "@/lib/editPermissions";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import PublicAvatar from "@/components/PublicAvatar";
 import { getRecordAuthorAvatar, getRecordAuthorName } from "@/lib/publicAuthor";
+import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 
 function sortOldest(items = []) {
   return [...items].sort((a, b) => new Date(a.created_date || 0) - new Date(b.created_date || 0));
@@ -39,7 +40,12 @@ export default function CommunityComments({ post, user, onRefresh }) {
   const [open, setOpen] = useState(false);
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [commentText, setCommentText] = useState("");
+  const [commentDraft, setCommentDraft, { clearDraft: clearCommentDraft }] = usePersistentDraft(
+    `community-comment.${post.id}`,
+    { text: "" },
+  );
+  const commentText = commentDraft.text;
+  const setCommentText = (text) => setCommentDraft({ text });
   const [replyParentId, setReplyParentId] = useState("");
   const [replyText, setReplyText] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -90,7 +96,7 @@ export default function CommunityComments({ post, user, onRefresh }) {
       await communityClient.entities.CommunityPost.update(post.id, {
         comment_count: (post.comment_count || 0) + 1,
       });
-      setCommentText("");
+      clearCommentDraft({ text: "" });
       setReplyText("");
       setReplyParentId("");
       setOpen(true);
