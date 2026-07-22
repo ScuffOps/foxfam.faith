@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import GlassCard from "../GlassCard";
 import { canEditCommunityRecord } from "@/lib/editPermissions";
+import PublicAvatar from "@/components/PublicAvatar";
+import { getRecordAuthorAvatar, getRecordAuthorName } from "@/lib/publicAuthor";
 
 const CATEGORY_META = {
   bug_report:          { label: "Bug Report",          icon: "🐛", color: "text-destructive bg-destructive/15" },
@@ -116,8 +118,9 @@ export default function SuggestionCard({ suggestion, isAdmin, user, onRefresh })
       )}
 
       <div className="flex items-center justify-between gap-2 pt-1">
-        <span className="text-xs text-muted-foreground">
-          by {suggestion.is_anonymous ? "Guest" : (suggestion.submitted_by_name || "Guest")}
+        <span className="flex items-center gap-2 text-xs text-muted-foreground">
+          <PublicAvatar src={suggestion.is_anonymous ? "" : getRecordAuthorAvatar(suggestion)} name={suggestion.is_anonymous ? "Guest" : getRecordAuthorName(suggestion)} size="xs" />
+          by {suggestion.is_anonymous ? "Guest" : getRecordAuthorName(suggestion)}
         </span>
         {isAdmin && (
           <Select value={suggestion.status} onValueChange={handleStatusChange}>

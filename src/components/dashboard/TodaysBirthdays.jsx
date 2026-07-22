@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { communityClient } from "@/api/communityClient";
 import { Cake, PartyPopper } from "lucide-react";
 import GlassCard from "../GlassCard";
+import PublicAvatar from "@/components/PublicAvatar";
+import { getRecordAuthorAvatar } from "@/lib/publicAuthor";
 
 function getBirthdayParts(dateValue) {
   const [year, month, day] = String(dateValue || "").split("T")[0].split("-").map(Number);
@@ -63,7 +65,8 @@ export default function TodaysBirthdays() {
           {birthdays.map((b) => (
             <div key={b.id} className="dashboard-list-row flex items-center gap-3 rounded-lg px-3 py-2.5">
               <PartyPopper className="h-4 w-4 text-chart-5" />
-              <div className="min-w-0">
+              <PublicAvatar src={getRecordAuthorAvatar(b)} name={b.display_name} size="xs" />
+              <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">
                   {formatBirthday(b.birthday_date)} / {b.display_name}
                 </p>

@@ -13,6 +13,8 @@ import RichTextContent from "../RichTextContent";
 import { getCommunityActorKey } from "@/lib/communityActor";
 import { canEditCommunityRecord } from "@/lib/editPermissions";
 import CommunityComments from "@/components/community/CommunityComments";
+import PublicAvatar from "@/components/PublicAvatar";
+import { getRecordAuthorAvatar, getRecordAuthorName } from "@/lib/publicAuthor";
 
 const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
 
@@ -216,8 +218,9 @@ export default function PollCard({ post, isAdmin, user, onRefresh }) {
         })}
       </div>
       <div className="mt-3 flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">
-          {totalVotes} total votes · by {post.submitted_by_name || "Guest"}
+        <span className="flex items-center gap-2 text-xs text-muted-foreground">
+          <PublicAvatar src={getRecordAuthorAvatar(post)} name={getRecordAuthorName(post)} size="xs" />
+          {totalVotes} total votes · by {getRecordAuthorName(post)}
         </span>
         <div className="flex gap-1">
           {isAdmin && post.status === "pending" && (

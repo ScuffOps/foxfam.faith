@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { communityClient } from "@/api/communityClient";
-import { Settings2, Link2, Shield, LogOut, CheckCircle, Palette, Bell, ChevronDown, ChevronUp, UserCircle2, CalendarDays, MessagesSquare, Radio, Apple, Save } from "lucide-react";
+import { Settings2, Link2, Shield, LogOut, LogIn, CheckCircle, Palette, Bell, ChevronDown, ChevronUp, UserCircle2, CalendarDays, MessagesSquare, Radio, Save } from "lucide-react";
 import AlertPreferences from "../components/settings/AlertPreferences";
 import AvatarUpload from "../components/AvatarUpload";
 import AccentColorPicker from "../components/AccentColorPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import GlassCard from "../components/GlassCard";
 import RankBadge from "../components/RankBadge";
@@ -39,13 +40,6 @@ const OAUTH_PROVIDERS = [
     icon: MessagesSquare,
     copy: "Link Discord for identity, roles, and the future ping machinery.",
   },
-  {
-    key: "apple",
-    authProvider: "apple",
-    provider: "Apple",
-    icon: Apple,
-    copy: "Link Apple if you prefer your login ritual a little quieter.",
-  },
 ];
 
 function getIdentityLabel(identity) {
@@ -70,7 +64,7 @@ export default function Settings() {
   const [linkedIdentities, setLinkedIdentities] = useState([]);
   const [identityLoading, setIdentityLoading] = useState(false);
   const [linkingProvider, setLinkingProvider] = useState("");
-  const [profileForm, setProfileForm] = useState({ displayName: "", email: "" });
+  const [profileForm, setProfileForm] = useState({ displayName: "", email: "", status: "", bio: "", favoriteShrine: "" });
   const [savingProfile, setSavingProfile] = useState("");
   const [calendarSyncStatus, setCalendarSyncStatus] = useState(null);
   const [calendarSyncLoading, setCalendarSyncLoading] = useState(false);
@@ -142,7 +136,13 @@ export default function Settings() {
       try {
         const me = await communityClient.auth.me();
         setUser(me);
-        setProfileForm({ displayName: getPublicDisplayName(me, ""), email: me.email || "" });
+        setProfileForm({
+          displayName: getPublicDisplayName(me, ""),
+          email: me.email || "",
+          status: me.profile_status || "",
+          bio: me.bio || "",
+          favoriteShrine: me.favorite_shrine || "",
+        });
         const levels = await communityClient.entities.UserLevel.filter({ user_key: getPrivateUserKey(me) });
         if (levels.length > 0) {
           setUserLevel(levels[0]);
@@ -232,6 +232,23 @@ export default function Settings() {
     }
   };
 
+  const handleSaveProfileDetails = async () => {
+    setSavingProfile("details");
+    try {
+      const updated = await communityClient.auth.updateMe({
+        profile_status: profileForm.status.trim().slice(0, 80),
+        bio: profileForm.bio.trim().slice(0, 500),
+        favorite_shrine: profileForm.favoriteShrine.trim().slice(0, 80),
+      });
+      setUser(updated);
+      toast({ title: "Profile card updated" });
+    } catch (error) {
+      toast({ title: "Profile details could not be saved", description: error?.message || "Refresh and try again.", variant: "destructive" });
+    } finally {
+      setSavingProfile("");
+    }
+  };
+
   const handleSaveEmail = async () => {
     const email = profileForm.email.trim();
     if (!email) {
@@ -259,6 +276,19 @@ export default function Settings() {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="mx-auto max-w-xl animate-fade-in">
+        <GlassCard className="text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-primary/15 text-primary"><LogIn className="h-6 w-6" /></div>
+          <h1 className="mt-4 font-heading text-2xl font-bold">Make This Profile Yours</h1>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">Sign in with Twitch or Discord to save your public name, profile picture, notification choices, and account connections.</p>
+          <Button className="mt-5 gap-2" onClick={() => communityClient.auth.redirectToLogin()}><LogIn className="h-4 w-4" /> Sign in</Button>
+        </GlassCard>
       </div>
     );
   }
@@ -336,6 +366,23 @@ export default function Settings() {
                 <p className="text-xs text-muted-foreground">{getRoleLabel(user?.role)}</p>
               </div>
               <Shield className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="space-y-3 rounded-lg bg-secondary/50 px-4 py-3">
+              <label className="block">
+                <span className="text-sm font-medium">Status line</span>
+                <Input value={profileForm.status} maxLength={80} onChange={(event) => setProfileForm((current) => ({ ...current, status: event.target.value }))} className="mt-1.5 bg-background/70" placeholder="What are you up to?" />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium">About you</span>
+                <Textarea value={profileForm.bio} maxLength={500} onChange={(event) => setProfileForm((current) => ({ ...current, bio: event.target.value }))} className="mt-1.5 min-h-24 bg-background/70" placeholder="A little lore for your profile card..." />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium">Favorite shrine space</span>
+                <Input value={profileForm.favoriteShrine} maxLength={80} onChange={(event) => setProfileForm((current) => ({ ...current, favoriteShrine: event.target.value }))} className="mt-1.5 bg-background/70" placeholder="Prayer Wall, Reliquary, Forum..." />
+              </label>
+              <div className="flex justify-end">
+                <Button onClick={handleSaveProfileDetails} disabled={savingProfile === "details"} className="gap-2"><Save className="h-4 w-4" /> Save profile card</Button>
+              </div>
             </div>
           </div>
         </SettingsSection>
@@ -417,7 +464,7 @@ export default function Settings() {
 
         {/* Alert Preferences */}
         <SettingsSection title="Alert Preferences" icon={Bell} accentClass="bg-primary/15 text-primary">
-          <AlertPreferences />
+          <AlertPreferences user={user} onUserUpdated={setUser} />
         </SettingsSection>
 
         {/* App Settings */}

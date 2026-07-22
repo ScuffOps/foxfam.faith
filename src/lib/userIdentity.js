@@ -2,6 +2,7 @@ const GUEST_PROFILE_KEY = "commhub_guest_profile";
 const LOCAL_AVATAR_KEY = "commhub_user_avatar";
 
 export function getGuestProfile() {
+  if (typeof window === "undefined") return {};
   try {
     return JSON.parse(localStorage.getItem(GUEST_PROFILE_KEY) || "{}");
   } catch {
@@ -28,7 +29,8 @@ export function getPublicDisplayName(user, fallback = "Guest") {
 }
 
 export function getPublicAvatar(user) {
-  return user?.avatar_url || localStorage.getItem(LOCAL_AVATAR_KEY) || "";
+  if (user?.avatar_url) return user.avatar_url;
+  return typeof window === "undefined" ? "" : localStorage.getItem(LOCAL_AVATAR_KEY) || "";
 }
 
 export function getInitials(name) {

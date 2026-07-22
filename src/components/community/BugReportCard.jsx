@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { canEditCommunityRecord } from "@/lib/editPermissions";
+import PublicAvatar from "@/components/PublicAvatar";
+import { getRecordAuthorAvatar, getRecordAuthorName } from "@/lib/publicAuthor";
 
 const statusClasses = {
   open: "bg-chart-4/15 text-chart-4",
@@ -145,7 +147,7 @@ export default function BugReportCard({ report, isAdmin = false, user, onRefresh
       )}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/70 pt-3 text-[11px] text-muted-foreground">
-        <span>by {report.submitted_by_name || "Guest"}</span>
+        <span className="flex items-center gap-2"><PublicAvatar src={getRecordAuthorAvatar(report)} name={getRecordAuthorName(report)} size="xs" />by {getRecordAuthorName(report)}</span>
         <span className="flex items-center gap-1"><Monitor className="h-3 w-3" /> {report.screen_resolution || "unknown screen"}</span>
         <span className="flex min-w-0 items-center gap-1"><RadioTower className="h-3 w-3" /> <span className="truncate">{report.os || "unknown OS"}</span></span>
         {isAdmin && (

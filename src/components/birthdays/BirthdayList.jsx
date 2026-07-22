@@ -1,5 +1,7 @@
 import { format, differenceInDays, setYear } from "date-fns";
 import { Cake, Check, X } from "lucide-react";
+import PublicAvatar from "@/components/PublicAvatar";
+import { getRecordAuthorAvatar, getRecordAuthorName } from "@/lib/publicAuthor";
 
 function getDaysUntil(birthday_date) {
   const today = new Date();
@@ -39,7 +41,6 @@ export default function BirthdayList({ birthdays, isAdmin, onApprove, onReject }
           {approved.map((b, i) => {
             const daysUntil = getDaysUntil(b.birthday_date);
             const colorClass = AVATAR_COLORS[i % AVATAR_COLORS.length];
-            const initials = b.display_name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
             const isToday = daysUntil === 0;
             const isSoon = daysUntil <= 7;
             return (
@@ -58,9 +59,7 @@ export default function BirthdayList({ birthdays, isAdmin, onApprove, onReject }
                     🎂 Today!
                   </span>
                 )}
-                <div className={`mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br ${colorClass} text-lg font-bold text-foreground border border-border overflow-hidden`}>
-                  {initials}
-                </div>
+                <PublicAvatar src={getRecordAuthorAvatar(b)} name={b.display_name} size="lg" className={`mb-3 bg-gradient-to-br ${colorClass}`} />
                 <p className="font-heading font-semibold text-sm leading-tight mb-1">{b.display_name}</p>
                 <p className="text-[10px] text-muted-foreground mb-2">
                   {format(new Date(b.birthday_date + "T00:00:00"), "MMM d")}
@@ -96,7 +95,10 @@ export default function BirthdayList({ birthdays, isAdmin, onApprove, onReject }
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-sm">{b.display_name}</p>
-                  <p className="text-xs text-muted-foreground">by {b.submitted_by_name || "Guest"}{b.note && ` · "${b.note}"`}</p>
+                  <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <PublicAvatar src={getRecordAuthorAvatar(b)} name={getRecordAuthorName(b)} size="xs" />
+                    by {getRecordAuthorName(b)}{b.note && ` · "${b.note}"`}
+                  </p>
                 </div>
                 {b.status === "pending" && (
                   <div className="flex gap-1.5">

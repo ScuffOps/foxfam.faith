@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { buildPublicAuthorSnapshot } from "@/lib/publicAuthor";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey =
@@ -22,7 +23,7 @@ export const LOGIN_EVENT_NAME = "foxfam:open-login";
 const PUBLIC_ROW_SELECT = "id,data,created_at,updated_at";
 const OWNER_ROW_SELECT = "id,user_id,data,created_at,updated_at";
 const PUBLIC_PROFILE_SELECT =
-  "id,role,display_name,avatar_url,accent_color,notification_preferences,onboarded,created_at,updated_at";
+  "id,role,display_name,avatar_url,accent_color,notification_preferences,onboarded,profile_status,bio,favorite_shrine,created_at,updated_at";
 const AUTO_PROFILE_NAMES = new Set(["guest", "guest fox", "foxfam member"]);
 
 const ENTITY_TABLES = {
@@ -137,6 +138,9 @@ function normalizeProfile(row) {
     accent_color: row.accent_color || "",
     notification_preferences: row.notification_preferences || {},
     onboarded: row.onboarded ?? false,
+    profile_status: row.profile_status || "",
+    bio: row.bio || "",
+    favorite_shrine: row.favorite_shrine || "",
   };
 }
 
@@ -305,14 +309,17 @@ function createEntityApi(entityName) {
     async create(payload = {}) {
       const client = getClient();
       const { data: authData } = await client.auth.getUser();
-      const user = authData?.user;
+      const authUser = authData?.user;
+      const user = authUser ? await ensureProfile(authUser) : null;
+      const publicData = dataOnly(payload);
+      const authorSnapshot = buildPublicAuthorSnapshot(user, publicData);
       const { data, error } = await selectEntityRows((select) =>
         client
           .from(table)
           .insert({
-            user_id: user?.id || null,
+            user_id: authUser?.id || null,
             created_by: null,
-            data: dataOnly(payload),
+            data: { ...authorSnapshot, ...publicData },
           })
           .select(select)
           .single(),
@@ -388,6 +395,47 @@ const userEntity = {
 
 
 const notificationApi = {
+  async enablePush() {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      throw new Error("Push notifications are not supported by this browser.");
+    }
+    const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+    if (!publicKey) throw new Error("Push delivery is not configured yet.");
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") throw new Error("Notification permission was not granted.");
+    const registration = await navigator.serviceWorker.register("/notification-sw.js");
+    const existing = await registration.pushManager.getSubscription();
+    const subscription = existing || await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    });
+    const client = getClient();
+    const user = await getCurrentSessionUser();
+    const json = subscription.toJSON();
+    const { error } = await client.from("notification_push_subscriptions").upsert({
+      user_id: user.id,
+      endpoint: subscription.endpoint,
+      p256dh: json.keys?.p256dh || "",
+      auth: json.keys?.auth || "",
+      user_agent: navigator.userAgent.slice(0, 500),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "user_id,endpoint" });
+    if (error) throw error;
+    return true;
+  },
+
+  async disablePush() {
+    if (!("serviceWorker" in navigator)) return true;
+    const registration = await navigator.serviceWorker.getRegistration("/notification-sw.js");
+    const subscription = await registration?.pushManager.getSubscription();
+    if (!subscription) return true;
+    const client = getClient();
+    const user = await getCurrentSessionUser();
+    await client.from("notification_push_subscriptions").delete().eq("user_id", user.id).eq("endpoint", subscription.endpoint);
+    await subscription.unsubscribe();
+    return true;
+  },
+
   async markRead(ids = []) {
     const notificationIds = [...new Set(ids.filter(Boolean))];
     if (notificationIds.length === 0) return true;
@@ -399,6 +447,13 @@ const notificationApi = {
     return true;
   },
 };
+
+function urlBase64ToUint8Array(value) {
+  const padding = "=".repeat((4 - (value.length % 4)) % 4);
+  const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = window.atob(base64);
+  return Uint8Array.from([...raw].map((character) => character.charCodeAt(0)));
+}
 
 const communityInteractionApi = {
   async toggleCommentUpvote(commentId, actorKey) {
@@ -457,49 +512,11 @@ export const communityClient = {
       return data;
     },
 
-    async signInWithEmailPassword(email, password) {
-      const client = getClient();
-      const cleanedEmail = String(email || "").trim();
-      if (!cleanedEmail) throw new Error("Enter an email address.");
-      if (!password) throw new Error("Enter your password.");
-      const { error } = await client.auth.signInWithPassword({
-        email: cleanedEmail,
-        password,
-      });
-      if (error) throw error;
-      return true;
-    },
-
-    async signUpWithEmailPassword({ email, password, displayName = "" } = {}) {
-      const client = getClient();
-      const cleanedEmail = String(email || "").trim();
-      const cleanedDisplayName = String(displayName || "").trim();
-      if (!cleanedEmail) throw new Error("Enter an email address.");
-      if (!password || password.length < 6) throw new Error("Use a password with at least 6 characters.");
-      const { data, error } = await client.auth.signUp({
-        email: cleanedEmail,
-        password,
-        options: {
-          emailRedirectTo: getAuthRedirectUrl(),
-          data: cleanedDisplayName ? { display_name: cleanedDisplayName, name: cleanedDisplayName } : undefined,
-        },
-      });
-      if (error) throw error;
-      return data;
-    },
-
     async redirectToLogin() {
       if (typeof window !== "undefined") {
         const loginEvent = new CustomEvent(LOGIN_EVENT_NAME, { cancelable: true });
         window.dispatchEvent(loginEvent);
-        if (loginEvent.defaultPrevented) return null;
       }
-
-      const email = window.prompt("Enter your email:");
-      if (!email) return null;
-      const password = window.prompt("Enter your password:");
-      if (!password) return null;
-      await this.signInWithEmailPassword(email, password);
       return null;
     },
 

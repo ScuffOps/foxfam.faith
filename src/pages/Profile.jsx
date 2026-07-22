@@ -12,6 +12,7 @@ import { getPrivateUserKey } from "@/lib/communityActor";
 import { useAuth } from "@/lib/AuthContext";
 import { getRoleLabel } from "@/lib/roles";
 import { getPublicAvatar, getPublicDisplayName } from "@/lib/userIdentity";
+import PublicAvatar from "@/components/PublicAvatar";
 import { loadCharmRollEligibility, loadUserRelicInventory, rollUserRelicCharm, setEquippedCharm } from "@/lib/relicService";
 import { groupCharmsByRarity, RELIC_RARITY_META } from "@/lib/relicCharms";
 import { getProfileRelicTeaser } from "@/lib/profileRelicTeasers";
@@ -129,11 +130,13 @@ export default function Profile() {
       <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <Avatar avatar={getPublicAvatar(user)} name={getPublicDisplayName(user, "Profile")} />
+            <PublicAvatar src={getPublicAvatar(user)} name={getPublicDisplayName(user, "Profile")} size="lg" className="rounded-xl" />
             <div className="min-w-0 flex-1">
               <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-muted-foreground">Profile</p>
               <h1 className="mt-1 truncate font-heading text-2xl font-bold">{getPublicDisplayName(user, "Profile")}</h1>
               <p className="text-sm text-muted-foreground">{getRoleLabel(user.role)}</p>
+              {user.profile_status && <p className="mt-2 text-sm text-primary">{user.profile_status}</p>}
+              {user.bio && <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{user.bio}</p>}
             </div>
             <Button asChild variant="outline" className="gap-2">
               <Link to="/settings"><Settings className="h-4 w-4" /> Settings</Link>
@@ -233,19 +236,6 @@ function ProfileStat({ icon: Icon, label, value }) {
       <Icon className="h-4 w-4 text-primary" />
       <p className="mt-3 text-2xl font-bold">{value}</p>
       <p className="text-xs text-muted-foreground">{label}</p>
-    </div>
-  );
-}
-
-function Avatar({ avatar, name }) {
-  if (avatar) {
-    return <img src={avatar} alt="" className="h-16 w-16 shrink-0 rounded-xl border border-primary/25 object-cover" />;
-  }
-
-  const initials = String(name || "FF").split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
-  return (
-    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/15 font-heading text-lg font-bold text-primary">
-      {initials}
     </div>
   );
 }

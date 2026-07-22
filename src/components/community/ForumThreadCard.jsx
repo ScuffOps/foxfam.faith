@@ -12,6 +12,8 @@ import { getCommunityActorKey } from "@/lib/communityActor";
 import { canEditCommunityRecord } from "@/lib/editPermissions";
 import { PRAISE_BURST_DURATION_MS, PRAISE_REFRESH_DELAY_MS } from "@/lib/praiseEffects";
 import { formatUploadSize, getUploadValidationError } from "@/lib/uploadSafety";
+import PublicAvatar from "@/components/PublicAvatar";
+import { getRecordAuthorAvatar, getRecordAuthorName } from "@/lib/publicAuthor";
 
 const MAX_REPLY_ATTACHMENTS = 3;
 
@@ -285,7 +287,10 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
           ) : (
             <h3 className="font-heading text-lg font-semibold">{thread.title}</h3>
           )}
-          <p className="mt-1 text-xs text-muted-foreground">by {thread.author_name || "Favored Fox"}</p>
+          <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+            <PublicAvatar src={getRecordAuthorAvatar(thread)} name={getRecordAuthorName(thread, "Favored Fox")} size="xs" />
+            by {getRecordAuthorName(thread, "Favored Fox")}
+          </p>
           {Array.isArray(thread.attachments) && thread.attachments.length > 0 ? (
             <span className="mt-2 inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
               <Paperclip className="h-3 w-3" /> {thread.attachments.length} attachment{thread.attachments.length === 1 ? "" : "s"}
@@ -419,13 +424,11 @@ export default function ForumThreadCard({ thread, user, isAdmin, onRefresh }) {
           ) : (
             comments.map((comment) => (
               <div key={comment.id} className="flex gap-2">
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold text-primary">
-                  {(comment.author_name || "?")[0].toUpperCase()}
-                </div>
+                  <PublicAvatar src={getRecordAuthorAvatar(comment)} name={getRecordAuthorName(comment)} size="xs" />
                 <div className="flex-1 rounded-lg bg-secondary/50 px-3 py-2">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <span className="text-xs font-semibold text-foreground">{comment.author_name || "Guest"} </span>
+                      <span className="text-xs font-semibold text-foreground">{getRecordAuthorName(comment)} </span>
                       <RichTextContent className="inline text-xs text-muted-foreground" inline>
                         {comment.message}
                       </RichTextContent>

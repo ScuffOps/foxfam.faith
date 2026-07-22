@@ -15,6 +15,8 @@ import CommunityComments from "@/components/community/CommunityComments";
 import { getCommunityActorKey } from "@/lib/communityActor";
 import { canEditCommunityRecord } from "@/lib/editPermissions";
 import { PRAISE_BURST_DURATION_MS, PRAISE_REFRESH_DELAY_MS } from "@/lib/praiseEffects";
+import PublicAvatar from "@/components/PublicAvatar";
+import { getRecordAuthorAvatar, getRecordAuthorName } from "@/lib/publicAuthor";
 
 const typeIcons = {
   idea: Lightbulb,
@@ -167,7 +169,10 @@ export default function IdeaCard({ post, isAdmin, user, onRefresh }) {
           </RichTextContent>
         )}
         <div className="mt-2 flex flex-wrap items-center gap-3">
-          <span className="text-xs text-muted-foreground">by {post.submitted_by_name || "Guest"}</span>
+          <span className="flex items-center gap-2 text-xs text-muted-foreground">
+            <PublicAvatar src={getRecordAuthorAvatar(post)} name={getRecordAuthorName(post)} size="xs" />
+            by {getRecordAuthorName(post)}
+          </span>
           {isAdmin && post.status === "pending" && (
             <div className="flex gap-1">
               <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs text-success hover:bg-success/10" onClick={handleApprove}>

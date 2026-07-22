@@ -10,6 +10,8 @@ import GlassCard from "../components/GlassCard";
 import { Send, Users, Clock, Gamepad2, MessageSquareMore, CheckCircle, XCircle, Hourglass, Link2 } from "lucide-react";
 import { canBookCollab, canModerate } from "@/lib/roles";
 import { getPublicDisplayName } from "@/lib/userIdentity";
+import PublicAvatar from "@/components/PublicAvatar";
+import { getRecordAuthorAvatar, getRecordAuthorName } from "@/lib/publicAuthor";
 
 const DURATION_OPTIONS = ["30 min", "1 hour", "1.5 hours", "2 hours", "2+ hours", "TBD"];
 const REQUEST_TYPES = {
@@ -316,8 +318,9 @@ export default function CollabRequests() {
                         {req.extra_info && (
                           <p className="text-xs text-muted-foreground/70 italic mb-2">"{req.extra_info}"</p>
                         )}
-                        <p className="text-[10px] text-muted-foreground">
-                          by {req.submitted_by_name || "Creator"}
+                        <p className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                          <PublicAvatar src={getRecordAuthorAvatar(req)} name={getRecordAuthorName(req, "Creator")} size="xs" />
+                          by {getRecordAuthorName(req, "Creator")}
                         </p>
                       </div>
                       <div className="flex flex-col items-end gap-2">

@@ -3,6 +3,8 @@ import { Check, ExternalLink, FileMusic, FileText, Image, Link as LinkIcon, Shie
 import { Button } from "@/components/ui/button";
 import RichTextContent from "@/components/RichTextContent";
 import StatusBadge from "@/components/StatusBadge";
+import PublicAvatar from "@/components/PublicAvatar";
+import { getRecordAuthorAvatar, getRecordAuthorName } from "@/lib/publicAuthor";
 
 function getMediaKind(offering) {
   const fileType = String(offering.file_type || "");
@@ -78,7 +80,10 @@ export default function OfferingCard({ offering, isAdmin, onApprove, onReject, o
             {isAdmin && <StatusBadge status={offering.status || "pending"} />}
           </div>
           <h2 className="font-heading text-xl font-bold text-foreground">{offering.title}</h2>
-          <p className="mt-1 text-xs text-muted-foreground">offered by {offering.creator_name || "Guest"}</p>
+          <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+            <PublicAvatar src={getRecordAuthorAvatar(offering)} name={getRecordAuthorName(offering)} size="xs" />
+            offered by {getRecordAuthorName(offering)}
+          </p>
         </div>
         {offering.featured && (
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-chart-4/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-chart-4">

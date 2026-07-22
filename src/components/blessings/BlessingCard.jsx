@@ -10,6 +10,8 @@ import PraiseBurst from "../PraiseBurst";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { getCommunityActorKey, isGuestActor } from "@/lib/communityActor";
 import { PRAISE_BURST_DURATION_MS, PRAISE_REFRESH_DELAY_MS } from "@/lib/praiseEffects";
+import PublicAvatar from "@/components/PublicAvatar";
+import { getRecordAuthorAvatar, getRecordAuthorName } from "@/lib/publicAuthor";
 
 function downloadNameFor(title) {
   const slug = (title || "blessing").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -202,8 +204,9 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
             {showComments ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
           </button>
 
-          <span className="ml-auto text-xs text-muted-foreground">
-            {blessing.author_name || "Veri"}
+          <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+            <PublicAvatar src={getRecordAuthorAvatar(blessing)} name={getRecordAuthorName(blessing, "Veri")} size="xs" />
+            {getRecordAuthorName(blessing, "Veri")}
           </span>
 
           {isAdmin && (
@@ -224,11 +227,9 @@ export default function BlessingCard({ blessing, user, isAdmin, onRefresh }) {
             ) : (
               comments.map((comment) => (
                 <div key={comment.id} className="flex gap-2">
-                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold text-primary">
-                    {(comment.author_name || "?")[0].toUpperCase()}
-                  </div>
+                  <PublicAvatar src={getRecordAuthorAvatar(comment)} name={getRecordAuthorName(comment)} size="xs" />
                   <div className="flex-1 rounded-lg bg-secondary/50 px-3 py-2">
-                    <span className="text-xs font-semibold text-foreground">{comment.author_name || "Guest"} </span>
+                    <span className="text-xs font-semibold text-foreground">{getRecordAuthorName(comment)} </span>
                     <RichTextContent className="inline text-xs text-muted-foreground" inline>
                       {comment.message}
                     </RichTextContent>

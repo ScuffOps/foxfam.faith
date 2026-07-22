@@ -100,6 +100,7 @@ export default function SidebarProfile({ onNavigate }) {
     <Popover open={profileOpen} onOpenChange={setProfileOpen}>
       <PopoverTrigger asChild>
         <button
+          data-testid="sidebar-profile-trigger"
           className="mx-3 mb-3 flex w-[calc(100%-1.5rem)] items-center gap-3 rounded-xl border border-border/80 bg-secondary/35 px-3 py-3 text-left transition-all hover:border-primary/35 hover:bg-secondary/55"
         >
           <Avatar avatar={avatar} name={displayName} />

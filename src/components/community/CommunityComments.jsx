@@ -7,6 +7,8 @@ import RichTextContent from "@/components/RichTextContent";
 import { getCommunityActorKey } from "@/lib/communityActor";
 import { canEditCommunityRecord } from "@/lib/editPermissions";
 import { getPublicDisplayName } from "@/lib/userIdentity";
+import PublicAvatar from "@/components/PublicAvatar";
+import { getRecordAuthorAvatar, getRecordAuthorName } from "@/lib/publicAuthor";
 
 function sortOldest(items = []) {
   return [...items].sort((a, b) => new Date(a.created_date || 0) - new Date(b.created_date || 0));
@@ -221,11 +223,9 @@ function CommentNode({
   return (
     <div className="space-y-2">
       <div className="flex gap-2">
-        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold text-primary">
-          {(comment.author_name || "G")[0].toUpperCase()}
-        </div>
+        <PublicAvatar src={getRecordAuthorAvatar(comment)} name={getRecordAuthorName(comment)} size="xs" />
         <div className="min-w-0 flex-1 rounded-lg bg-secondary/50 px-3 py-2">
-          <span className="text-xs font-semibold text-foreground">{comment.author_name || "Guest"} </span>
+          <span className="text-xs font-semibold text-foreground">{getRecordAuthorName(comment)} </span>
           {editing ? (
             <div className="mt-1 flex gap-2">
               <input
