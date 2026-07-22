@@ -9,12 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { useGuestProfile } from "@/hooks/useGuestProfile";
-import { buildOfferingPayload, OFFERING_KIND_OPTIONS } from "@/lib/offerings";
+import { buildOfferingPayload, getOfferingFileValidationError, OFFERING_KIND_OPTIONS } from "@/lib/offerings";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 
 const MAX_OFFERING_FILE_SIZE = 25 * 1024 * 1024;
-const OFFERING_FILE_ACCEPT = "image/*,audio/*,video/*,.pdf,.txt,.md,.doc,.docx";
 const initialForm = {
   title: "",
   kind: "fanart",
@@ -52,6 +51,12 @@ export default function OfferingForm({ open, onOpenChange, user, onCreated }) {
   const handleFile = (event) => {
     const nextFile = event.target.files?.[0];
     if (!nextFile) return;
+    const validationError = getOfferingFileValidationError(nextFile);
+    if (validationError) {
+      setError(validationError);
+      event.target.value = "";
+      return;
+    }
     if (nextFile.size > MAX_OFFERING_FILE_SIZE) {
       setError("Please keep offering files under 25 MB for launch.");
       event.target.value = "";
@@ -163,9 +168,12 @@ export default function OfferingForm({ open, onOpenChange, user, onCreated }) {
               )}
               <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-secondary/35 px-3 py-4 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:bg-secondary hover:text-foreground">
                 <Upload className="h-4 w-4" />
-                Upload fanart, song, edit, poem, or story
-                <input type="file" accept={OFFERING_FILE_ACCEPT} className="hidden" onChange={handleFile} />
+                Upload art, audio, video, PDF, or another safe file
+                <input type="file" className="hidden" onChange={handleFile} />
               </label>
+              <p className="text-xs text-muted-foreground">
+                PNG, JPG, GIF, WebP, PDF, MP3, MP4, and other creative files are welcome. Installers, executables, and scripts are blocked.
+              </p>
             </div>
           </div>
 
@@ -194,7 +202,7 @@ export default function OfferingForm({ open, onOpenChange, user, onCreated }) {
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button onClick={handleSubmit} disabled={saving || !form.title.trim()}>
-              {saving ? <><Loader2 className="mr-1 h-4 w-4 animate-spin" /> Sending...</> : "Submit for Approval"}
+              {saving ? <><Loader2 className="mr-1 h-4 w-4 animate-spin" /> Sending...</> : "Submit Offering"}
             </Button>
           </div>
         </div>

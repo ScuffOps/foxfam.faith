@@ -2,10 +2,38 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildOfferingPayload,
+  getOfferingFileValidationError,
   getPublicOfferings,
   getVisibleOfferings,
   OFFERING_STATUS,
 } from "./offerings.js";
+
+test("offering uploads accept common media, documents, and safe creative files", () => {
+  const safeFiles = [
+    { name: "art.png", type: "image/png" },
+    { name: "song.mp3", type: "audio/mpeg" },
+    { name: "edit.mp4", type: "video/mp4" },
+    { name: "story.pdf", type: "application/pdf" },
+    { name: "project.blend", type: "application/octet-stream" },
+  ];
+
+  for (const file of safeFiles) {
+    assert.equal(getOfferingFileValidationError(file), "", file.name);
+  }
+});
+
+test("offering uploads reject installers, executables, and scripts", () => {
+  const dangerousFiles = [
+    { name: "installer.exe", type: "application/octet-stream" },
+    { name: "portal.apk", type: "application/vnd.android.package-archive" },
+    { name: "totally-art.png.sh", type: "text/plain" },
+    { name: "setup", type: "application/x-msdownload" },
+  ];
+
+  for (const file of dangerousFiles) {
+    assert.match(getOfferingFileValidationError(file), /cannot be uploaded/i, file.name);
+  }
+});
 
 test("offering submissions default to pending moderation", () => {
   const payload = buildOfferingPayload({
