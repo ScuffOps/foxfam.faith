@@ -14,6 +14,7 @@ import ProgressionLoop from "../components/ProgressionLoop";
 import { canUseAdminPanel, getRoleLabel } from "@/lib/roles";
 import { getPrivateUserKey } from "@/lib/communityActor";
 import { getPublicDisplayName } from "@/lib/userIdentity";
+import ExperiencePreferences from "@/components/settings/ExperiencePreferences";
 
 const OAUTH_PROVIDERS = [
   {
@@ -459,7 +460,13 @@ export default function Settings() {
 
         {/* Appearance */}
         <SettingsSection title="Appearance" icon={Palette} accentClass="bg-chart-5/15 text-chart-5">
-          <AccentColorPicker />
+          <div className="space-y-5">
+            <AccentColorPicker />
+            <div className="border-t border-border pt-4">
+              <h4 className="mb-2 text-sm font-semibold">Comfort and accessibility</h4>
+              <ExperiencePreferences />
+            </div>
+          </div>
         </SettingsSection>
 
         {/* Alert Preferences */}

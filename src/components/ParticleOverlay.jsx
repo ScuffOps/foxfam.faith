@@ -15,7 +15,7 @@ export default function ParticleOverlay({ className = "", style }) {
       muted
       playsInline
       aria-hidden="true"
-      className={`pointer-events-none absolute inset-0 h-full w-full object-cover ${className}`}
+      className={`portal-particle-overlay pointer-events-none absolute inset-0 h-full w-full object-cover ${className}`}
       style={{
         opacity: 0.65,
         mixBlendMode: "screen",

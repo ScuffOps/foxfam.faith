@@ -10,6 +10,7 @@ import { useGuestProfile } from "@/hooks/useGuestProfile";
 import { BUG_REPORT_DESCRIPTION, BUG_SEVERITY_LABELS, bugReportSchema, formatFileSize, getClientBugMetadata } from "@/lib/bugReport";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { usePersistentDraft } from "@/hooks/usePersistentDraft";
+import DraftStatus from "@/components/forms/DraftStatus";
 
 const AREA_OPTIONS = [
   "Dashboard",
@@ -106,7 +107,8 @@ export default function BugReportForm({ open, onOpenChange, onCreated }) {
   const { toast } = useToast();
   const { profile } = useGuestProfile();
   const inputRef = useRef(null);
-  const [form, setForm, { clearDraft }] = usePersistentDraft("bug-report.new", INITIAL_FORM);
+  const [form, setForm, draftState] = usePersistentDraft("bug-report.new", INITIAL_FORM);
+  const { clearDraft } = draftState;
   const [attachments, setAttachments] = useState([]);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -412,6 +414,16 @@ export default function BugReportForm({ open, onOpenChange, onCreated }) {
                   <AlertTriangle className="h-4 w-4" /> {error}
                 </div>
               )}
+
+              <DraftStatus
+                hasDraft={draftState.hasDraft}
+                restored={draftState.wasRestored}
+                hasUnsavedFiles={attachments.length > 0}
+                onDiscard={() => {
+                  clearDraft(INITIAL_FORM);
+                  setAttachments([]);
+                }}
+              />
 
               <div className="flex justify-end gap-2 border-t border-white/10 pt-4">
                 <Button type="button" variant="outline" className="border-white/15 bg-white/5 font-mono hover:bg-white/10" onClick={() => onOpenChange(false)}>Cancel</Button>

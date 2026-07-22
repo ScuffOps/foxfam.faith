@@ -48,14 +48,29 @@ function removeDraft(storageKey) {
   }
 }
 
+function hasStoredDraft(storageKey, fallback) {
+  if (!canUseStorage()) return false;
+  try {
+    const stored = window.localStorage.getItem(storageKey);
+    if (!stored) return false;
+    return JSON.stringify(JSON.parse(stored)) !== JSON.stringify(fallback);
+  } catch {
+    return false;
+  }
+}
+
 export function usePersistentDraft(scope, initialDraft) {
   const storageKey = useMemo(() => `${DRAFT_PREFIX}.${scope}.v1`, [scope]);
   const skipNextWriteRef = useRef(false);
+  const initialDraftRef = useRef(initialDraft);
+  const [wasRestored, setWasRestored] = useState(() => hasStoredDraft(storageKey, initialDraft));
   const [draft, setDraftState] = useState(() => readDraft(storageKey, initialDraft));
   const draftRef = useRef(draft);
 
   useEffect(() => {
     skipNextWriteRef.current = false;
+    initialDraftRef.current = initialDraft;
+    setWasRestored(hasStoredDraft(storageKey, initialDraft));
     const restoredDraft = readDraft(storageKey, initialDraft);
     draftRef.current = restoredDraft;
     setDraftState(restoredDraft);
@@ -100,11 +115,17 @@ export function usePersistentDraft(scope, initialDraft) {
     (nextDraft = initialDraft) => {
       skipNextWriteRef.current = true;
       removeDraft(storageKey);
+      setWasRestored(false);
       draftRef.current = nextDraft;
       setDraftState(nextDraft);
     },
     [initialDraft, storageKey]
   );
 
-  return [draft, setDraft, { clearDraft, storageKey, updateDraft }];
+  const hasDraft = useMemo(
+    () => JSON.stringify(draft) !== JSON.stringify(initialDraftRef.current),
+    [draft],
+  );
+
+  return [draft, setDraft, { clearDraft, hasDraft, storageKey, updateDraft, wasRestored }];
 }

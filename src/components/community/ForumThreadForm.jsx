@@ -13,6 +13,7 @@ import { getPublicDisplayName } from "@/lib/userIdentity";
 import { useToast } from "@/components/ui/use-toast";
 import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 import { formatUploadSize, getUploadValidationError } from "@/lib/uploadSafety";
+import DraftStatus from "@/components/forms/DraftStatus";
 
 const MAX_FORUM_ATTACHMENTS = 5;
 
@@ -25,7 +26,8 @@ const getInitialForm = (category = "general") => ({
 
 export default function ForumThreadForm({ open, onOpenChange, user, onCreated, defaultCategory = "general" }) {
   const { toast } = useToast();
-  const [form, setForm, { clearDraft }] = usePersistentDraft("forum-thread.new", getInitialForm(defaultCategory));
+  const [form, setForm, draftState] = usePersistentDraft("forum-thread.new", getInitialForm(defaultCategory));
+  const { clearDraft } = draftState;
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [attachmentError, setAttachmentError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -176,6 +178,13 @@ export default function ForumThreadForm({ open, onOpenChange, user, onCreated, d
               {attachmentError ? <p className="text-sm text-destructive">{attachmentError}</p> : null}
             </div>
           </div>
+
+          <DraftStatus
+            hasDraft={draftState.hasDraft}
+            restored={draftState.wasRestored}
+            hasUnsavedFiles={selectedFiles.length > 0}
+            onDiscard={() => clearDraft(getInitialForm(defaultCategory))}
+          />
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

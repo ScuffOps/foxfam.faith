@@ -442,6 +442,7 @@ function filterBrainDumps(items, filters) {
 
 function playTaskCompleteChime() {
   if (typeof window === "undefined") return;
+  if (document.documentElement.dataset.muteSounds === "true") return;
   const AudioContext = window.AudioContext || window.webkitAudioContext;
   if (!AudioContext) return;
   try {

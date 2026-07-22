@@ -9,6 +9,7 @@ import { getRichTextPlainText } from "@/components/RichTextContent";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { usePersistentDraft } from "@/hooks/usePersistentDraft";
+import DraftStatus from "@/components/forms/DraftStatus";
 
 const initialForm = {
   title: "",
@@ -33,7 +34,8 @@ function toForm(entry) {
 
 export default function ReliquaryForm({ open, onOpenChange, user, entry, onSaved }) {
   const draftScope = entry?.id ? `reliquary.edit.${entry.id}` : "reliquary.new";
-  const [form, setForm, { clearDraft, updateDraft }] = usePersistentDraft(draftScope, toForm(entry));
+  const [form, setForm, draftState] = usePersistentDraft(draftScope, toForm(entry));
+  const { clearDraft, updateDraft } = draftState;
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
   const [saving, setSaving] = useState(false);
@@ -171,8 +173,19 @@ export default function ReliquaryForm({ open, onOpenChange, user, entry, onSaved
             />
           </div>
 
+          <DraftStatus
+            hasDraft={draftState.hasDraft}
+            restored={draftState.wasRestored}
+            hasUnsavedFiles={Boolean(imageFile)}
+            onDiscard={() => {
+              clearDraft(toForm(entry));
+              setImageFile(null);
+              setImagePreview(entry?.image_url || "");
+            }}
+          />
+
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button onClick={handleSubmit} disabled={saving || !form.title.trim() || !getRichTextPlainText(form.body)}>
               {saving ? <><Loader2 className="mr-1 h-4 w-4 animate-spin" /> Saving...</> : isEditing ? "Update Post" : "Place in Reliquary"}
             </Button>

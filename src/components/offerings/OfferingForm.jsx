@@ -13,6 +13,7 @@ import { buildOfferingPayload, getOfferingFileValidationError, OFFERING_KIND_OPT
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 import { formatUploadSize, MAX_COMMUNITY_FILE_SIZE } from "@/lib/uploadSafety";
+import DraftStatus from "@/components/forms/DraftStatus";
 
 const initialForm = {
   title: "",
@@ -25,7 +26,8 @@ const initialForm = {
 export default function OfferingForm({ open, onOpenChange, user, onCreated }) {
   const { toast } = useToast();
   const { profile } = useGuestProfile();
-  const [form, setForm, { clearDraft }] = usePersistentDraft("offering.new", initialForm);
+  const [form, setForm, draftState] = usePersistentDraft("offering.new", initialForm);
+  const { clearDraft } = draftState;
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -193,8 +195,18 @@ export default function OfferingForm({ open, onOpenChange, user, onCreated }) {
 
           {error && <p className="rounded-lg border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
 
+          <DraftStatus
+            hasDraft={draftState.hasDraft}
+            restored={draftState.wasRestored}
+            hasUnsavedFiles={Boolean(file)}
+            onDiscard={() => {
+              clearDraft(initialForm);
+              setFile(null);
+            }}
+          />
+
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button onClick={handleSubmit} disabled={saving || !form.title.trim()}>
               {saving ? <><Loader2 className="mr-1 h-4 w-4 animate-spin" /> Sending...</> : "Submit Offering"}
             </Button>

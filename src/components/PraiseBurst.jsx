@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { getPraiseBurstOverlayStyle, MAGICAL_PRAISE_TONES } from "@/lib/praiseEffects";
+import { arePortalSoundsMuted } from "@/lib/experiencePreferences";
 
 function playPraiseMagicBurst() {
   if (typeof window === "undefined") return;
+  if (arePortalSoundsMuted()) return;
   if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
 
   try {

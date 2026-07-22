@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import ReactQuill, { Quill } from "react-quill";
 import "react-quill/dist/quill.snow.css";
 
@@ -52,8 +53,36 @@ const formats = [
 ];
 
 export default function RichTextEditor({ value, onChange, placeholder, minHeight = 150 }) {
+  const editorRef = useRef(null);
+
+  useEffect(() => {
+    const toolbar = editorRef.current?.querySelector(".ql-toolbar");
+    if (!toolbar) return;
+    const labels = {
+      ".ql-bold": "Bold",
+      ".ql-italic": "Italic",
+      ".ql-underline": "Underline",
+      ".ql-strike": "Strikethrough",
+      ".ql-blockquote": "Block quote",
+      ".ql-code-block": "Code block",
+      ".ql-link": "Add link",
+      ".ql-code": "Inline code",
+      ".ql-spoiler": "Spoiler text",
+      ".ql-clean": "Clear formatting",
+      ".ql-list[value='ordered']": "Numbered list",
+      ".ql-list[value='bullet']": "Bulleted list",
+    };
+    Object.entries(labels).forEach(([selector, label]) => {
+      const control = toolbar.querySelector(selector);
+      if (control) {
+        control.setAttribute("aria-label", label);
+        control.setAttribute("title", label);
+      }
+    });
+  }, []);
+
   return (
-    <div className="rich-text-editor mt-1.5 overflow-hidden rounded-lg border border-border bg-secondary/60">
+    <div ref={editorRef} className="rich-text-editor mt-1.5 overflow-hidden rounded-lg border border-border bg-secondary/60">
       <ReactQuill
         theme="snow"
         value={value}

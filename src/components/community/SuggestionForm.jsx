@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { useToast } from "@/components/ui/use-toast";
 import { usePersistentDraft } from "@/hooks/usePersistentDraft";
+import DraftStatus from "@/components/forms/DraftStatus";
 
 const CATEGORIES = [
   { value: "bug_report", label: "🐛 Bug Report" },
@@ -27,7 +28,8 @@ const INITIAL_SUGGESTION_FORM = { title: "", description: "", category: "other_f
 export default function SuggestionForm({ open, onOpenChange, onCreated }) {
   const { toast } = useToast();
   const { profile } = useGuestProfile();
-  const [form, setForm, { clearDraft }] = usePersistentDraft("suggestion.new", INITIAL_SUGGESTION_FORM);
+  const [form, setForm, draftState] = usePersistentDraft("suggestion.new", INITIAL_SUGGESTION_FORM);
+  const { clearDraft } = draftState;
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -113,6 +115,11 @@ export default function SuggestionForm({ open, onOpenChange, onCreated }) {
               Submit anonymously
             </Label>
           </div>
+          <DraftStatus
+            hasDraft={draftState.hasDraft}
+            restored={draftState.wasRestored}
+            onDiscard={() => clearDraft(INITIAL_SUGGESTION_FORM)}
+          />
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={saving || !form.title.trim() || !form.description.trim()}>

@@ -209,6 +209,7 @@ async function main() {
     await page.getByRole("button", { name: /^New Post$/ }).click();
     await page.getByPlaceholder("What's on your mind?").fill("Focus-safe community draft");
     await page.locator(".ql-editor").fill("This community draft survives focus changes and reloads.");
+    await page.getByText("Saved locally", { exact: true }).waitFor();
     await page.keyboard.press("Tab");
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForTimeout(600);
@@ -217,6 +218,28 @@ async function main() {
     const communityBody = await page.locator(".ql-editor").innerText();
     if (communityTitle !== "Focus-safe community draft") failures.push("Community title draft did not persist after reload.");
     if (!communityBody.includes("survives focus changes")) failures.push("Community body draft did not persist after reload.");
+    if (!(await page.getByText("Draft restored", { exact: true }).isVisible())) failures.push("Restored community draft did not announce itself.");
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(200);
+    if (await page.getByRole("dialog").isVisible()) failures.push("Escape did not close the community post dialog.");
+
+    await page.goto(`${baseUrl}/settings`, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(600);
+    await page.getByRole("button", { name: /Appearance/i }).click();
+    await page.getByRole("switch", { name: "Reduce particles" }).click();
+    await page.getByRole("switch", { name: "Increase visual clarity" }).click();
+    const experienceState = await page.evaluate(() => ({
+      reduceParticles: document.documentElement.dataset.reduceParticles,
+      reduceTransparency: document.documentElement.dataset.reduceTransparency,
+    }));
+    if (experienceState.reduceParticles !== "true") failures.push("Reduce-particles preference did not apply to the document.");
+    if (experienceState.reduceTransparency !== "true") failures.push("Visual-clarity preference did not apply to the document.");
+    await page.screenshot({ path: path.join(outputDir, "experience-preferences-desktop.png"), fullPage: false });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: path.join(outputDir, "experience-preferences-mobile.png"), fullPage: false });
+    const mobileOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+    if (mobileOverflow) failures.push("Experience preferences overflow the mobile viewport.");
+    await page.setViewportSize({ width: 1280, height: 900 });
 
     await page.goto(`${baseUrl}/reliquary`, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(600);

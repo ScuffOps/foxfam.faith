@@ -13,6 +13,7 @@ import { awardPoints } from "@/hooks/usePoints";
 import { useLevelUpToast } from "@/hooks/useLevelUpToast";
 import { useToast } from "@/components/ui/use-toast";
 import { usePersistentDraft } from "@/hooks/usePersistentDraft";
+import DraftStatus from "@/components/forms/DraftStatus";
 
 const INITIAL_POST = { title: "", description: "", type: "idea" };
 const INITIAL_POLL_OPTIONS = { options: ["", ""] };
@@ -21,8 +22,10 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
   const checkLevelUp = useLevelUpToast();
   const { toast } = useToast();
   const { profile } = useGuestProfile();
-  const [form, setForm, { clearDraft: clearPostDraft }] = usePersistentDraft("community-post.new", INITIAL_POST);
-  const [pollDraft, setPollDraft, { clearDraft: clearPollDraft }] = usePersistentDraft("community-poll-options.new", INITIAL_POLL_OPTIONS);
+  const [form, setForm, postDraft] = usePersistentDraft("community-post.new", INITIAL_POST);
+  const [pollDraft, setPollDraft, pollOptionsDraft] = usePersistentDraft("community-poll-options.new", INITIAL_POLL_OPTIONS);
+  const { clearDraft: clearPostDraft } = postDraft;
+  const { clearDraft: clearPollDraft } = pollOptionsDraft;
   const pollOptions = pollDraft.options;
   const setPollOptions = (nextOptions) => {
     setPollDraft((current) => ({
@@ -146,6 +149,14 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
               </div>
             </div>
           )}
+          <DraftStatus
+            hasDraft={postDraft.hasDraft || pollOptionsDraft.hasDraft}
+            restored={postDraft.wasRestored || pollOptionsDraft.wasRestored}
+            onDiscard={() => {
+              clearPostDraft(INITIAL_POST);
+              clearPollDraft(INITIAL_POLL_OPTIONS);
+            }}
+          />
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={saving || !form.title}>

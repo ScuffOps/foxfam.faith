@@ -878,6 +878,29 @@
   }
 }
 
+html[data-reduce-motion="true"] *,
+html[data-reduce-motion="true"] *::before,
+html[data-reduce-motion="true"] *::after {
+  scroll-behavior: auto !important;
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+html[data-reduce-particles="true"] .portal-particle-overlay,
+html[data-reduce-particles="true"] .praise-burst__float,
+html[data-reduce-particles="true"] .prayer-new-particles {
+  display: none !important;
+}
+
+html[data-reduce-transparency="true"] .foxcard,
+html[data-reduce-transparency="true"] .glass,
+html[data-reduce-transparency="true"] .glass-card {
+  background: hsl(var(--card)) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 .favor-topline {
   grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr));
 }
