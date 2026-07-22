@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { communityClient } from "@/api/communityClient";
+import { useContentCreatedRefresh } from "@/hooks/useContentCreatedRefresh";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
@@ -45,6 +46,7 @@ export default function Offerings() {
   useEffect(() => {
     loadData();
   }, []);
+  useContentCreatedRefresh(() => loadData({ silent: true }));
 
   const isAdmin = canModerate(user);
   const pendingCount = offerings.filter((offering) => offering.status === OFFERING_STATUS.pending).length;

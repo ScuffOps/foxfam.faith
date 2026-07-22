@@ -15,6 +15,7 @@ import ProgressionLoop from "../components/ProgressionLoop";
 import { canModerate } from "@/lib/roles";
 import { sortCommunityPosts } from "@/lib/communitySorting";
 import { isPubliclyHiddenFeaturePost } from "@/lib/hiddenFeatures";
+import { useContentCreatedRefresh } from "@/hooks/useContentCreatedRefresh";
 
 const TABS = [
   { key: "feedback", label: "Feedback & Ideas" },
@@ -77,6 +78,7 @@ export default function CommunityInput({ defaultTab = "feedback" }) {
   };
 
   useEffect(() => { loadData(); }, []);
+  useContentCreatedRefresh(loadData);
   useEffect(() => {
     const nextTab = getValidTab(searchParams.get("tab") || defaultTab);
     setActiveTab(nextTab);

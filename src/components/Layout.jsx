@@ -5,6 +5,7 @@ import OnboardingModal from "./OnboardingModal";
 import Splash from "../pages/Splash";
 import { useState, useEffect } from "react";
 import { communityClient } from "@/api/communityClient";
+import GlobalCreate from "@/components/flow/GlobalCreate";
 
 const GUEST_ONBOARDING_KEY = "commhub_guest_onboarding_seen";
 
@@ -74,6 +75,7 @@ export default function Layout() {
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 lg:p-8">
           <Outlet />
         </main>
+        <GlobalCreate />
       </div>
     </div>
   );

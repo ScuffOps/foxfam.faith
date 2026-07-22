@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { announceDraftsChanged } from "@/lib/userFlow";
 
 const DRAFT_PREFIX = "foxfam.draft";
 
@@ -31,6 +32,7 @@ function writeDraft(storageKey, draft) {
 
   try {
     window.localStorage.setItem(storageKey, JSON.stringify(draft));
+    announceDraftsChanged();
   } catch {
     // Draft persistence should never block text entry.
   }
@@ -43,6 +45,7 @@ function removeDraft(storageKey) {
 
   try {
     window.localStorage.removeItem(storageKey);
+    announceDraftsChanged();
   } catch {
     // No-op: local draft cleanup is best effort.
   }

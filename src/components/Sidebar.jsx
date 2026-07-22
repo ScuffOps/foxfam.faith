@@ -34,6 +34,8 @@ import {
   Radio,
   Users,
   Gem,
+  FilePenLine,
+  Inbox,
 } from "lucide-react";
 import SidebarProfile from "./SidebarProfile";
 import { canBookCollab, canManageRoles, canUseAdminPanel } from "@/lib/roles";
@@ -111,6 +113,8 @@ const staffOpsGroup = {
 };
 
 const utilityNavItems = [
+  { path: "/activity", label: "Activity", icon: Inbox },
+  { path: "/drafts", label: "Drafts", icon: FilePenLine },
   { path: "/profile", label: "Profile", icon: UserCircle2 },
   { path: "/admin", label: "Admin Panel", icon: ShieldCheck, adminOnly: true },
   { path: "/settings", label: "Settings", icon: Settings },

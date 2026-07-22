@@ -195,14 +195,38 @@ async function main() {
 
     await page.goto(`${baseUrl}/`, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(700);
-    await page.getByRole("button", { name: /^Cards$/ }).click();
-    await page.getByRole("button", { name: "Quick Stats", exact: true }).click();
-    const dashboardPrefs = await page.evaluate(() => JSON.parse(localStorage.getItem("foxfam.dashboard.cards.v1") || "{}"));
-    if (!dashboardPrefs.hidden?.includes("quick-stats")) failures.push("Dashboard card visibility did not persist.");
-
+    if (!(await page.getByText("Welcome back, Veri", { exact: true }).isVisible())) failures.push("Welcome Home did not personalize the returning-user dashboard.");
+    await page.screenshot({ path: path.join(outputDir, "welcome-home-desktop.png"), fullPage: false });
     await page.getByTestId("sidebar-profile-trigger").click();
     await page.waitForTimeout(400);
     if (calls.markRead < 1) failures.push("Opening alerts did not mark notifications read.");
+    await page.keyboard.press("Escape");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: path.join(outputDir, "welcome-home-mobile.png"), fullPage: false });
+    await page.getByRole("button", { name: "Create something" }).click();
+    await page.getByRole("heading", { name: "Create Something" }).waitFor();
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: path.join(outputDir, "global-create-mobile.png"), fullPage: false });
+    const createMenuOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+    if (createMenuOverflow) failures.push("Global Create overflows the mobile viewport.");
+    await page.getByRole("button", { name: /Community post/i }).click();
+    await page.getByPlaceholder("What's on your mind?").fill("Global create flow audit");
+    await page.getByRole("button", { name: /^Submit$/ }).click();
+    await page.getByText("Community post received", { exact: true }).waitFor();
+    if (!(await page.getByText(/Submitted → Awaiting review/).isVisible())) failures.push("Submission receipt did not explain the approval state.");
+    await page.getByRole("button", { name: "Stay here" }).click();
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(`${baseUrl}/`, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(400);
+
+    await page.getByRole("button", { name: /^Cards$/ }).click();
+    await page.getByRole("button", { name: "Quick Stats", exact: true }).click({ force: true });
+    const dashboardPrefs = await page.evaluate(() => JSON.parse(localStorage.getItem("foxfam.dashboard.cards.v1") || "{}"));
+    if (!dashboardPrefs.hidden?.includes("quick-stats")) failures.push("Dashboard card visibility did not persist.");
+
+    await page.goto(`${baseUrl}/activity`, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(500);
+    if (!(await page.getByText("Tiny staff omen", { exact: true }).isVisible())) failures.push("Activity Inbox did not render existing notifications.");
 
     await page.goto(`${baseUrl}/community`, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(600);
@@ -222,6 +246,15 @@ async function main() {
     await page.keyboard.press("Escape");
     await page.waitForTimeout(200);
     if (await page.getByRole("dialog").isVisible()) failures.push("Escape did not close the community post dialog.");
+
+    await page.goto(`${baseUrl}/drafts`, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(400);
+    if (!(await page.getByText("Community post", { exact: true }).isVisible())) failures.push("Draft Center did not list the saved community post.");
+    await page.screenshot({ path: path.join(outputDir, "draft-center-desktop.png"), fullPage: false });
+    await page.getByRole("button", { name: /Continue/i }).click();
+    await page.waitForTimeout(300);
+    if ((await page.getByPlaceholder("What's on your mind?").inputValue()) !== "Focus-safe community draft") failures.push("Draft Center did not reopen the saved composer.");
+    await page.keyboard.press("Escape");
 
     await page.goto(`${baseUrl}/settings`, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(600);

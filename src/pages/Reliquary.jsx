@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { communityClient } from "@/api/communityClient";
+import { useContentCreatedRefresh } from "@/hooks/useContentCreatedRefresh";
 import { BookOpenText, Clock, Feather, Filter, MessageCircle, Plus, Search, Tag, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ReliquaryEntryCard from "@/components/reliquary/ReliquaryEntryCard";
@@ -42,6 +43,7 @@ export default function Reliquary() {
   useEffect(() => {
     loadData();
   }, []);
+  useContentCreatedRefresh(loadData);
 
   const isAdmin = canModerate(user);
   const openNewPost = () => {

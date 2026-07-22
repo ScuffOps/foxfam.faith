@@ -14,6 +14,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 import { formatUploadSize, getUploadValidationError } from "@/lib/uploadSafety";
 import DraftStatus from "@/components/forms/DraftStatus";
+import { publishSubmissionReceipt } from "@/lib/userFlow";
 
 const MAX_FORUM_ATTACHMENTS = 5;
 
@@ -92,6 +93,7 @@ export default function ForumThreadForm({ open, onOpenChange, user, onCreated, d
       onCreated?.();
       onOpenChange(false);
       toast({ title: "Thread started", description: "Your forum thread is live." });
+      publishSubmissionReceipt({ title: "Forum thread started", description: "Your discussion is live and ready for replies.", status: "published", path: "/forum" });
     } catch {
       toast({
         title: "Thread could not be started",

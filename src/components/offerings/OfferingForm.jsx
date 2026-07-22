@@ -14,6 +14,7 @@ import { getPublicDisplayName } from "@/lib/userIdentity";
 import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 import { formatUploadSize, MAX_COMMUNITY_FILE_SIZE } from "@/lib/uploadSafety";
 import DraftStatus from "@/components/forms/DraftStatus";
+import { publishSubmissionReceipt } from "@/lib/userFlow";
 
 const initialForm = {
   title: "",
@@ -93,6 +94,7 @@ export default function OfferingForm({ open, onOpenChange, user, onCreated }) {
         title: "Offering submitted",
         description: "A mod or admin will approve it before it appears in the Shrine.",
       });
+      publishSubmissionReceipt({ title: "Offering received", description: "Your creation is waiting for a mod or admin to approve it.", status: "pending", path: "/offerings" });
     } catch (submitError) {
       setError(submitError?.issues?.[0]?.message || "Offering could not be submitted. Please check the fields and try again.");
     } finally {

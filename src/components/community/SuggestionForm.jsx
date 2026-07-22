@@ -12,6 +12,7 @@ import { getPublicDisplayName } from "@/lib/userIdentity";
 import { useToast } from "@/components/ui/use-toast";
 import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 import DraftStatus from "@/components/forms/DraftStatus";
+import { publishSubmissionReceipt } from "@/lib/userFlow";
 
 const CATEGORIES = [
   { value: "bug_report", label: "🐛 Bug Report" },
@@ -62,6 +63,7 @@ export default function SuggestionForm({ open, onOpenChange, onCreated }) {
       onCreated?.();
       onOpenChange(false);
       toast({ title: "Suggestion posted", description: "It is live in the Suggestion Box." });
+      publishSubmissionReceipt({ title: "Suggestion posted", description: "Your idea is live in the Suggestion Box.", status: "published", path: "/suggestions" });
     } catch {
       toast({
         title: "Suggestion could not be sent",

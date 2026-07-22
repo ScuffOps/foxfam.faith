@@ -8,6 +8,7 @@ import GlassCard from "@/components/GlassCard";
 import ProgressionLoop from "@/components/ProgressionLoop";
 import { FORUM_SECTIONS, getForumSection, normalizeForumCategory } from "@/lib/forumSections";
 import { canModerateForum } from "@/lib/roles";
+import { useContentCreatedRefresh } from "@/hooks/useContentCreatedRefresh";
 
 const SORT_OPTIONS = [
   { key: "latest", label: "Latest", icon: Clock },
@@ -46,6 +47,7 @@ export default function Forum() {
   useEffect(() => {
     loadData();
   }, []);
+  useContentCreatedRefresh(loadData);
 
   const isForumModerator = canModerateForum(user);
   const sectionOptions = [ALL_SECTION, ...FORUM_SECTIONS];

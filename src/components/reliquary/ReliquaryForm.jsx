@@ -10,6 +10,7 @@ import { getPublicDisplayName } from "@/lib/userIdentity";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 import DraftStatus from "@/components/forms/DraftStatus";
+import { publishSubmissionReceipt } from "@/lib/userFlow";
 
 const initialForm = {
   title: "",
@@ -99,6 +100,7 @@ export default function ReliquaryForm({ open, onOpenChange, user, entry, onSaved
     setImagePreview("");
     onSaved?.();
     onOpenChange(false);
+    publishSubmissionReceipt({ title: isEditing ? "Reliquary entry updated" : "Reliquary entry placed", description: "Your words are now part of the Reliquary.", status: "published", path: "/reliquary" });
   };
 
   return (

@@ -11,6 +11,7 @@ import { BUG_REPORT_DESCRIPTION, BUG_SEVERITY_LABELS, bugReportSchema, formatFil
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 import DraftStatus from "@/components/forms/DraftStatus";
+import { publishSubmissionReceipt } from "@/lib/userFlow";
 
 const AREA_OPTIONS = [
   "Dashboard",
@@ -203,6 +204,7 @@ export default function BugReportForm({ open, onOpenChange, onCreated }) {
         title: "Bug report submitted",
         description: "Logged in the tracker. The lore department has been notified.",
       });
+      publishSubmissionReceipt({ title: "Bug report logged", description: "The report is in the tracker for staff review.", status: "pending", path: "/bugs" });
     } catch (submitError) {
       console.error("Bug report submission failed", submitError);
       setError("Bug report could not be submitted. Please try again in a moment.");

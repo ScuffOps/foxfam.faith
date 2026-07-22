@@ -10,6 +10,7 @@ import { ImagePlus, Loader2, BookOpen, X } from "lucide-react";
 import { awardPoints } from "@/hooks/usePoints";
 import { useLevelUpToast } from "@/hooks/useLevelUpToast";
 import { usePersistentDraft } from "@/hooks/usePersistentDraft";
+import { publishSubmissionReceipt } from "@/lib/userFlow";
 
 const INITIAL_BLESSING_FORM = { title: "", content: "", link_url: "", link_preview_title: "" };
 
@@ -67,6 +68,7 @@ export default function BlessingForm({ open, onOpenChange, user, onCreated }) {
     setCodexSearch("");
     onCreated?.();
     onOpenChange(false);
+    publishSubmissionReceipt({ title: "Blessing shared", description: "Your blessing is now part of the community shrine.", status: "published", path: "/blessings" });
   };
 
   return (

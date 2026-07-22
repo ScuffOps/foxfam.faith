@@ -14,6 +14,7 @@ import { useLevelUpToast } from "@/hooks/useLevelUpToast";
 import { useToast } from "@/components/ui/use-toast";
 import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 import DraftStatus from "@/components/forms/DraftStatus";
+import { publishSubmissionReceipt } from "@/lib/userFlow";
 
 const INITIAL_POST = { title: "", description: "", type: "idea" };
 const INITIAL_POLL_OPTIONS = { options: ["", ""] };
@@ -77,6 +78,7 @@ export default function PostForm({ open, onOpenChange, onCreated, isMod = false 
       onCreated?.();
       onOpenChange(false);
       toast({ title: "Post submitted", description: "Your post is in the community queue." });
+      publishSubmissionReceipt({ title: "Community post received", description: "Your post is safely in the community queue.", status: data.status === "approved" ? "published" : "pending", path: "/community" });
     } catch {
       toast({
         title: "Post could not be submitted",

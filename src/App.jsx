@@ -23,6 +23,8 @@ import Reliquary from './pages/Reliquary';
 import Offerings from './pages/Offerings';
 import StaffOps from './pages/StaffOps';
 import RelicForge from './pages/RelicForge';
+import Activity from './pages/Activity';
+import Drafts from './pages/Drafts';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -64,6 +66,8 @@ const AuthenticatedApp = () => {
         <Route path="/bugs" element={<CommunityInput defaultTab="bugs" />} />
         <Route path="/suggestions" element={<CommunityInput defaultTab="suggestions" />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/activity" element={<Activity />} />
+        <Route path="/drafts" element={<Drafts />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/prayer" element={<PrayerWall />} />
         <Route path="/collabs" element={<CollabRequests />} />

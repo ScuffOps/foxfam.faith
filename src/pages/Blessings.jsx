@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { communityClient } from "@/api/communityClient";
+import { useContentCreatedRefresh } from "@/hooks/useContentCreatedRefresh";
 import { Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BlessingCard from "../components/blessings/BlessingCard";
@@ -21,6 +22,7 @@ export default function Blessings() {
   };
 
   useEffect(() => { loadData(); }, []);
+  useContentCreatedRefresh(() => loadData({ silent: true }));
 
   const isAdmin = canModerate(user);
 

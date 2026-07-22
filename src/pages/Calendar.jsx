@@ -10,6 +10,7 @@ import EventFormDialog from "../components/calendar/EventFormDialog";
 import EventDetailsPanel from "../components/calendar/EventDetailsPanel";
 import { EVENT_CATEGORY_OPTIONS, getCategoryColor } from "@/lib/categoryColors";
 import { canModerate } from "@/lib/roles";
+import { useContentCreatedRefresh } from "@/hooks/useContentCreatedRefresh";
 
 export default function Calendar() {
   const [events, setEvents] = useState([]);
@@ -43,6 +44,7 @@ export default function Calendar() {
   };
 
   useEffect(() => { loadEvents(); }, []);
+  useContentCreatedRefresh(loadEvents);
 
   const isMod = canModerate(user);
 

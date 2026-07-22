@@ -19,6 +19,7 @@ import LaunchQuests from "../components/dashboard/LaunchQuests";
 import FavorShopPreview from "../components/dashboard/FaithShopPreview";
 import WeeklyPortalPoll from "../components/dashboard/WeeklyPortalPoll";
 import CommunityBlessingPrompt from "../components/dashboard/CommunityBlessingPrompt";
+import WelcomeHome from "../components/dashboard/WelcomeHome";
 import ProgressionLoop from "../components/ProgressionLoop";
 import {
   DASHBOARD_CARD_IDS,
@@ -146,6 +147,10 @@ export default function Dashboard() {
       </div>
 
       <ScuffoxUpdatesTicker />
+
+      <div className="mt-6">
+        <WelcomeHome />
+      </div>
 
       {customizerOpen && (
         <DashboardCustomizer

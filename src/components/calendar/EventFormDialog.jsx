@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { EVENT_CATEGORY_OPTIONS } from "@/lib/categoryColors";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { usePersistentDraft } from "@/hooks/usePersistentDraft";
+import { publishSubmissionReceipt } from "@/lib/userFlow";
 import { useToast } from "@/components/ui/use-toast";
 
 function toLocalDateTimeInputValue(value = new Date()) {
@@ -109,6 +110,7 @@ export default function EventFormDialog({ open, onOpenChange, event, onSaved }) 
       clearDraft(initialForm);
       onSaved();
       onOpenChange(false);
+      publishSubmissionReceipt({ title: isEdit ? "Event updated" : "Event created", description: "The event is saved in the portal calendar.", status: "published", path: "/events" });
     } catch (error) {
       toast({
         title: "Event could not be saved",

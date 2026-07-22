@@ -153,7 +153,7 @@ export default function SidebarProfile({ onNavigate }) {
         </div>
 
         <div className="max-h-72 overflow-y-auto p-3">
-          {activeTab === "alerts" && <NotificationList notifications={notifications} />}
+          {activeTab === "alerts" && <NotificationList notifications={notifications} onOpenActivity={() => setProfileOpen(false)} />}
           {activeTab === "favor" && (
             <div className="rounded-lg border border-border bg-secondary/35 p-3">
               <p className="font-heading text-sm font-semibold">{level?.points || 0} Favor</p>
@@ -208,7 +208,7 @@ function Avatar({ avatar, name, size = "md" }) {
   );
 }
 
-function NotificationList({ notifications }) {
+function NotificationList({ notifications, onOpenActivity }) {
   if (notifications.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border bg-secondary/25 p-4 text-center text-xs text-muted-foreground">
@@ -230,6 +230,9 @@ function NotificationList({ notifications }) {
           </div>
         </div>
       ))}
+      <Link to="/activity" onClick={onOpenActivity} className="flex items-center justify-center gap-2 rounded-lg border border-border bg-secondary/35 px-3 py-2 text-xs font-semibold text-primary hover:bg-secondary">
+        <Bell className="h-3.5 w-3.5" /> Open activity inbox
+      </Link>
     </div>
   );
 }

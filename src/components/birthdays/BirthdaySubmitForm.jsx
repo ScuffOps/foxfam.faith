@@ -11,6 +11,7 @@ import GlassCard from "../GlassCard";
 import { Cake, Send } from "lucide-react";
 import { getPublicDisplayName } from "@/lib/userIdentity";
 import { usePersistentDraft } from "@/hooks/usePersistentDraft";
+import { publishSubmissionReceipt } from "@/lib/userFlow";
 
 const INITIAL_BIRTHDAY_FORM = {
   display_name: "",
@@ -45,6 +46,7 @@ export default function BirthdaySubmitForm({ onSubmitted }) {
     clearDraft(INITIAL_BIRTHDAY_FORM);
     setSubmitting(false);
     onSubmitted?.();
+    publishSubmissionReceipt({ title: "Birthday added", description: "The birthday is live on the community calendar.", status: "published", path: "/birthdays" });
   };
 
   const update = (key, val) => setForm((p) => ({ ...p, [key]: val }));
