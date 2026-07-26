@@ -1,7 +1,7 @@
 import { Flower2, Sprout } from "lucide-react";
 import { calculateWordGardenScore } from "../simulation/wordGardenRules.js";
 
-export default function WordGardenHud({ state, onComplete }) {
+export default function WordGardenHud({ state, mode = "practice", onComplete }) {
   const score = calculateWordGardenScore(state);
   const fullBlooms = state.foundWords.filter((word) => word.isFullBloom).length;
 
@@ -44,7 +44,9 @@ export default function WordGardenHud({ state, onComplete }) {
       <button className="word-garden-hud__rest" type="button" onClick={onComplete} disabled={!state.foundWords.length}>
         Rest the garden
       </button>
-      <p className="word-garden-hud__safety">Rewards stay local preview-only until portal validation is connected.</p>
+      <p className="word-garden-hud__safety">
+        {mode === "rewarded" ? "Accepted blooms and rewards are validated by the portal." : "Practice stays on this device and does not change portal balances."}
+      </p>
     </div>
   );
 }

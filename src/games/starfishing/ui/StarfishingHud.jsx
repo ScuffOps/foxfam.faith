@@ -42,7 +42,7 @@ const DUPLICATE_POLICY_OPTIONS = [
   },
   {
     key: DUPLICATE_POLICIES.convert,
-    label: "Convert to forge dust",
+    label: "Distill to Star Glass",
     description: "Distill duplicates into server-calculated forge materials.",
   },
 ];
@@ -209,6 +209,9 @@ export default function StarfishingHud({
             <small>+{claim.favor.delta} Favor · {claim.favor.balance} total</small>
             {claim.materials.map((material) => (
               <small key={material.key}>+{material.delta} {material.label} · {material.balance} total</small>
+            ))}
+            {claim.achievements.map((achievement) => (
+              <small key={achievement.achievementKey}>Achievement unlocked: {achievement.title}</small>
             ))}
             {claim.appliedEffects.map((effect) => (
               <small key={effect.key}>{effect.label} applied</small>

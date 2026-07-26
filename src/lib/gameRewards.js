@@ -21,7 +21,7 @@ const DUPLICATE_RELEASE_VALUE = {
   mythic: 20,
 };
 
-const DUPLICATE_DUST_VALUE = {
+const DUPLICATE_STAR_GLASS_VALUE = {
   common: 1,
   uncommon: 2,
   rare: 4,
@@ -63,13 +63,13 @@ export function convertDuplicateCatch({ policy, fish }) {
       favorPreview: 0,
       items: [
         {
-          key: "star-dust",
-          label: "Star Dust",
-          quantity: DUPLICATE_DUST_VALUE[rarity] || DUPLICATE_DUST_VALUE.common,
+          key: "star-glass",
+          label: "Star Glass",
+          quantity: DUPLICATE_STAR_GLASS_VALUE[rarity] || DUPLICATE_STAR_GLASS_VALUE.common,
           type: "material",
         },
       ],
-      message: "Converted into forge dust preview.",
+      message: "Distilled into Star Glass preview.",
     };
   }
 

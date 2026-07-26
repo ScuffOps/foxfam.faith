@@ -10,12 +10,14 @@
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
     "test:e2e:portal-auth": "node scripts/e2e-portal-auth.mjs",
+    "test:e2e:game-hub": "node scripts/e2e-game-hub.mjs",
     "test:e2e:staff-ops": "node scripts/e2e-staff-ops.mjs",
     "test:rls": "node scripts/rls-smoke.mjs",
     "test:starfishing:phase2": "node scripts/starfishing-phase2-smoke.mjs",
     "typecheck": "tsc -p ./jsconfig.json",
     "preview": "vite preview",
-    "preview:safe": "zsh scripts/dev-safe.zsh preview --host 0.0.0.0"
+    "preview:safe": "zsh scripts/dev-safe.zsh preview --host 0.0.0.0",
+    "deploy:preview": "zsh scripts/vercel-preview-safe.zsh"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^17.0.0",
@@ -85,6 +87,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@eslint/js": "^9.19.0",
     "@types/node": "^22.13.5",
     "@types/react": "^18.2.66",

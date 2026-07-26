@@ -558,15 +558,15 @@ test("start cast reuses the caller's locked unexpired ticket instead of rerollin
 
   assert.match(
     startFunction,
-    /select ticket_row, fish_row\.qte_length\s+into existing_ticket, existing_qte_length\s+from public\.game_cast_tickets as ticket_row\s+left join public\.game_fish_catalog as fish_row\s+on fish_row\.fish_key = ticket_row\.fish_key\s+and fish_row\.catalog_version = ticket_row\.catalog_version\s+where ticket_row\.user_id = caller_id\s+and ticket_row\.consumed_at is null\s+and ticket_row\.expires_at > cast_created_at\s+order by ticket_row\.created_at\s+limit 1\s+for update of ticket_row/,
+    /select ticket_row\.\*, fish_row\.qte_length as catalog_qte_length\s+into existing_ticket\s+from public\.game_cast_tickets as ticket_row\s+left join public\.game_fish_catalog as fish_row\s+on fish_row\.fish_key = ticket_row\.fish_key\s+and fish_row\.catalog_version = ticket_row\.catalog_version\s+where ticket_row\.user_id = caller_id\s+and ticket_row\.consumed_at is null\s+and ticket_row\.expires_at > cast_created_at\s+order by ticket_row\.created_at\s+limit 1\s+for update of ticket_row/,
   );
   assert.match(
     startFunction,
-    /if existing_ticket\.id is not null and existing_qte_length is null then\s+raise exception using errcode = '22023', message = 'Existing cast ticket catalog version is unavailable';\s+end if;/,
+    /if existing_ticket\.id is not null and existing_ticket\.catalog_qte_length is null then\s+raise exception using errcode = '22023', message = 'Existing cast ticket catalog version is unavailable';\s+end if;/,
   );
   assert.match(
     startFunction,
-    /if existing_ticket\.id is not null then\s+return pg_catalog\.jsonb_build_object\(\s*'ticket_id', existing_ticket\.id,\s*'fish_key', existing_ticket\.fish_key,\s*'qte_length', existing_qte_length,\s*'applied_effects', existing_ticket\.applied_effects,\s*'not_before', existing_ticket\.not_before,\s*'expires_at', existing_ticket\.expires_at\s*\);\s+end if;/,
+    /if existing_ticket\.id is not null then\s+return pg_catalog\.jsonb_build_object\(\s*'ticket_id', existing_ticket\.id,\s*'fish_key', existing_ticket\.fish_key,\s*'qte_length', existing_ticket\.catalog_qte_length,\s*'applied_effects', existing_ticket\.applied_effects,\s*'not_before', existing_ticket\.not_before,\s*'expires_at', existing_ticket\.expires_at\s*\);\s+end if;/,
   );
   assert.match(
     startFunction,
@@ -590,7 +590,7 @@ test("claim requires coherent successful QTE telemetry derived from the server t
 
   assert.match(
     claimFunction,
-    /claim_min_duration_ms := greatest\(\s*250,\s*pg_catalog\.ceil\(\s*pg_catalog\.extract\(epoch from \(claim_ticket\.not_before - claim_ticket\.created_at\)\) \* 1000\s*\)::integer\s*- \(claim_fish\.qte_length \* 150\)\s*- 350\s*\)/,
+    /claim_min_duration_ms := greatest\(\s*250,\s*pg_catalog\.ceil\(\s*extract\(epoch from \(claim_ticket\.not_before - claim_ticket\.created_at\)\) \* 1000\s*\)::integer\s*- \(claim_fish\.qte_length \* 150\)\s*- 350\s*\)/,
   );
   assert.doesNotMatch(
     claimFunction,
@@ -613,7 +613,7 @@ test("claim requires coherent successful QTE telemetry derived from the server t
   }
   assert.match(
     claimFunction,
-    /claim_max_duration_ms := least\(\s*600000,\s*pg_catalog\.floor\(\s*pg_catalog\.extract\(epoch from \(claim_ticket\.expires_at - claim_ticket\.created_at\)\) \* 1000\s*\)::integer\s*\)/,
+    /claim_max_duration_ms := least\(\s*600000,\s*pg_catalog\.floor\(\s*extract\(epoch from \(claim_ticket\.expires_at - claim_ticket\.created_at\)\) \* 1000\s*\)::integer\s*\)/,
   );
   assert.match(
     claimFunction,
@@ -678,6 +678,77 @@ test("claim migration validates inputs, snapshots before insert, and locks execu
   assert.match(migration, /revoke execute on function public\.start_starfishing_cast\(\) from public, anon, authenticated;/);
   assert.match(migration, /revoke execute on function public\.claim_starfishing_catch\(uuid, uuid, text, integer, integer, integer\)\s+from public, anon, authenticated;/);
   assert.doesNotMatch(migration, /grant execute on function public\.(start_starfishing_cast|claim_starfishing_catch)/);
+});
+
+test("claim replay is bound to the exact ticket, policy, and QTE evidence", () => {
+  const migration = readFileSync(
+    new URL("../../../../supabase/migrations/20260718200316_starfishing_phase_2_progression.sql", import.meta.url),
+    "utf8",
+  );
+  const claimFunction = migration.slice(
+    migration.indexOf("create or replace function public.claim_starfishing_catch("),
+    migration.indexOf("create or replace function private.assert_relic_forge_open("),
+  );
+
+  assert.match(
+    claimFunction,
+    /select\s+catch_row\.result_snapshot,\s+catch_row\.play_evidence/,
+  );
+  assert.match(
+    claimFunction,
+    /coalesce\(existing_play_evidence ->> 'ticket_id', ''\) <> claim_ticket_id::text/,
+  );
+  assert.match(
+    claimFunction,
+    /coalesce\(existing_play_evidence ->> 'requested_duplicate_policy', ''\) <> claim_duplicate_policy/,
+  );
+  assert.match(
+    claimFunction,
+    /coalesce\(existing_play_evidence ->> 'qte_action_count', ''\) <> claim_qte_action_count::text/,
+  );
+  assert.match(
+    claimFunction,
+    /coalesce\(existing_play_evidence ->> 'miss_count', ''\) <> claim_miss_count::text/,
+  );
+  assert.match(
+    claimFunction,
+    /coalesce\(existing_play_evidence ->> 'duration_ms', ''\) <> claim_duration_ms::text/,
+  );
+  assert.match(
+    claimFunction,
+    /message = 'Catch idempotency key was reused for a different request'/,
+  );
+  assert.match(
+    claimFunction,
+    /'ticket_id', claim_ticket_id,\s*'requested_duplicate_policy', claim_duplicate_policy/,
+  );
+});
+
+test("duplicate rewards use capped Favor and canonical Star Glass", () => {
+  const migration = readFileSync(
+    new URL("../../../../supabase/migrations/20260718200316_starfishing_phase_2_progression.sql", import.meta.url),
+    "utf8",
+  );
+  const claimFunction = migration.slice(
+    migration.indexOf("create or replace function public.claim_starfishing_catch("),
+    migration.indexOf("create or replace function private.assert_relic_forge_open("),
+  );
+
+  assert.match(claimFunction, /duplicate_release_daily_favor_cap constant integer := 40/);
+  assert.match(
+    claimFunction,
+    /ledger\.source_type = 'starfishing_catch'[\s\S]*ledger\.metadata ->> 'duplicate_policy' = 'release'/,
+  );
+  assert.match(
+    claimFunction,
+    /ledger\.created_at >= pg_catalog\.date_trunc\(\s*'day',\s*claim_created_at at time zone 'UTC'\s*\) at time zone 'UTC'/,
+  );
+  assert.match(
+    claimFunction,
+    /favor_delta := least\(\s*favor_delta,\s*greatest\(0, duplicate_release_daily_favor_cap - duplicate_release_favor_earned\)\s*\)/,
+  );
+  assert.match(claimFunction, /'key', 'star-glass',\s*'label', 'Star Glass'/);
+  assert.doesNotMatch(claimFunction, /star-dust|Star Dust/);
 });
 
 test("claim migration uses active Fishpedia completion and preserves canonical level ownership", () => {

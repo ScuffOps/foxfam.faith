@@ -201,7 +201,7 @@ function Avatar({ avatar, name, size = "md" }) {
     return <img src={avatar} alt="" className={`${className} shrink-0 rounded-full border border-primary/25 object-cover`} />;
   }
   return (
-    <span className={`${className} flex shrink-0 items-center justify-center rounded-full border border-primary/25 bg-primary/15 font-heading font-bold text-primary`}>
+    <span className={`${className} flex shrink-0 items-center justify-center rounded-full border border-[#485365] bg-[#d9e6ec] font-heading font-bold text-[#364152]`}>
       {getInitials(name)}
     </span>
   );

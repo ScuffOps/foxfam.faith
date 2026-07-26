@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { Check, LocateFixed } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, LocateFixed } from "lucide-react";
 import { FIND_VEZMIR_OBJECTS } from "../content/hiddenObjects.js";
 import "./find-vezmir.css";
 
@@ -9,37 +9,65 @@ const LAYER_LABELS = {
   background: "Far",
 };
 
-export default function CloisterDiorama({ state, targets, onFind, onPan, onCycleLayer }) {
+export default function CloisterDiorama({ state, targets, onSearch, onPan, onCycleLayer, disabled = false }) {
   const dragRef = useRef(null);
+  const ignoreClickRef = useRef(false);
   const activeLayer = state.layers[state.activeLayer];
 
   const handlePointerDown = (event) => {
     if (event.target.closest("button")) return;
-    dragRef.current = { x: event.clientX, y: event.clientY };
+    dragRef.current = {
+      lastX: event.clientX,
+      lastY: event.clientY,
+      originX: event.clientX,
+      originY: event.clientY,
+    };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
   const handlePointerMove = (event) => {
     if (!dragRef.current) return;
-    const deltaX = (event.clientX - dragRef.current.x) / 18;
-    const deltaY = (event.clientY - dragRef.current.y) / 18;
-    dragRef.current = { x: event.clientX, y: event.clientY };
+    const deltaX = (event.clientX - dragRef.current.lastX) / 18;
+    const deltaY = (event.clientY - dragRef.current.lastY) / 18;
+    dragRef.current.lastX = event.clientX;
+    dragRef.current.lastY = event.clientY;
     onPan({ x: deltaX, y: deltaY });
   };
 
   const stopDragging = (event) => {
+    if (dragRef.current) {
+      const distance = Math.hypot(
+        event.clientX - dragRef.current.originX,
+        event.clientY - dragRef.current.originY,
+      );
+      ignoreClickRef.current = distance > 7;
+    }
     dragRef.current = null;
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
   };
 
+  const searchBlankArea = (event) => {
+    if (ignoreClickRef.current) {
+      ignoreClickRef.current = false;
+      return;
+    }
+    if (event.target.closest("button")) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    onSearch({
+      x: ((event.clientX - bounds.left) / bounds.width) * 100,
+      y: ((event.clientY - bounds.top) / bounds.height) * 100,
+      layer: activeLayer,
+    });
+  };
+
   return (
-    <section className="vezmir-diorama" aria-label="Isometric priory cloister hidden-object scene">
-      <div className="vezmir-diorama__toolbar" aria-label="Diorama depth controls">
-        <button type="button" onClick={() => onCycleLayer(-1)} aria-label="Show nearer depth layer">Q</button>
+    <section className="vezmir-diorama" aria-label="Isometric priory cloister hidden-object scene" aria-busy={disabled}>
+      <div className="vezmir-diorama__toolbar" role="group" aria-label="Diorama depth controls">
+        <button type="button" onClick={() => onCycleLayer(-1)} aria-label="Show nearer depth layer" title="Show nearer depth layer"><ChevronDown aria-hidden="true" /><kbd>Q</kbd></button>
         <span>{LAYER_LABELS[activeLayer]} layer</span>
-        <button type="button" onClick={() => onCycleLayer(1)} aria-label="Show farther depth layer">E</button>
+        <button type="button" onClick={() => onCycleLayer(1)} aria-label="Show farther depth layer" title="Show farther depth layer"><ChevronUp aria-hidden="true" /><kbd>E</kbd></button>
       </div>
 
       <div
@@ -51,19 +79,19 @@ export default function CloisterDiorama({ state, targets, onFind, onPan, onCycle
       >
         <div
           className="vezmir-diorama__world"
-          style={{ transform: `translate(${state.pan.x}%, ${state.pan.y}%) scale(1.04)` }}
+          style={{ transform: `translate(${state.pan.x}%, ${state.pan.y}%) scale(var(--vezmir-world-scale, 1.04))` }}
+          onClick={searchBlankArea}
         >
           <CloisterArtwork activeLayer={activeLayer} />
 
-          {FIND_VEZMIR_OBJECTS.map((object) => {
+          {FIND_VEZMIR_OBJECTS.filter((object) => object.layer === activeLayer).map((object) => {
             const target = targets.find((item) => item.key === object.key);
-            const isActive = object.layer === activeLayer;
             return (
               <button
                 key={object.key}
                 type="button"
+                disabled={disabled}
                 className="vezmir-hotspot"
-                data-active-layer={isActive}
                 data-found={target?.found || undefined}
                 data-hinted={target?.hinted || undefined}
                 style={{
@@ -72,7 +100,10 @@ export default function CloisterDiorama({ state, targets, onFind, onPan, onCycle
                   width: `${object.hotspot.width}%`,
                   height: `${object.hotspot.height}%`,
                 }}
-                onClick={() => onFind(object.key)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSearch({ objectKey: object.key, layer: activeLayer });
+                }}
                 aria-label={`Search ${object.region} for ${object.label}`}
                 aria-pressed={target?.found || false}
               >
@@ -86,88 +117,141 @@ export default function CloisterDiorama({ state, targets, onFind, onPan, onCycle
         </div>
       </div>
 
-      <p className="vezmir-diorama__help">Drag to pan · WASD / arrows to move · Q / E changes depth</p>
+      <p className="vezmir-diorama__help"><span>Drag to pan · WASD / arrow keys to pan · Q / E changes depth</span><span>Drag to pan · tap keepsakes · depth buttons move nearer or farther</span></p>
     </section>
   );
 }
 
 function CloisterArtwork({ activeLayer }) {
   return (
-    <svg className="vezmir-cloister" viewBox="0 0 1200 760" role="img" aria-label="Chalk-pastel isometric priory cloister">
-      <defs>
-        <filter id="cloisterShadow" x="-20%" y="-20%" width="140%" height="150%">
-          <feDropShadow dx="0" dy="12" stdDeviation="9" floodColor="#574f58" floodOpacity=".22" />
-        </filter>
-        <pattern id="floorTile" width="90" height="48" patternUnits="userSpaceOnUse" patternTransform="skewY(-27)">
-          <rect width="90" height="48" fill="#e7d9c9" />
-          <path d="M0 0H90V48H0Z" fill="none" stroke="#c7b6ac" strokeWidth="3" />
-        </pattern>
-      </defs>
-
-      <rect width="1200" height="760" fill="#d9e9e9" />
-      <circle cx="1030" cy="120" r="150" fill="#f7d9df" opacity=".72" />
-      <circle cx="175" cy="125" r="125" fill="#e5eddb" opacity=".85" />
+    <svg className="vezmir-cloister" viewBox="0 0 1200 760" role="img" aria-label="Flat-vector isometric priory cloister with arches, garden beds, and hidden keepsakes">
+      <rect width="1200" height="760" fill="#d9e6ec" />
+      <path d="M0 0h1200v132L930 96 610 140 278 92 0 137Z" fill="#b4c6dc" />
+      <path d="M0 112 276 72l337 52 318-47 269 41v70H0Z" fill="#eae8df" />
 
       <g className="diorama-layer" data-layer="background" data-active={activeLayer === "background"}>
-        <path d="M222 118 605 18 991 132 609 295Z" fill="#ecdfd4" stroke="#786d70" strokeWidth="9" />
-        <path d="M222 118v300l387 173V295Z" fill="#d6c5ba" stroke="#786d70" strokeWidth="9" />
-        <path d="M991 132v294L609 591V295Z" fill="#c6d8d5" stroke="#786d70" strokeWidth="9" />
-        <path d="M300 145v226l79 36V125Z" fill="#b9d1ce" stroke="#786d70" strokeWidth="7" />
-        <path d="M440 105v326l82 36V83Z" fill="#f2d9dc" stroke="#786d70" strokeWidth="7" />
-        <path d="M785 190v276l96-42V161Z" fill="#e6d9b8" stroke="#786d70" strokeWidth="7" />
-        <path d="M866 169 929 149v211l-63 28Z" fill="#a9ccce" stroke="#786d70" strokeWidth="7" />
-        <path d="M514 76 608 52l94 28-94 43Z" fill="#f5eee7" stroke="#786d70" strokeWidth="7" />
-        <path d="M553 82q54-44 109 0v55H553Z" fill="#91babc" stroke="#786d70" strokeWidth="7" />
-        <circle cx="608" cy="91" r="22" fill="#f4d7a6" stroke="#786d70" strokeWidth="5" />
-        <path d="M535 231q73-72 146 0v160H535Z" fill="#8d819e" stroke="#786d70" strokeWidth="8" />
-        <path d="M563 242q45-43 90 0v135h-90Z" fill="#ede6dd" />
-        <path d="M589 278q19-17 38 0v56h-38Z" fill="#8baeb2" />
-        <path d="M594 287q14-11 27 0v39h-27Z" fill="#4d6670" />
-        <circle cx="601" cy="300" r="4" fill="#f7d8a1" />
-        <circle cx="615" cy="300" r="4" fill="#f7d8a1" />
-        <path d="m873 230 24-12 21 13-24 12Z" fill="#f4d797" stroke="#786d70" strokeWidth="4" />
+        <path d="m180 120 425-96 421 116-421 181Z" fill="#f0ede5" stroke="#485365" strokeWidth="9" strokeLinejoin="round" />
+        <path d="M180 120v300l425 181V321Z" fill="#eadfd5" stroke="#485365" strokeWidth="9" strokeLinejoin="round" />
+        <path d="M1026 140v288L605 601V321Z" fill="#c0d3d0" stroke="#485365" strokeWidth="9" strokeLinejoin="round" />
+
+        <g fill="#80adbc" stroke="#485365" strokeWidth="7" strokeLinejoin="round">
+          <path d="M230 142v225l94 41V121Z" />
+          <path d="M370 110v318l92 39V89Z" />
+          <path d="M852 194v268l101-42V166Z" />
+        </g>
+        <g fill="#faf3eb" stroke="#485365" strokeWidth="7">
+          <path d="M248 173q29-36 58 0v171l-58-24Z" />
+          <path d="M388 142q28-36 56 0v249l-56-24Z" />
+          <path d="M872 219q31-38 62 0v173l-62 26Z" />
+        </g>
+
+        <path d="M515 69 606 48l92 25-92 42Z" fill="#f8e6e6" stroke="#485365" strokeWidth="7" strokeLinejoin="round" />
+        <path d="M548 99q58-64 116 0v130H548Z" fill="#d5a1a3" stroke="#485365" strokeWidth="7" />
+        <path d="M565 105q41-45 82 0v113h-82Z" fill="#faf3eb" stroke="#485365" strokeWidth="5" />
+        <circle cx="606" cy="127" r="18" fill="#dfd8ab" stroke="#485365" strokeWidth="5" />
+
+        <path d="M516 231q90-87 180 0v170H516Z" fill="#9f9bb8" stroke="#485365" strokeWidth="8" />
+        <path d="M540 239q66-58 132 0v148H540Z" fill="#6f728b" stroke="#485365" strokeWidth="5" />
+        <path d="M540 239q34 44 66 18 33 27 66-18v148H540Z" fill="#8e89a8" />
+        <path d="M603 252v129" fill="none" stroke="#485365" strokeWidth="5" />
+
+        <g transform="translate(606 336)" stroke="#3f4858" strokeLinejoin="round">
+          <path d="M-34 11q4-44 34-44t34 44v38q-34 27-68 0Z" fill="#5e5968" strokeWidth="5" />
+          <path d="m-27-21 9-22 15 18 18-18 10 23" fill="#5e5968" strokeWidth="5" />
+          <path d="M20 25q38 7 42 35-30 18-56 2" fill="#5e5968" strokeWidth="8" strokeLinecap="round" />
+          <path d="M25 34q17 3 24 14M18 46q19 4 28 13M9 57q18 5 27 12" fill="none" stroke="#dfd8ab" strokeWidth="5" strokeLinecap="round" />
+          <circle cx="-12" cy="5" r="5" fill="#f1d5a7" strokeWidth="2" />
+          <circle cx="11" cy="5" r="5" fill="#f1d5a7" strokeWidth="2" />
+          <path d="M-7 19q7 7 14 0" fill="none" stroke="#f1d5a7" strokeWidth="4" strokeLinecap="round" />
+          <path d="m-25 30-15 18 19 4" fill="#80adbc" strokeWidth="5" />
+          <path d="m25 30 15 18-19 4" fill="#80adbc" strokeWidth="5" />
+        </g>
+
+        <path d="m914 206 62-25v61l-62 25Z" fill="#faf3eb" stroke="#485365" strokeWidth="6" strokeLinejoin="round" />
+        <path d="m931 218 14-18 14 5 0 27-28 11Z" fill="#d5a1a3" stroke="#485365" strokeWidth="4" />
+        <path d="m941 216 8 4-8 10Z" fill="#faf3eb" />
+
+        <g fill="#7e9d78" stroke="#485365" strokeWidth="5">
+          <path d="M193 187q-45-84 29-102 64 24 25 110Z" />
+          <path d="M972 206q-12-91 58-86 58 42 4 105Z" />
+        </g>
+        <g fill="#f8e6e6" stroke="#485365" strokeWidth="3">
+          <circle cx="205" cy="127" r="11" /><circle cx="235" cy="110" r="9" /><circle cx="1012" cy="158" r="11" /><circle cx="1036" cy="177" r="9" />
+        </g>
       </g>
 
-      <g className="diorama-layer" data-layer="room" data-active={activeLayer === "room"} filter="url(#cloisterShadow)">
-        <path d="m222 418 387-171 382 179-382 213Z" fill="url(#floorTile)" stroke="#786d70" strokeWidth="10" />
-        <path d="m334 413 276-121 266 126-268 147Z" fill="#e9ded3" stroke="#b8a4a2" strokeWidth="6" />
-        <path d="m418 415 190-84 184 87-184 102Z" fill="#c1d8d3" stroke="#786d70" strokeWidth="6" />
-        <path d="m455 414 154-67 147 70-148 81Z" fill="#acd0cc" />
-        <ellipse cx="609" cy="420" rx="90" ry="46" fill="#8fc2c1" />
-        <path d="M571 391q38-38 76 0v65q-38 29-76 0Z" fill="#edf2e8" stroke="#786d70" strokeWidth="6" />
-        <path d="m586 405 23-23 24 23-24 17Z" fill="#f4d39b" />
-        <path d="m278 425 84-38 55 27-85 43Z" fill="#b98f83" stroke="#786d70" strokeWidth="7" />
-        <path d="m804 430 83-38 57 27-85 45Z" fill="#c0958c" stroke="#786d70" strokeWidth="7" />
-        <g fill="#86a77c" stroke="#786d70" strokeWidth="5">
-          <circle cx="320" cy="372" r="34" /><circle cx="873" cy="366" r="37" />
+      <g className="diorama-layer" data-layer="room" data-active={activeLayer === "room"}>
+        <path d="m180 420 425-183 421 191-421 230Z" fill="#e1d7cd" stroke="#485365" strokeWidth="10" strokeLinejoin="round" />
+        <g fill="none" stroke="#b9a99f" strokeWidth="3">
+          <path d="m255 388 424 188M334 353l423 187M414 319l422 185M495 283l420 184" />
+          <path d="m952 395-420 229M872 360 451 588M792 325 372 552M712 289 292 516" />
         </g>
-        <g fill="#f3d6dd" stroke="#786d70" strokeWidth="4">
-          <circle cx="305" cy="355" r="12" /><circle cx="337" cy="366" r="10" /><circle cx="858" cy="348" r="12" /><circle cx="890" cy="362" r="11" />
+
+        <path d="m393 418 214-92 208 94-208 113Z" fill="#b9d5d1" stroke="#485365" strokeWidth="7" strokeLinejoin="round" />
+        <ellipse cx="607" cy="421" rx="136" ry="71" fill="#80adbc" stroke="#485365" strokeWidth="7" />
+        <ellipse cx="607" cy="414" rx="109" ry="54" fill="#c9e1df" stroke="#485365" strokeWidth="5" />
+        <path d="M570 384q37-42 74 0v69q-37 31-74 0Z" fill="#faf3eb" stroke="#485365" strokeWidth="6" />
+        <path d="m586 398 21-27 22 27-22 18Z" fill="#dfd8ab" stroke="#485365" strokeWidth="4" />
+
+        <path d="m261 426 111-49 78 36-111 57Z" fill="#cab08b" stroke="#485365" strokeWidth="7" strokeLinejoin="round" />
+        <path d="m765 427 113-53 83 38-115 61Z" fill="#cab08b" stroke="#485365" strokeWidth="7" strokeLinejoin="round" />
+        <g fill="#7e9d78" stroke="#485365" strokeWidth="5">
+          <circle cx="308" cy="369" r="39" /><circle cx="913" cy="362" r="42" />
         </g>
-        <path d="m355 515 92-43 87 42-90 48Z" fill="#e8bfc4" stroke="#786d70" strokeWidth="6" />
-        <path d="m676 522 91-46 90 44-94 51Z" fill="#d8c79f" stroke="#786d70" strokeWidth="6" />
-        <path d="M382 510q59-46 118 0l-56 31Z" fill="#f5d5d9" />
-        <path d="M707 516q56-46 116 0l-59 32Z" fill="#e8dcb9" />
-        <circle cx="452" cy="498" r="12" fill="#d7a85d" stroke="#786d70" strokeWidth="4" />
-        <path d="m831 382 18-22 18 22-18 20Z" fill="#f5d29c" stroke="#786d70" strokeWidth="4" />
+        <g fill="#d5a1a3" stroke="#485365" strokeWidth="3">
+          <circle cx="290" cy="352" r="11" /><circle cx="322" cy="345" r="10" /><circle cx="334" cy="375" r="9" />
+          <circle cx="893" cy="344" r="12" /><circle cx="926" cy="338" r="10" /><circle cx="938" cy="370" r="9" />
+        </g>
+
+        <g transform="translate(425 287)" stroke="#485365" strokeLinejoin="round">
+          <path d="m-24 6 25-17 25 17-25 18Z" fill="#dfd8ab" strokeWidth="5" />
+          <path d="M1 24v34" fill="none" strokeWidth="5" />
+          <path d="M-12 57h26" fill="none" strokeWidth="5" />
+          <path d="m-10 3 11 7 12-8" fill="none" strokeWidth="4" />
+          <path d="M18 14q17 17 0 30" fill="none" stroke="#d5a1a3" strokeWidth="6" />
+        </g>
+
+        <g transform="translate(1010 525)" stroke="#485365" strokeLinejoin="round">
+          <path d="M-26 9q26-32 52 0v42q-26 19-52 0Z" fill="#d5a1a3" strokeWidth="5" />
+          <path d="m-25 16 51 0" fill="none" strokeWidth="4" />
+          <path d="m-10 1 8-18 8 18" fill="#eaeee0" strokeWidth="4" />
+          <circle cx="-10" cy="29" r="4" fill="#dfd8ab" strokeWidth="2" />
+          <circle cx="10" cy="29" r="4" fill="#dfd8ab" strokeWidth="2" />
+        </g>
+
+        <path d="m353 530 102-49 94 44-103 54Z" fill="#f8e6e6" stroke="#485365" strokeWidth="6" strokeLinejoin="round" />
+        <path d="m673 530 103-51 98 46-106 57Z" fill="#dfd8ab" stroke="#485365" strokeWidth="6" strokeLinejoin="round" />
+        <path d="M382 522q64-47 126 0l-62 34Z" fill="#fae9e2" stroke="#485365" strokeWidth="4" />
+        <path d="M707 521q61-47 125 0l-64 36Z" fill="#f0e7bd" stroke="#485365" strokeWidth="4" />
       </g>
 
-      <g className="diorama-layer" data-layer="foreground" data-active={activeLayer === "foreground"} filter="url(#cloisterShadow)">
-        <path d="m116 521 493 221 492-270v101L609 752 116 581Z" fill="#bfa89b" stroke="#786d70" strokeWidth="10" />
-        <path d="m118 519 491 221 490-269-108-45-382 213-387-221Z" fill="#efe4d7" stroke="#786d70" strokeWidth="10" />
-        <path d="m170 503 145 66-75 49-146-66Z" fill="#d6b0a7" stroke="#786d70" strokeWidth="7" />
-        <path d="m953 496 146-80 79 42-146 83Z" fill="#b8d1ca" stroke="#786d70" strokeWidth="7" />
-        <path d="m188 493 55 25-39 22-54-25Z" fill="#f1d6a1" stroke="#786d70" strokeWidth="5" />
-        <path d="M183 484q33-26 66 0v34l-33 18-33-16Z" fill="#c5a0a3" stroke="#786d70" strokeWidth="5" />
-        <path d="m698 610 67-35 64 31-67 38Z" fill="#c99fa9" stroke="#786d70" strokeWidth="6" />
-        <path d="m731 601 29-15 28 14-29 16Z" fill="#f3ce92" stroke="#786d70" strokeWidth="4" />
-        <g transform="translate(1004 464)">
-          <ellipse cx="0" cy="32" rx="35" ry="16" fill="#786d70" opacity=".2" />
-          <path d="M-23 18q23-38 46 0v34q-23 18-46 0Z" fill="#faf2e9" stroke="#786d70" strokeWidth="5" />
-          <path d="m-19-1 8-19 12 17 12-17 8 21" fill="#d9b6c8" stroke="#786d70" strokeWidth="5" />
-          <circle cx="-9" cy="18" r="4" fill="#635c65" /><circle cx="9" cy="18" r="4" fill="#635c65" />
-          <path d="M-8 31q8 7 16 0" fill="none" stroke="#635c65" strokeWidth="4" strokeLinecap="round" />
+      <g className="diorama-layer" data-layer="foreground" data-active={activeLayer === "foreground"}>
+        <path d="m79 530 526 231 529-287v89L605 760 79 589Z" fill="#a89589" stroke="#485365" strokeWidth="10" strokeLinejoin="round" />
+        <path d="m79 530 526 231 529-287-108-46-421 230-425-181Z" fill="#f0e6dc" stroke="#485365" strokeWidth="10" strokeLinejoin="round" />
+
+        <path d="m96 512 175 77-89 57-174-78Z" fill="#c9b2a6" stroke="#485365" strokeWidth="7" strokeLinejoin="round" />
+        <path d="m938 517 179-94 87 44-177 101Z" fill="#a9c7c2" stroke="#485365" strokeWidth="7" strokeLinejoin="round" />
+        <path d="m116 523 126 55-60 38-127-57Z" fill="#d5a1a3" stroke="#485365" strokeWidth="5" />
+        <path d="m969 520 124-66 58 29-123 70Z" fill="#80adbc" stroke="#485365" strokeWidth="5" />
+
+        <g transform="translate(205 550)" stroke="#485365" strokeLinejoin="round">
+          <path d="M-30 5q30-29 60 0v45q-30 23-60 0Z" fill="#80adbc" strokeWidth="5" />
+          <path d="M-21 4h42" fill="none" strokeWidth="4" />
+          <path d="M-14 4v-15h28V4" fill="#faf3eb" strokeWidth="4" />
+          <path d="M30 14q23 2 13 25-7 11-18 5" fill="none" strokeWidth="6" />
+          <path d="m-8 22 8-8 9 8-9 7Z" fill="#dfd8ab" strokeWidth="3" />
         </g>
+
+        <g transform="translate(740 574)" stroke="#485365" strokeLinejoin="round">
+          <circle cx="0" cy="0" r="24" fill="#d5a1a3" strokeWidth="5" />
+          <path d="m-13-4 9-5 5 9 10-5 1 11-13 8Z" fill="#faf3eb" strokeWidth="4" />
+          <path d="m-3-10 4-13 6 14" fill="#80adbc" strokeWidth="4" />
+        </g>
+
+        <path d="M65 335h75v250H65Z" fill="#cab08b" stroke="#485365" strokeWidth="9" />
+        <path d="M1082 303h74v242h-74Z" fill="#cab08b" stroke="#485365" strokeWidth="9" />
+        <path d="m43 335 60-35 61 34-62 33Z" fill="#dfd8ab" stroke="#485365" strokeWidth="7" />
+        <path d="m1060 303 59-33 60 32-60 34Z" fill="#dfd8ab" stroke="#485365" strokeWidth="7" />
       </g>
     </svg>
   );

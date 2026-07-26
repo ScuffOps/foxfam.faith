@@ -246,6 +246,35 @@ export function writeLocalJson(key, value) {
   window.localStorage.setItem(key, JSON.stringify(value));
 }
 
+export function restoreBobaCafePracticeState(value, options = {}) {
+  if (!isStoredPracticeState(value)) return createInitialBobaCafeState(options);
+  return value;
+}
+
+function isStoredPracticeState(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  if (!Object.values(BOBA_CAFE_PHASES).includes(value.phase)) return false;
+  if (typeof value.daySeed !== "string" || !value.daySeed) return false;
+  if (!Number.isInteger(value.orderIndex) || value.orderIndex < 0 || value.orderIndex > BOBA_ORDER_LIMIT) return false;
+  for (const key of ["score", "claimedScore", "servedCount", "perfectCount", "combo", "bestCombo", "mistakes"]) {
+    if (!Number.isInteger(value[key]) || value[key] < 0) return false;
+  }
+  if (!value.tray || typeof value.tray !== "object") return false;
+  for (const key of BOBA_CAFE_GROUPS.concat("sweetness")) {
+    if (value.tray[key] !== null && typeof value.tray[key] !== "string") return false;
+  }
+  if (value.phase === BOBA_CAFE_PHASES.shiftComplete) return value.activeOrder === null;
+  return Boolean(
+    value.activeOrder
+    && typeof value.activeOrder === "object"
+    && typeof value.activeOrder.label === "string"
+    && value.activeOrder.recipe
+    && typeof value.activeOrder.recipe === "object"
+    && Number.isFinite(value.activeOrder.placedAt)
+    && Number.isFinite(value.activeOrder.patienceMs),
+  );
+}
+
 function completeBobaOrder(state, now, timedOut) {
   const result = scoreBobaTray({
     order: state.activeOrder,

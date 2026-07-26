@@ -54,6 +54,16 @@ export const RELIC_CHARM_CATALOG = [
   { key: "glassfin-comet", name: "Glassfin Comet", rarity: "mythic", slot: "fishing", kind: "achievement", description: "A mythic glassfin that draws rare constellations nearer.", effects: { rare_bite_bonus_bps: 300 } },
   { key: "fishpedia-frame", name: "Fishpedia Frame", rarity: "mythic", slot: "profile-frame", kind: "achievement", description: "A celestial archive frame reserved for a completed Fishpedia.", effects: { profile_frame: "fishpedia-frame" } },
   { key: "century-chain", name: "Century Chain", rarity: "epic", slot: "fishing", kind: "achievement", description: "One luminous link for every patient catch.", effects: { material_multiplier_bps: 750 } },
+  { key: "refinement-seal", name: "Refinement Seal", rarity: "uncommon", slot: "sigil", kind: "achievement", description: "A tidy seal earned from the first successful Reliquary refinement.", effects: { profile_particle: "refinement-spark" } },
+  { key: "shapers-knot", name: "Shaper's Knot", rarity: "epic", slot: "chain", kind: "achievement", description: "A precise knot awarded to keepers who refine a tier-four sigil.", effects: { profile_particle: "shaper-sigil" } },
+  { key: "first-service-ribbon", name: "First Service Ribbon", rarity: "uncommon", slot: "ribbon", kind: "achievement", description: "A cafe ribbon folded after a warm first shift.", effects: { profile_particle: "tea-steam" } },
+  { key: "spotless-tea-bell", name: "Spotless Tea Bell", rarity: "epic", slot: "bell", kind: "achievement", description: "A bright cafe bell that remembers a flawless shift.", effects: { profile_particle: "boba-bubbles" } },
+  { key: "vezmir-trail-pin", name: "Vezmir Trail Pin", rarity: "uncommon", slot: "pin", kind: "achievement", description: "A tiny trail marker carried by those who found Vezmir.", effects: { profile_particle: "paw-trail" } },
+  { key: "lantern-eyed-lens", name: "Lantern-Eyed Lens", rarity: "epic", slot: "core", kind: "achievement", description: "A watchful lens earned by finding every hidden clue.", effects: { profile_frame: "lantern-eyed" } },
+  { key: "clockface-shard", name: "Clockface Shard", rarity: "uncommon", slot: "chain", kind: "achievement", description: "A recovered fragment that still remembers the right hour.", effects: { profile_particle: "clock-sparks" } },
+  { key: "unfractured-loop", name: "Unfractured Loop", rarity: "epic", slot: "halo", kind: "achievement", description: "A perfect ring awarded for crossing the clocktower untouched.", effects: { profile_frame: "unfractured-loop" } },
+  { key: "blooming-ink-sprout", name: "Blooming Ink Sprout", rarity: "uncommon", slot: "root", kind: "achievement", description: "A first word preserved as a small living sprout.", effects: { profile_particle: "ink-petals" } },
+  { key: "full-bloom-quill", name: "Full Bloom Quill", rarity: "epic", slot: "profile-frame", kind: "achievement", description: "A flowering quill earned by completing the entire word bloom.", effects: { profile_frame: "full-bloom" } },
 ];
 
 export const DEFAULT_RELIC = {
@@ -61,7 +71,7 @@ export const DEFAULT_RELIC = {
   base_type: "lantern",
   theme: "celestial",
   lore: "Forged from a careful vow that learned to glow before it learned where it was going.",
-  effects: ["blue-flame", "star-orbit"],
+  effects: ["blue-flame"],
   equipped_charm_ids: [],
   status: "active",
 };
@@ -88,10 +98,13 @@ export function getCharmDefinition(charmKey) {
 }
 
 export function normalizeRelic(relic = {}) {
+  const requestedEffects = Array.isArray(relic?.effects) ? relic.effects : DEFAULT_RELIC.effects;
+  const knownEffects = new Set(RELIC_EFFECTS.map((effect) => effect.id));
+  const [effect = DEFAULT_RELIC.effects[0]] = requestedEffects.filter((value) => knownEffects.has(value));
   return {
     ...DEFAULT_RELIC,
     ...(relic || {}),
-    effects: Array.isArray(relic?.effects) ? relic.effects : DEFAULT_RELIC.effects,
+    effects: [effect],
     equipped_charm_ids: Array.isArray(relic?.equipped_charm_ids) ? relic.equipped_charm_ids : [],
   };
 }

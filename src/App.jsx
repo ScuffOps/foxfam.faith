@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { isAuthUnavailable } from '@/lib/authFailure';
@@ -30,8 +30,10 @@ import MatchMerge from './pages/MatchMerge';
 import BobaCafe from './pages/BobaCafe';
 import FindVezmir from './pages/FindVezmir';
 import TimeRunner from './pages/TimeRunner';
-import CommunityWordle from './pages/CommunityWordle';
 import WordGarden from './pages/WordGarden';
+import FamiliarWardrobe from './pages/FamiliarWardrobe';
+import PlayerCollections from './pages/PlayerCollections';
+import FamiliarProvider from '@/games/shared/familiar/FamiliarProvider';
 
 const AuthenticatedApp = () => {
   const {
@@ -87,6 +89,7 @@ const AuthenticatedApp = () => {
         <Route path="/suggestions" element={<CommunityInput defaultTab="suggestions" />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/profile/familiar" element={<FamiliarWardrobe />} />
         <Route path="/prayer" element={<PrayerWall />} />
         <Route path="/collabs" element={<CollabRequests />} />
         <Route path="/roadmap" element={<Roadmap />} />
@@ -95,12 +98,14 @@ const AuthenticatedApp = () => {
         <Route path="/codex" element={<Codex />} />
         <Route path="/reliquary" element={<Reliquary />} />
         <Route path="/quarters" element={<QuartersHub />} />
+        <Route path="/quarters/:profileUserId" element={<QuartersHub />} />
+        <Route path="/collections" element={<PlayerCollections />} />
         <Route path="/starfishing" element={<Starfishing />} />
         <Route path="/match-merge" element={<MatchMerge />} />
         <Route path="/boba-cafe" element={<BobaCafe />} />
         <Route path="/find-vezmir" element={<FindVezmir />} />
         <Route path="/time-runner" element={<TimeRunner />} />
-        <Route path="/community-wordle" element={<CommunityWordle />} />
+        <Route path="/community-wordle" element={<Navigate replace to="/word-garden" />} />
         <Route path="/word-garden" element={<WordGarden />} />
         <Route path="/relic-forge" element={<RelicForge />} />
         <Route path="/admin" element={<Admin />} />
@@ -148,12 +153,14 @@ function App() {
 
   return (
     <AuthProvider>
-      <QueryClientProvider client={queryClientInstance}>
-        <Router>
-          <AuthenticatedApp />
-        </Router>
-        <Toaster />
-      </QueryClientProvider>
+      <FamiliarProvider>
+        <QueryClientProvider client={queryClientInstance}>
+          <Router>
+            <AuthenticatedApp />
+          </Router>
+          <Toaster />
+        </QueryClientProvider>
+      </FamiliarProvider>
     </AuthProvider>
   )
 }

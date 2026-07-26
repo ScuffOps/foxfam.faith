@@ -93,6 +93,39 @@ describe("findVezmirRules", () => {
     assert.equal(hitTestFindVezmirHotspot({ x: 4, y: 4 }), null);
   });
 
+  it("only resolves targets on the active diorama layer", () => {
+    const state = createInitialFindVezmirState({ now: 1000 });
+    const wrongLayer = resolveFindVezmirTap(
+      state,
+      { objectKey: "moon-mug", layer: "room" },
+      1100,
+    );
+    const rightLayer = resolveFindVezmirTap(
+      state,
+      { objectKey: "moon-mug", layer: "foreground" },
+      1100,
+    );
+
+    assert.deepEqual(wrongLayer.foundKeys, []);
+    assert.equal(wrongLayer.misses, 1);
+    assert.deepEqual(rightLayer.foundKeys, ["moon-mug"]);
+    assert.equal(rightLayer.misses, 0);
+  });
+
+  it("counts an empty active-layer search as a miss", () => {
+    const state = createInitialFindVezmirState({ now: 1000 });
+    const next = resolveFindVezmirTap(state, { x: 4, y: 4, layer: "room" }, 1100);
+
+    assert.equal(next.focus, 4);
+    assert.equal(next.misses, 1);
+    assert.match(next.message, /dust motes/i);
+  });
+
+  it("filters coordinate hit tests by depth", () => {
+    assert.equal(hitTestFindVezmirHotspot({ x: 18, y: 74, layer: "foreground" })?.key, "moon-mug");
+    assert.equal(hitTestFindVezmirHotspot({ x: 18, y: 74, layer: "room" }), null);
+  });
+
   it("hints select the next unfound target and apply deterministic scoring", () => {
     const state = requestFindVezmirHint(createInitialFindVezmirState({ now: 1000 }));
 

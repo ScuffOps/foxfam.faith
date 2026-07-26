@@ -43,7 +43,11 @@ describe("gameHubCatalog", () => {
     assert.equal(MATERIAL_BY_KEY.voidthread.label, "Voidthread");
     assert.equal(MATERIAL_BY_KEY["blooming-ink"].label, "Blooming Ink");
     assert.equal(GAME_WORLD_BY_KEY[GAME_WORLD_KEYS.wordGarden].route, "/word-garden");
-    assert.equal(GAME_WORLD_BY_KEY[GAME_WORLD_KEYS.wordGarden].sourceMaterialKeys[0], "blooming-ink");
+  assert.equal(GAME_WORLD_BY_KEY[GAME_WORLD_KEYS.wordGarden].sourceMaterialKeys[0], "blooming-ink");
+  assert.deepEqual(
+    GAME_WORLD_BY_KEY[GAME_WORLD_KEYS.bobaCafe].sourceMaterialKeys,
+    ["pearl-resin", "sugar-pearls", "cream-cloud"],
+  );
   });
 
   it("normalizes legacy local material keys", () => {

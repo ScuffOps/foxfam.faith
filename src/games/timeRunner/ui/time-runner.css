@@ -1,7 +1,14 @@
 .time-runner-hud { display: grid; gap: 0.85rem; color: #364152; letter-spacing: 0; }
+.time-runner-mode, .time-runner-error { display: grid; gap: 0.55rem; margin-bottom: 0.85rem; padding: 0.7rem; border: 2px solid #485365; border-radius: 6px; color: #364152; }
+.time-runner-mode { background: #eaeee0; }
+.time-runner-error { background: #f8e6e6; }
+.time-runner-mode strong, .time-runner-mode span { display: block; }
+.time-runner-mode span { margin-top: 0.15rem; font-size: 0.72rem; font-weight: 700; }
+.time-runner-mode button, .time-runner-error button { min-height: 42px; border: 2px solid #485365; border-radius: 6px; background: #faf3eb; color: #364152; font-weight: 800; }
+.time-runner-mode button svg { display: inline; width: 16px; margin-right: 0.3rem; vertical-align: -3px; }
 .time-runner-hud__familiar { display: flex; align-items: center; gap: 0.75rem; padding-bottom: 0.75rem; border-bottom: 2px dashed rgb(72 83 101 / 35%); }
 .time-runner-hud__familiar small, .time-runner-hud__familiar strong { display: block; }
-.time-runner-hud__familiar small { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; color: rgb(54 65 82 / 65%); }
+.time-runner-hud__familiar small { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; color: #485365; }
 .time-runner-hud__familiar strong { margin-top: 0.15rem; }
 .time-runner-hud__stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; margin: 0; }
 .time-runner-hud__stats > div { padding: 0.6rem; border: 2px solid #485365; border-radius: 6px; background: #d9e6ec; }
@@ -25,17 +32,56 @@
 .time-runner-hud__controls > span { display: flex; min-height: 36px; align-items: center; gap: 0.5rem; padding: 0.35rem 0.65rem; border: 2px solid #485365; border-radius: 6px; background: #f8e6e6; font-size: 0.75rem; font-weight: 800; }
 .time-runner-hud__controls svg { width: 17px; }
 .time-runner-hud__finished { display: grid; gap: 0.5rem; }
-.time-runner-stage { position: relative; min-height: 33rem; background: #d9e6ec; }
-.time-runner-stage > div { min-height: 33rem; border: 0; border-radius: 0; background: #d9e6ec; }
+.time-runner-stage { position: relative; min-height: 33rem; overflow: hidden; background: #d9e6ec; }
+.time-runner-stage > div:first-child { height: 33rem; min-height: 0; border: 0; border-radius: 0; background: #d9e6ec; }
+.time-runner-stage__controls { display: none; }
+.time-runner-mobile-dock { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.38rem; }
+.time-runner-mobile-dock--ready { grid-template-columns: minmax(0, 1fr); }
+.time-runner-mobile-dock button {
+  min-width: 0;
+  min-height: 48px;
+  padding: 0.32rem 0.2rem;
+  border: 2px solid #485365;
+  border-radius: 6px;
+  background: #faf3eb;
+  color: #364152;
+  box-shadow: 0 3px 0 #485365;
+  touch-action: manipulation;
+}
+.time-runner-mobile-dock button.is-active { background: #dfd8ab; transform: translateY(2px); box-shadow: 0 1px 0 #485365; }
+.time-runner-mobile-dock button:disabled { opacity: 0.48; }
+.time-runner-mobile-dock strong, .time-runner-mobile-dock small { display: block; overflow-wrap: anywhere; }
+.time-runner-mobile-dock strong { font-size: 0.78rem; }
+.time-runner-mobile-dock small { margin-top: 0.08rem; font-size: 0.6rem; }
 .time-runner-stage__legend { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 3px solid #485365; background: #faf3eb; }
 .time-runner-stage__legend div { min-width: 0; padding: 0.65rem; border-right: 2px dashed rgb(72 83 101 / 30%); }
 .time-runner-stage__legend div:last-child { border-right: 0; }
 .time-runner-stage__legend strong, .time-runner-stage__legend span { display: block; overflow-wrap: anywhere; }
 .time-runner-stage__legend span { margin-top: 0.15rem; font-size: 0.72rem; }
 @media (max-width: 560px) {
-  .time-runner-hud__actions, .time-runner-stage__legend { grid-template-columns: 1fr; }
-  .time-runner-stage__legend div { border-right: 0; border-bottom: 2px dashed rgb(72 83 101 / 30%); }
-  .time-runner-stage { min-height: 25rem; }
-  .time-runner-stage > div { min-height: 25rem; }
+  .time-runner-hud__actions--sidebar { display: none; }
+  .time-runner-stage__controls {
+    position: absolute;
+    z-index: 35;
+    right: 0.55rem;
+    bottom: 4.1rem;
+    left: 0.55rem;
+    display: block;
+    min-height: 0;
+    padding: 0.42rem;
+    border: 2px solid #485365;
+    border-radius: 7px;
+    background: #f8e6e6;
+    box-shadow: 0 4px 0 #485365;
+  }
+  .time-runner-stage__legend { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .time-runner-stage__legend div { padding: 0.45rem 0.35rem; border-right: 1px solid rgb(72 83 101 / 35%); }
+  .time-runner-stage__legend strong { font-size: 0.68rem; }
+  .time-runner-stage__legend span { display: none; }
+  .time-runner-stage { min-height: 28rem; }
+  .time-runner-stage > div:first-child { height: 28rem; min-height: 0; }
 }
-@media (prefers-reduced-motion: reduce) { .time-runner-hud__meter span { transition: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .time-runner-hud__meter span { transition: none; }
+  .time-runner-mobile-dock button { transition: none; }
+}

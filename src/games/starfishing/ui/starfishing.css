@@ -1,14 +1,15 @@
 .starfishing-status, .starfishing-local { display: inline-flex; align-items: center; gap: .35rem; min-height: 34px; padding: .3rem .6rem; border: 2px solid #485365; border-radius: 6px; background: #d9e6ec; color: #364152; font-size: .75rem; font-weight: 800; white-space: nowrap; }
 .starfishing-status svg { width: 16px; }
 .starfishing-local { background: #eaeee0; }
-.starfishing-world { position: relative; padding: .7rem; background: #d9e6ec; }
-.starfishing-canvas { min-height: clamp(24rem, 58vw, 37rem); border: 3px solid #485365; border-radius: 6px; background: #d9e6ec; }
+.starfishing-world { position: relative; padding: .7rem; background: #eaeee0; }
+.starfishing-canvas { min-height: 0; aspect-ratio: 16 / 10; border: 3px solid #485365; border-radius: 6px; background: #d9e6ec; }
+.starfishing-canvas canvas { display: block; width: 100% !important; height: 100% !important; }
 .starfishing-scene-label { position: absolute; top: 1.35rem; left: 1.35rem; display: inline-flex; align-items: center; gap: .4rem; padding: .35rem .55rem; border: 2px solid #485365; border-radius: 5px; background: #faf3eb; color: #364152; font-size: .72rem; font-weight: 900; box-shadow: 0 3px 0 rgb(72 83 101 / 18%); }
 .starfishing-scene-label svg { width: 16px; }
 .starfishing-sidebar { display: grid; gap: 1rem; }
 .starfishing-preclaim { display: grid; gap: .5rem; color: #364152; }
 .starfishing-preclaim > svg { width: 32px; height: 32px; padding: .35rem; border: 2px solid #485365; border-radius: 50%; background: #dfd8ab; }
-.starfishing-preclaim > p { margin: 0; color: rgb(54 65 82 / 67%); font-size: .65rem; font-weight: 900; text-transform: uppercase; }
+.starfishing-preclaim > p { margin: 0; color: #485365; font-size: .65rem; font-weight: 900; text-transform: uppercase; }
 .starfishing-preclaim > h2 { margin: 0; font-size: 1.2rem; }
 .starfishing-preclaim > span { margin-bottom: .35rem; font-size: .78rem; line-height: 1.5; }
 .starfishing-preclaim > button { display: flex; min-height: 58px; align-items: center; gap: .55rem; padding: .55rem; border: 2px solid #485365; border-radius: 6px; background: #80adbc; color: #26333f; text-align: left; box-shadow: 0 4px 0 rgb(72 83 101 / 22%); }
@@ -20,7 +21,7 @@
 .reel-panel__heading { display: flex; align-items: center; gap: .7rem; }
 .reel-panel__heading > span { display: inline-flex; width: 44px; height: 44px; align-items: center; justify-content: center; border: 2px solid #485365; border-radius: 50%; background: #80adbc; }
 .reel-panel__heading svg { width: 21px; }
-.reel-panel__heading p, .fishpedia__header p, .fish-entry__copy p { margin: 0; color: rgb(54 65 82 / 67%); font-size: .65rem; font-weight: 900; text-transform: uppercase; }
+.reel-panel__heading p, .fishpedia__header p, .fish-entry__copy p { margin: 0; color: #485365; font-size: .65rem; font-weight: 900; text-transform: uppercase; }
 .reel-panel__heading h2, .fishpedia__header h2 { margin: .1rem 0 0; font-size: 1.2rem; line-height: 1.15; }
 .reel-panel__detail { min-height: 3.1rem; margin: .85rem 0; font-size: .88rem; line-height: 1.55; }
 .reel-panel__cast { display: flex; width: 100%; min-height: 48px; align-items: center; justify-content: center; gap: .55rem; border: 2px solid #485365; border-radius: 6px; background: #80adbc; color: #26333f; font-weight: 900; box-shadow: 0 4px 0 rgb(72 83 101 / 22%); }
@@ -41,11 +42,11 @@
 .reel-policy label > span { display: flex; width: 100%; align-items: center; justify-content: center; padding: .35rem; border: 2px solid #485365; border-radius: 5px; background: #eee8e8; font-size: .62rem; font-weight: 900; line-height: 1.25; text-align: center; overflow-wrap: anywhere; }
 .reel-policy input:checked + span { background: #80adbc; box-shadow: inset 0 -3px 0 rgb(72 83 101 / 20%); }
 .reel-policy input:focus-visible + span { outline: 3px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 5px #485365; }
-.reel-policy > small { display: block; margin-top: .45rem; color: rgb(54 65 82 / 72%); font-size: .63rem; line-height: 1.4; }
+.reel-policy > small { display: block; margin-top: .45rem; color: #485365; font-size: .63rem; line-height: 1.4; }
 .reel-effects { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .65rem; }
 .reel-effects span { display: inline-flex; align-items: center; gap: .25rem; padding: .3rem .45rem; border: 1px solid #485365; border-radius: 4px; background: #eaeee0; font-size: .66rem; font-weight: 800; }
 .reel-effects svg { width: 13px; }
-.reel-panel__footer { display: flex; align-items: center; justify-content: space-between; gap: .6rem; margin-top: .8rem; color: rgb(54 65 82 / 74%); font-size: .75rem; }
+.reel-panel__footer { display: flex; align-items: center; justify-content: space-between; gap: .6rem; margin-top: .8rem; color: #485365; font-size: .75rem; }
 .reel-panel__footer button { display: inline-flex; width: 38px; height: 38px; align-items: center; justify-content: center; border: 2px solid #485365; border-radius: 5px; background: #f8e6e6; }
 .reel-panel__footer button:disabled { cursor: not-allowed; opacity: .5; }
 .reel-panel__footer svg { width: 17px; }
@@ -68,14 +69,14 @@
 .reel-balance > span { min-width: 0; padding: .5rem; border: 2px solid #485365; border-radius: 5px; background: #d9e6ec; }
 .reel-balance strong, .reel-balance small { display: block; overflow-wrap: anywhere; }
 .reel-balance strong { font-size: .9rem; }
-.reel-balance small { margin-top: .1rem; color: rgb(54 65 82 / 72%); font-size: .62rem; text-transform: capitalize; }
+.reel-balance small { margin-top: .1rem; color: #485365; font-size: .62rem; text-transform: capitalize; }
 .fishpedia { padding: .9rem; border-top: 3px solid #485365; background: #faf3eb; color: #364152; }
 .fishpedia__header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .fishpedia__header > span { display: inline-flex; align-items: center; gap: .35rem; padding: .3rem .5rem; border: 2px solid #485365; border-radius: 5px; background: #dfd8ab; font-size: .72rem; font-weight: 900; }
 .fishpedia__header svg { width: 15px; }
 .fishpedia__tabs { display: flex; gap: .35rem; margin-top: .8rem; overflow-x: auto; }
 .fishpedia__tabs button { min-height: 38px; padding: .35rem .7rem; border: 2px solid #485365; border-radius: 5px 5px 0 0; background: #eee8e8; color: #364152; font-size: .72rem; font-weight: 900; white-space: nowrap; }
-.fishpedia__tabs button[aria-selected="true"] { background: #80adbc; }
+.fishpedia__tabs button[aria-selected="true"] { background: #80adbc; color: #26333f; }
 .fishpedia__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; padding: .65rem; border: 2px solid #485365; background: #d9e6ec; }
 .fish-entry { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: .65rem; min-height: 86px; padding: .55rem; border: 2px solid #485365; border-radius: 6px; background: #faf3eb; }
 .fish-entry[data-rarity="uncommon"] { background: #eaeee0; }
@@ -83,19 +84,40 @@
 .fish-entry[data-rarity="epic"] { background: #eee8e8; }
 .fish-entry[data-rarity="mythic"] { background: #dfd8ab; }
 .fish-entry[data-rarity="hidden"] { background: #e3e2e1; }
-.fish-entry__portrait { position: relative; display: flex; width: 62px; height: 62px; align-items: center; justify-content: center; overflow: hidden; border: 2px solid #485365; border-radius: 50%; background: #80adbc; }
+.fish-entry__portrait { position: relative; display: flex; width: 62px; height: 62px; align-items: center; justify-content: center; overflow: hidden; border: 2px solid #485365; border-radius: 6px; background: #80adbc; }
 .fish-entry[data-rarity="hidden"] .fish-entry__portrait { background: #adb5be; }
-.fish-entry__portrait svg { width: 33px; color: #faf3eb; filter: drop-shadow(1px 2px 0 #485365); }
-.fish-entry[data-rarity="hidden"] .fish-entry__portrait svg { color: #485365; opacity: .65; }
-.fish-entry__portrait span { position: absolute; inset: 8px; border: 1px dashed rgb(250 243 235 / 70%); border-radius: 50%; }
+.fish-entry__portrait svg { width: 56px; height: 56px; }
+.fish-entry[data-rarity="hidden"] .fish-entry__portrait svg { opacity: .72; }
 .fish-entry__copy { min-width: 0; align-self: center; }
 .fish-entry__copy h3 { margin: .15rem 0 .3rem; font-size: .86rem; overflow-wrap: anywhere; }
-.fish-entry__copy > span { display: flex; align-items: center; gap: .25rem; color: rgb(54 65 82 / 75%); font-size: .68rem; line-height: 1.35; }
+.fish-entry__copy > span { display: flex; align-items: center; gap: .25rem; color: #485365; font-size: .68rem; line-height: 1.35; }
 .fish-entry__copy > span svg { width: 13px; flex: 0 0 13px; }
 .fishpedia__empty { grid-column: 1 / -1; margin: 1rem; text-align: center; font-size: .82rem; }
 .starfishing-safety-note { display: flex; align-items: center; gap: .45rem; margin: 0; padding: .65rem .9rem; border-top: 2px dashed #485365; background: #eaeee0; color: #364152; font-size: .7rem; line-height: 1.4; }
 .starfishing-safety-note svg { width: 16px; flex: 0 0 16px; }
 @media (max-width: 980px) { .fishpedia__grid { grid-template-columns: 1fr; } }
-@media (max-width: 760px) { .starfishing-status { white-space: normal; } .starfishing-local { display: none; } .starfishing-canvas { min-height: 25rem; } .fishpedia__grid { padding: .45rem; } .reel-policy > div { grid-template-columns: 1fr; } }
+@media (max-width: 760px) {
+  .game-shell[data-world="starfishing"] .game-shell__sidebar { order: 1; position: relative; z-index: 2; }
+  .game-shell[data-world="starfishing"] .game-shell__playfield { order: 2; }
+  .starfishing-status { white-space: normal; }
+  .starfishing-local { display: none; }
+  .starfishing-sidebar { gap: .65rem; }
+  .reel-panel__detail { min-height: 0; margin: .55rem 0; }
+  .reel-panel__cast { min-height: 54px; }
+  .reel-policy > div { grid-template-columns: 1fr; }
+  .fishpedia__grid { padding: .45rem; }
+}
+@media (max-width: 420px) {
+  .starfishing-world { padding: .4rem; }
+  .starfishing-canvas { aspect-ratio: 4 / 3; }
+  .starfishing-scene-label { top: .8rem; left: .8rem; }
+  .reel-qte { padding: .6rem; }
+  .reel-qte__buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .reel-qte__buttons button { min-height: 58px; }
+  .fishpedia { padding: .7rem; }
+  .fishpedia__header { align-items: flex-start; }
+  .fish-entry { grid-template-columns: 56px minmax(0, 1fr); gap: .5rem; }
+  .fish-entry__portrait { width: 56px; height: 56px; }
+}
 @keyframes starfishing-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .reel-qte__buttons button[data-active="true"] { transform: none; } .reel-panel__spinner { animation: none; } }

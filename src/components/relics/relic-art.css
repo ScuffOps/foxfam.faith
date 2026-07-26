@@ -1,0 +1,139 @@
+.relic-art {
+  --relic-theme: #a4c8d5;
+  --relic-highlight: #dfc982;
+  --relic-shadow: #53606d;
+  position: relative;
+  min-height: 31rem;
+  overflow: hidden;
+  border: 3px solid #53606d;
+  border-radius: 8px;
+  background: #e9eee7;
+  color: #35404f;
+  box-shadow: 0 6px 0 #b7c0b4;
+}
+
+.relic-art--compact { min-height: 19rem; }
+
+.relic-art__header {
+  position: absolute;
+  z-index: 4;
+  top: 0.75rem;
+  left: 0.75rem;
+  right: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.relic-art__tag,
+.relic-art__stage,
+.relic-art__overflow {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  border: 2px solid #53606d;
+  border-radius: 999px;
+  background: #f6f0df;
+  padding: 0.25rem 0.65rem;
+  color: #35404f;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.relic-art__stage { border-color: var(--relic-theme); background: #eef3ed; }
+
+.relic-art__display {
+  position: absolute;
+  inset: 3rem 0 5.4rem;
+  display: grid;
+  place-items: center;
+  isolation: isolate;
+}
+
+.relic-art__display::before {
+  position: absolute;
+  content: "";
+  width: min(62%, 16rem);
+  aspect-ratio: 1;
+  border: 3px solid color-mix(in srgb, var(--relic-shadow) 55%, #f6f0df);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--relic-theme) 22%, #f6f0df);
+  clip-path: polygon(50% 0, 92% 24%, 92% 76%, 50% 100%, 8% 76%, 8% 24%);
+}
+
+.relic-art__artifact {
+  position: relative;
+  z-index: 2;
+  width: min(70%, 18rem);
+  height: min(70%, 18rem);
+  overflow: visible;
+}
+
+.relic-art__artifact--compact { width: min(76%, 14rem); height: min(76%, 14rem); }
+
+.relic-art__layer { transform-box: fill-box; transform-origin: center; }
+.relic-art__layer--ornament { opacity: 0.74; }
+.relic-art__layer--effect { opacity: 0.88; }
+
+.relic-art__socket-rail {
+  position: absolute;
+  z-index: 4;
+  bottom: 0.1rem;
+  left: 50%;
+  display: flex;
+  min-height: 3rem;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.55rem;
+  border: 2px solid #53606d;
+  border-radius: 999px;
+  background: #f6f0df;
+  box-shadow: 0 3px 0 rgb(83 96 109 / 18%);
+  transform: translateX(-50%);
+}
+
+.relic-art__socket {
+  display: grid;
+  width: 2.15rem;
+  height: 2.15rem;
+  place-items: center;
+  border-radius: 50%;
+  padding: 0.1rem;
+  background: #eef3ed;
+}
+
+.relic-art__socket--mythic { background: #f3ecd6; }
+.relic-art__socket-count { min-width: 2rem; color: #53606d; font-size: 0.68rem; font-weight: 900; text-align: center; }
+
+.relic-art__caption {
+  position: absolute;
+  z-index: 5;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  left: 0.75rem;
+  border: 2px solid #53606d;
+  border-radius: 6px;
+  background: #f6f0df;
+  padding: 0.75rem;
+}
+
+.relic-art__title-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.4rem; }
+.relic-art__title-row h3 { margin: 0; color: #35404f; font-size: 0.9rem; font-weight: 800; }
+.relic-art__title-row span { color: #6b747a; font-size: 0.625rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.relic-art__caption p { display: -webkit-box; overflow: hidden; margin: 0.3rem 0 0; color: #687178; font-size: 0.75rem; line-height: 1.35rem; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+
+@media (max-width: 520px) {
+  .relic-art { min-height: 26rem; }
+  .relic-art--compact { min-height: 18rem; }
+  .relic-art__display { inset: 3.25rem 0 5.5rem; }
+  .relic-art__artifact { width: min(74%, 15rem); height: min(74%, 15rem); }
+  .relic-art__socket { width: 1.85rem; height: 1.85rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .relic-art *, .relic-art *::before, .relic-art *::after { animation: none !important; transition: none !important; }
+}

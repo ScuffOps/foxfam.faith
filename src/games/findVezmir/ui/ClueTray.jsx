@@ -15,7 +15,7 @@ export default function ClueTray({ targets, activeHintRegion }) {
         <p className="vezmir-clue-tray__hint" role="status">Look around the <strong>{activeHintRegion}</strong>.</p>
       ) : null}
 
-      <ol className="vezmir-clue-list">
+      <ol className="vezmir-clue-list" tabIndex={0} aria-label="Clue progress">
         {targets.map((target) => (
           <li key={target.key} data-found={target.found || undefined} data-hinted={target.hinted || undefined}>
             <span className="vezmir-clue-list__icon" aria-hidden="true">

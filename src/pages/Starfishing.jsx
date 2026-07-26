@@ -6,10 +6,15 @@ import GameShell from "@/games/shared/ui/GameShell";
 import { createSceneBridge } from "@/games/shared/phaser/sceneBridge";
 import { GAME_ACTIONS } from "@/games/shared/input/actions";
 import { useGameControls } from "@/games/shared/input/useGameControls";
+import { useFamiliar } from "@/games/shared/familiar/useFamiliar";
 import StarfishingScene from "@/games/starfishing/phaser/StarfishingScene";
 import FishpediaPanel from "@/games/starfishing/ui/FishpediaPanel";
 import StarfishingHud from "@/games/starfishing/ui/StarfishingHud";
-import { communityClient, supabase } from "@/api/communityClient";
+import {
+  communityClient,
+  isSupabaseConfigured,
+  supabase,
+} from "@/api/communityClient";
 import {
   claimStarfishingCatch,
   loadStarfishingProgression,
@@ -187,6 +192,7 @@ function friendlyProgressionError(error, action) {
 }
 
 export default function Starfishing() {
+  const { familiar } = useFamiliar();
   const [state, setState] = useState(() => createInitialStarfishingState());
   const [localFishpedia, setLocalFishpedia] = useState(() => readLocalJson(FISHPEDIA_STORAGE_KEY, {}));
   const [rewardLog, setRewardLog] = useState(() => readLocalJson(REWARD_LOG_STORAGE_KEY, []));
@@ -339,6 +345,13 @@ export default function Starfishing() {
     const loadGeneration = authLoadGenerationRef.current + 1;
     authLoadGenerationRef.current = loadGeneration;
     async function loadSessionProgression() {
+      if (!isSupabaseConfigured) {
+        applySessionTransition("", { scheduleReload: false });
+        setAuthMode(AUTH_MODES.guest);
+        setIsProgressionLoading(false);
+        return;
+      }
+
       let profile;
       try {
         profile = await communityClient.auth.me();
@@ -468,8 +481,9 @@ export default function Starfishing() {
 
   const bridge = useMemo(() => createSceneBridge({
     getState: () => stateRef.current,
+    getFamiliar: () => familiar,
     dispatchAction,
-  }), [dispatchAction]);
+  }), [dispatchAction, familiar]);
 
   const applyAuthoritativeClaim = useCallback((result, sessionEpoch) => {
     if (!isCurrentClaimContext(sessionEpoch)) return;

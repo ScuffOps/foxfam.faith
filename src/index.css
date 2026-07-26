@@ -282,6 +282,26 @@
   background: radial-gradient(circle at 50% 18%, rgba(0, 145, 255, 0.16), transparent 36%);
 }
 
+.app-viewport--game::before {
+  background: #d9e6ec;
+}
+
+.app-viewport--game::after {
+  background: #f8e6e6;
+  clip-path: polygon(72% 0, 100% 0, 100% 100%, 44% 100%);
+}
+
+.app-viewport--game .mobile-nav,
+.app-viewport--game .mobile-nav__menu,
+.app-viewport--game .mobile-nav__brand,
+.app-viewport--game .mobile-nav__brand .text-muted-foreground {
+  color: #364152;
+}
+
+.app-viewport--game .mobile-nav {
+  background: #faf3eb;
+}
+
 .community-dashboard {
   position: relative;
   isolation: isolate;

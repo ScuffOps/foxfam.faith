@@ -13,23 +13,17 @@ export default function FamiliarAvatar({ familiar = DEFAULT_FAMILIAR, size = 112
 
   return (
     <figure
-      className={`familiar-avatar familiar-avatar--${species.earStyle} familiar-avatar--${species.tailStyle} ${className}`.trim()}
+      className={`familiar-avatar familiar-avatar--${species.tailStyle} ${className}`.trim()}
       data-pose={pose}
       data-species={selection.species}
+      data-coat={selection.coat}
+      data-marking={selection.markings}
       style={style}
       role="img"
       aria-label={`${species.label} familiar wearing ${selection.outfit.replaceAll("-", " ")}`}
     >
-      <span className="familiar-avatar__tail" aria-hidden="true" />
-      <span className="familiar-avatar__body" aria-hidden="true" />
-      <span className="familiar-avatar__head" aria-hidden="true">
-        <span className="familiar-avatar__ear familiar-avatar__ear--left" />
-        <span className="familiar-avatar__ear familiar-avatar__ear--right" />
-        <span className="familiar-avatar__marking" data-marking={selection.markings} />
-        <span className="familiar-avatar__eye familiar-avatar__eye--left" />
-        <span className="familiar-avatar__eye familiar-avatar__eye--right" />
-        <span className="familiar-avatar__nose" />
-      </span>
+      <img className="familiar-avatar__art" src={species.asset} alt="" draggable="false" aria-hidden="true" />
+      <span className="familiar-avatar__marking" data-marking={selection.markings} aria-hidden="true" />
       <span className="familiar-avatar__outfit" data-outfit={selection.outfit} aria-hidden="true" />
       {selection.accessory !== "none" ? <span className="familiar-avatar__accessory" data-accessory={selection.accessory} aria-hidden="true" /> : null}
       {selection.charmFx !== "none" ? <span className="familiar-avatar__fx" data-fx={selection.charmFx} aria-hidden="true" /> : null}

@@ -1,4 +1,5 @@
 import { ArrowLeft, Settings } from "lucide-react";
+import { useId } from "react";
 import { Link } from "react-router-dom";
 import { getWorldAccent } from "../theme/gameTheme";
 import "./game-shell.css";
@@ -14,11 +15,13 @@ export default function GameShell({
   onOpenSettings,
 }) {
   const accent = getWorldAccent(world);
+  const titleId = useId();
 
   return (
-    <main
+    <section
       className="game-shell"
       data-world={world}
+      aria-labelledby={titleId}
       style={{ "--game-accent": accent.surface, "--game-accent-text": accent.text }}
     >
       <header className="game-shell__header">
@@ -28,11 +31,11 @@ export default function GameShell({
 
         <div className="game-shell__identity">
           {eyebrow ? <p>{eyebrow}</p> : null}
-          <h1>{title}</h1>
+          <h1 id={titleId}>{title}</h1>
         </div>
 
-        <div className="game-shell__status">{status}</div>
-        <div className="game-shell__actions">
+        {status ? <div className="game-shell__status" aria-label="Game status">{status}</div> : null}
+        <div className="game-shell__actions" role="group" aria-label="Game actions">
           {actions}
           {onOpenSettings ? (
             <button
@@ -48,10 +51,10 @@ export default function GameShell({
         </div>
       </header>
 
-      <div className="game-shell__layout">
+      <div className="game-shell__layout" data-has-sidebar={Boolean(sidebar)}>
         <section className="game-shell__playfield">{children}</section>
         {sidebar ? <aside className="game-shell__sidebar">{sidebar}</aside> : null}
       </div>
-    </main>
+    </section>
   );
 }

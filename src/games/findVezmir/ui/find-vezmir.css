@@ -1,55 +1,369 @@
-.vezmir-status { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: flex-end; }
-.vezmir-status span { border: 2px solid #fff8; background: #f8eee5; color: #675c61; padding: .35rem .65rem; border-radius: 999px; font-size: .75rem; font-weight: 800; box-shadow: 0 2px 0 #bba8a4; }
-.vezmir-diorama { position: relative; min-height: 34rem; height: min(70vh, 48rem); overflow: hidden; border: 3px solid #87777b; border-radius: 8px; background: #d9e9e9; box-shadow: inset 0 0 0 5px #fff8, 0 8px 18px #675c6130; touch-action: none; user-select: none; }
-.vezmir-diorama__viewport { position: absolute; inset: 0; overflow: hidden; cursor: grab; }
+.vezmir-status {
+  display: flex;
+  gap: .45rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.vezmir-status span {
+  border: 2px solid #485365;
+  background: #faf3eb;
+  color: #485365;
+  padding: .34rem .62rem;
+  border-radius: 999px;
+  font-size: .75rem;
+  font-weight: 800;
+  box-shadow: 0 3px 0 #cab08b;
+}
+
+.vezmir-diorama {
+  position: relative;
+  min-height: 34rem;
+  height: min(70vh, 48rem);
+  overflow: hidden;
+  border: 3px solid #485365;
+  border-radius: 8px;
+  background: #d9e6ec;
+  box-shadow: 0 7px 0 #9ca9ad;
+  touch-action: none;
+  user-select: none;
+}
+
+.vezmir-diorama__viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+}
+
 .vezmir-diorama__viewport:active { cursor: grabbing; }
-.vezmir-diorama__world { position: absolute; inset: -5%; transition: transform 140ms ease-out; transform-origin: center; }
-.vezmir-cloister { width: 100%; height: 100%; display: block; }
-.diorama-layer { opacity: .58; transition: opacity 180ms ease, filter 180ms ease; }
-.diorama-layer[data-active="true"] { opacity: 1; filter: saturate(1.08) brightness(1.02); }
-.vezmir-diorama__toolbar { position: absolute; z-index: 20; top: .75rem; left: 50%; transform: translateX(-50%); display: grid; grid-template-columns: 2.25rem minmax(7rem, auto) 2.25rem; align-items: center; gap: .3rem; padding: .35rem; border: 2px solid #87777b; border-radius: 999px; background: #fff8f1e8; color: #675c61; box-shadow: 0 4px 0 #b9a7a4; text-align: center; font-size: .75rem; font-weight: 900; }
-.vezmir-diorama__toolbar button { width: 2.25rem; height: 2.25rem; border: 2px solid #b9a7a4; border-radius: 50%; background: #d9e9e9; font-weight: 900; transition: transform 120ms ease, background 120ms ease; }
-.vezmir-diorama__toolbar button:hover { background: #f4d8df; transform: translateY(-1px); }
-.vezmir-diorama__toolbar button:focus-visible, .vezmir-hotspot:focus-visible { outline: 3px solid #5e9298; outline-offset: 3px; }
-.vezmir-diorama__help { position: absolute; z-index: 20; bottom: .7rem; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 1.5rem); margin: 0; padding: .4rem .75rem; border: 2px solid #fff8; border-radius: 999px; background: #675c61e8; color: #fff8f1; font-size: .72rem; font-weight: 800; text-align: center; }
-.vezmir-hotspot { position: absolute; z-index: 10; min-width: 2.5rem; min-height: 2.5rem; border: 2px dashed transparent; border-radius: 50%; background: transparent; opacity: .3; transition: opacity 150ms ease, background 150ms ease, transform 150ms ease; }
-.vezmir-hotspot[data-active-layer="true"] { opacity: 1; }
-.vezmir-hotspot[data-active-layer="true"]:hover { border-color: #fff8f1; background: #f4d7a650; transform: scale(1.06); }
-.vezmir-hotspot[data-hinted="true"] { opacity: 1; border-color: #d6a65a; background: #f6dc9e70; animation: vezmirHint 1.4s ease-in-out infinite; }
-.vezmir-hotspot[data-found="true"] { opacity: 1; border-style: solid; border-color: #6f9b82; background: #dcebdc9c; animation: none; }
-.vezmir-hotspot__marker { position: absolute; left: 50%; top: 50%; display: grid; place-items: center; width: 1.8rem; height: 1.8rem; transform: translate(-50%, -50%); border-radius: 50%; background: #fff8f1; color: #675c61; box-shadow: 0 2px 0 #9b898b; }
+
+.vezmir-diorama__world {
+  position: absolute;
+  inset: -5%;
+  transition: transform 140ms ease-out;
+  transform-origin: center;
+}
+
+.vezmir-cloister {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.diorama-layer {
+  opacity: .38;
+  transition: opacity 160ms ease;
+}
+
+.diorama-layer[data-active="true"] { opacity: 1; }
+
+.vezmir-diorama__toolbar {
+  position: absolute;
+  z-index: 20;
+  top: .75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  grid-template-columns: 2.25rem minmax(7rem, auto) 2.25rem;
+  align-items: center;
+  gap: .3rem;
+  padding: .35rem;
+  border: 2px solid #485365;
+  border-radius: 999px;
+  background: #faf3eb;
+  color: #485365;
+  box-shadow: 0 4px 0 #cab08b;
+  text-align: center;
+  font-size: .75rem;
+  font-weight: 900;
+}
+
+.vezmir-diorama__toolbar button {
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 2px solid #485365;
+  border-radius: 50%;
+  background: #d9e6ec;
+  color: #364152;
+  font-weight: 900;
+  transition: transform 120ms ease, background 120ms ease;
+}
+.vezmir-diorama__toolbar button svg { width: 1rem; height: 1rem; margin: auto; }
+.vezmir-diorama__toolbar button kbd { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+.vezmir-diorama__toolbar button:hover {
+  background: #f8e6e6;
+  transform: translateY(-1px);
+}
+
+.vezmir-diorama__toolbar button:focus-visible,
+.vezmir-hotspot:focus-visible,
+.vezmir-actions button:focus-visible {
+  outline: 3px solid #80adbc;
+  outline-offset: 3px;
+}
+
+.vezmir-diorama__help {
+  position: absolute;
+  z-index: 20;
+  bottom: .7rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 1.5rem);
+  margin: 0;
+  padding: .4rem .75rem;
+  border: 2px solid #485365;
+  border-radius: 999px;
+  background: #485365;
+  color: #faf3eb;
+  font-size: .72rem;
+  font-weight: 800;
+  text-align: center;
+}
+.vezmir-diorama__help span:last-child { display: none; }
+
+.vezmir-hotspot {
+  position: absolute;
+  z-index: 10;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  border: 3px dashed transparent;
+  border-radius: 50%;
+  background: transparent;
+  opacity: 1;
+  transition: background 150ms ease, transform 150ms ease;
+}
+
+.vezmir-hotspot:hover {
+  border-color: #faf3eb;
+  background: #dfd8ab66;
+  transform: scale(1.05);
+}
+
+.vezmir-hotspot[data-hinted="true"] {
+  border-color: #b98b4d;
+  background: #dfd8ab99;
+  animation: vezmirHint 1.4s ease-in-out infinite;
+}
+
+.vezmir-hotspot[data-found="true"] {
+  border-style: solid;
+  border-color: #63816b;
+  background: #c5d7c299;
+  animation: none;
+}
+
+.vezmir-hotspot__marker {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  transform: translate(-50%, -50%);
+  border: 2px solid #485365;
+  border-radius: 50%;
+  background: #faf3eb;
+  color: #485365;
+  box-shadow: 0 2px 0 #cab08b;
+}
+
 .vezmir-hotspot__marker:empty { display: none; }
 .vezmir-hotspot__marker svg { width: 1rem; height: 1rem; }
-.vezmir-clue-tray { color: #675c61; }
-.vezmir-clue-tray__title { display: flex; align-items: center; gap: .65rem; padding-bottom: .75rem; border-bottom: 2px dashed #c9b9b2; }
-.vezmir-clue-tray__title > span { display: grid; place-items: center; width: 2.6rem; height: 2.6rem; border: 2px solid #87777b; border-radius: 50%; background: #d8e9e8; }
+
+.vezmir-clue-tray { color: #485365; }
+
+.vezmir-clue-tray__title {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  padding-bottom: .65rem;
+  border-bottom: 2px dashed #cab08b;
+}
+
+.vezmir-clue-tray__title > span {
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border: 2px solid #485365;
+  border-radius: 50%;
+  background: #d9e6ec;
+}
+
 .vezmir-clue-tray__title svg { width: 1.25rem; }
 .vezmir-clue-tray__title p { margin: 0; font-size: .67rem; font-weight: 900; text-transform: uppercase; }
-.vezmir-clue-tray__title h2 { margin: .1rem 0 0; font-size: 1.2rem; }
-.vezmir-clue-tray__hint { margin: .75rem 0 0; padding: .65rem; border: 2px solid #d5ad73; border-radius: 7px; background: #f7e5bb; font-size: .8rem; }
-.vezmir-clue-list { display: grid; gap: .45rem; padding: 0; margin: .8rem 0 0; list-style: none; }
-.vezmir-clue-list li { display: grid; grid-template-columns: 2rem 1fr; align-items: center; gap: .55rem; padding: .55rem; border: 2px solid #ccbcb5; border-radius: 7px; background: #fff8f1; }
-.vezmir-clue-list li[data-found="true"] { border-color: #8ead96; background: #e3eee1; }
-.vezmir-clue-list li[data-hinted="true"] { border-color: #d5ad73; background: #f8e9c9; }
-.vezmir-clue-list__icon { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 50%; background: #e2edef; }
-.vezmir-clue-list__icon svg { width: 1rem; }
-.vezmir-clue-list strong, .vezmir-clue-list small { display: block; }
-.vezmir-clue-list strong { font-size: .83rem; }
-.vezmir-clue-list small { margin-top: .08rem; color: #817478; font-size: .68rem; line-height: 1.2; }
-.vezmir-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-top: 1rem; }
-.vezmir-actions button { min-height: 2.7rem; border: 2px solid #87777b; border-radius: 7px; background: #f4d8df; color: #675c61; font-weight: 900; box-shadow: 0 3px 0 #bca7a8; }
-.vezmir-actions button:last-child { background: #d8e9e8; }
-.vezmir-actions button:hover { transform: translateY(-1px); }
-.vezmir-actions button:focus-visible { outline: 3px solid #5e9298; outline-offset: 2px; }
-.vezmir-case-note { margin-top: .75rem; padding: .7rem; border-left: 4px solid #d5ad73; background: #f7ecdc; color: #675c61; font-size: .8rem; line-height: 1.4; }
-@keyframes vezmirHint { 50% { box-shadow: 0 0 0 10px #f6dc9e20; transform: scale(1.05); } }
-@media (max-width: 760px) {
-  .vezmir-diorama { min-height: 29rem; height: 62vh; }
-  .vezmir-diorama__toolbar { top: .5rem; }
-  .vezmir-diorama__help { bottom: .45rem; font-size: .62rem; }
-  .vezmir-status { justify-content: flex-start; }
+.vezmir-clue-tray__title h2 { margin: .1rem 0 0; font-size: 1.1rem; }
+
+.vezmir-clue-tray__hint {
+  margin: .65rem 0 0;
+  padding: .55rem .65rem;
+  border: 2px solid #b98b4d;
+  border-radius: 7px;
+  background: #f0e7bd;
+  font-size: .78rem;
 }
+
+.vezmir-clue-list {
+  display: grid;
+  gap: .4rem;
+  padding: 0;
+  margin: .7rem 0 0;
+  list-style: none;
+}
+
+.vezmir-clue-list li {
+  display: grid;
+  grid-template-columns: 1.9rem 1fr;
+  align-items: center;
+  gap: .5rem;
+  min-width: 0;
+  padding: .48rem;
+  border: 2px solid #a89589;
+  border-radius: 7px;
+  background: #faf3eb;
+}
+
+.vezmir-clue-list li[data-found="true"] { border-color: #63816b; background: #eaeee0; }
+.vezmir-clue-list li[data-hinted="true"] { border-color: #b98b4d; background: #f0e7bd; }
+
+.vezmir-clue-list__icon {
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 50%;
+  background: #d9e6ec;
+}
+
+.vezmir-clue-list__icon svg { width: 1rem; }
+.vezmir-clue-list strong,
+.vezmir-clue-list small { display: block; }
+.vezmir-clue-list strong { overflow-wrap: anywhere; font-size: .8rem; }
+.vezmir-clue-list small { margin-top: .05rem; color: #485365; font-size: .66rem; line-height: 1.2; }
+
+.vezmir-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .5rem;
+  margin-top: .8rem;
+}
+
+.vezmir-actions button {
+  min-height: 2.7rem;
+  border: 2px solid #485365;
+  border-radius: 7px;
+  background: #f8e6e6;
+  color: #485365;
+  font-weight: 900;
+  box-shadow: 0 3px 0 #cab08b;
+}
+
+.vezmir-actions button:last-child { background: #d9e6ec; }
+.vezmir-actions button:hover { transform: translateY(-1px); }
+
+.vezmir-mode,
+.vezmir-error {
+  display: grid;
+  gap: .55rem;
+  margin-bottom: .75rem;
+  padding: .7rem;
+  border: 2px solid #485365;
+  border-radius: 7px;
+  background: #faf3eb;
+}
+
+.vezmir-mode div { display: grid; gap: .15rem; }
+.vezmir-mode span { color: #485365; font-size: .72rem; font-weight: 800; }
+.vezmir-mode button,
+.vezmir-error button {
+  min-height: 2.7rem;
+  border: 2px solid #485365;
+  border-radius: 7px;
+  background: #dfd8ab;
+  color: #485365;
+  font-weight: 900;
+}
+.vezmir-mode button svg { width: 1rem; vertical-align: middle; }
+.vezmir-error { border-color: #b66f73; background: #f8e6e6; }
+.vezmir-error strong { color: #713f45; font-size: .78rem; line-height: 1.35; }
+
+.vezmir-actions button:disabled,
+.vezmir-mode button:disabled,
+.vezmir-error button:disabled,
+.vezmir-hotspot:disabled {
+  cursor: wait;
+  opacity: .58;
+  transform: none;
+}
+
+.vezmir-case-note {
+  margin-top: .65rem;
+  padding: .65rem;
+  border: 2px solid #cab08b;
+  border-left-width: 5px;
+  border-radius: 7px;
+  background: #faf3eb;
+  color: #485365;
+  font-size: .78rem;
+  line-height: 1.35;
+}
+
+@keyframes vezmirHint {
+  50% { transform: scale(1.07); }
+}
+
+@media (max-width: 760px) {
+  .vezmir-diorama {
+    min-height: 27rem;
+    height: min(62vh, 35rem);
+  }
+
+  .vezmir-diorama__toolbar { top: .45rem; }
+  .vezmir-diorama__world { --vezmir-world-scale: 1.2; }
+  .vezmir-diorama__help { bottom: .4rem; border-radius: 6px; font-size: .61rem; }
+  .vezmir-diorama__help span:first-child { display: none; }
+  .vezmir-diorama__help span:last-child { display: inline; }
+  .vezmir-hotspot { min-width: 3.25rem; min-height: 3.25rem; }
+  .vezmir-status { justify-content: flex-start; }
+
+  .vezmir-clue-tray__title {
+    padding-bottom: .45rem;
+  }
+
+  .vezmir-clue-tray__title > span {
+    width: 2.2rem;
+    height: 2.2rem;
+  }
+
+  .vezmir-clue-list {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(8.2rem, 42%);
+    overflow-x: auto;
+    gap: .35rem;
+    margin-top: .55rem;
+    padding: .1rem .1rem .45rem;
+    scroll-snap-type: x proximity;
+  }
+
+  .vezmir-clue-list li {
+    grid-template-columns: 1.7rem 1fr;
+    padding: .4rem;
+    scroll-snap-align: start;
+  }
+
+  .vezmir-clue-list__icon { width: 1.7rem; height: 1.7rem; }
+  .vezmir-clue-list small { display: none; }
+  .vezmir-actions { margin-top: .55rem; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .vezmir-hotspot, .vezmir-diorama__world { transition: none; }
+  .vezmir-hotspot,
+  .vezmir-diorama__world,
+  .diorama-layer { transition: none; }
+
   .vezmir-hotspot[data-hinted="true"] { animation: none; }
 }

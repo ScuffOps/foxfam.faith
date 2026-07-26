@@ -163,6 +163,7 @@ export function hitTestFindVezmirHotspot(point) {
   if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
 
   return FIND_VEZMIR_OBJECTS.find((object) => {
+    if (point?.layer && object.layer !== point.layer) return false;
     const hotspot = object.hotspot;
     return (
       x >= hotspot.x
@@ -274,7 +275,11 @@ export function writeLocalJson(key, value) {
 }
 
 function resolveTappedObject(tap) {
-  if (tap?.objectKey) return FIND_VEZMIR_OBJECT_BY_KEY[tap.objectKey] || null;
+  if (tap?.objectKey) {
+    const object = FIND_VEZMIR_OBJECT_BY_KEY[tap.objectKey] || null;
+    if (tap.layer && object?.layer !== tap.layer) return null;
+    return object;
+  }
   return hitTestFindVezmirHotspot(tap);
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Dice5, Gem, Loader2, LogIn, Settings, Shield, Sparkles, WandSparkles } from "lucide-react";
+import { Copy, Dice5, DoorOpen, Gem, Loader2, LogIn, Settings, Shield, Sparkles, WandSparkles } from "lucide-react";
 import { communityClient } from "@/api/communityClient";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -135,6 +135,13 @@ export default function Profile() {
     ? starfishingStatus
     : (ownerId ? "loading" : "signed-out");
   const equippedCount = visibleCharms.filter((charm) => charm.equipped).length;
+  const authoritativeFavor = Math.max(0, Number(visibleProgression?.favorBalance ?? visibleLevel?.points ?? 0));
+  const equippedProfileFrame = visibleCharms.find((charm) => (
+    charm.equipped && typeof charm.effects?.profile_frame === "string"
+  ));
+  const equippedProfileParticle = visibleCharms.find((charm) => (
+    charm.equipped && typeof charm.effects?.profile_particle === "string"
+  ));
   const relicTeaser = useMemo(() => user ? getProfileRelicTeaser(user) : null, [user]);
   const equipProfileCharm = (...args) => setEquippedCharm(...args);
 
@@ -160,6 +167,23 @@ export default function Profile() {
 
   const handleCharmsChange = (nextCharms) => {
     if (activeOwnerRef.current === loadedOwnerId) setCharms(nextCharms);
+  };
+
+  const handleCopyQuartersLink = async () => {
+    const quartersUrl = new URL(`/quarters/${ownerId}`, window.location.origin).toString();
+    try {
+      await navigator.clipboard.writeText(quartersUrl);
+      toast({
+        title: "Quarters link copied",
+        description: "Signed-in Foxfam members can now visit your public collection.",
+      });
+    } catch {
+      toast({
+        title: "Could not copy the link",
+        description: "Open your public Quarters preview and copy its address from the browser.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (loading) {
@@ -209,7 +233,12 @@ export default function Profile() {
   return (
     <div className="mx-auto max-w-6xl animate-fade-in space-y-6">
       <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="rounded-xl border border-border bg-card p-5">
+        <div className={`relative rounded-lg bg-[#faf3eb] p-5 text-[#364152] ${equippedProfileFrame ? "border-[3px] border-[#80adbc] shadow-[0_6px_0_#b4c6dc]" : "border-2 border-[#707989] shadow-[0_5px_0_#c7bbb0]"}`}>
+          {equippedProfileParticle ? (
+            <span className="absolute -top-3 right-4 inline-flex items-center gap-1 rounded-md border-2 border-[#485365] bg-[#dfd8ab] px-2 py-1 text-[10px] font-black uppercase" title={equippedProfileParticle.name}>
+              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> {equippedProfileParticle.name}
+            </span>
+          ) : null}
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <Avatar avatar={getPublicAvatar(user)} name={getPublicDisplayName(user, "Profile")} />
             <div className="min-w-0 flex-1">
@@ -217,9 +246,17 @@ export default function Profile() {
               <h1 className="mt-1 truncate font-heading text-2xl font-bold">{getPublicDisplayName(user, "Profile")}</h1>
               <p className="text-sm text-muted-foreground">{getRoleLabel(user.role)}</p>
             </div>
-            <Button asChild variant="outline" className="gap-2">
-              <Link to="/settings"><Settings className="h-4 w-4" /> Settings</Link>
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="outline" className="gap-2">
+                <Link to={`/quarters/${ownerId}`}><DoorOpen className="h-4 w-4" /> Preview public Quarters</Link>
+              </Button>
+              <Button type="button" variant="outline" className="gap-2" onClick={handleCopyQuartersLink}>
+                <Copy className="h-4 w-4" /> Copy visit link
+              </Button>
+              <Button asChild variant="outline" className="gap-2">
+                <Link to="/settings"><Settings className="h-4 w-4" /> Settings</Link>
+              </Button>
+            </div>
           </div>
 
           <div className="mt-5 grid gap-4 md:grid-cols-[16rem_minmax(0,1fr)]">
@@ -243,18 +280,17 @@ export default function Profile() {
             <div className="grid gap-3 sm:grid-cols-3">
               <ProfileStat icon={Gem} label="Owned charms" value={visibleCharms.length} />
               <ProfileStat icon={Shield} label="Attached" value={equippedCount} />
-              <ProfileStat icon={Sparkles} label="Favor" value={visibleLevel?.points || 0} />
+              <ProfileStat icon={Sparkles} label="Favor" value={authoritativeFavor} />
             </div>
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
-          <div className="relative min-h-44 bg-[radial-gradient(circle_at_50%_15%,rgba(69,70,255,0.28),transparent_48%),linear-gradient(145deg,rgba(7,20,36,0.96),rgba(18,16,35,0.98))] p-5">
-            <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/55 to-transparent" />
+        <div className="overflow-hidden rounded-lg border-2 border-[#707989] bg-[#faf3eb] text-[#364152] shadow-[0_5px_0_#c7bbb0]">
+          <div className="relative min-h-44 border-b-2 border-[#707989] bg-[#d9e6ec] p-5">
             <img
               src={relicTeaser?.image}
               alt=""
-              className="mx-auto h-28 w-28 object-contain opacity-80 drop-shadow-[0_0_28px_rgba(56,189,248,0.35)]"
+              className="mx-auto h-28 w-28 object-contain"
             />
           </div>
           <div className="p-5">
@@ -270,8 +306,8 @@ export default function Profile() {
               <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Seal ID</p>
               <p className="mt-1 font-heading text-lg font-semibold text-primary">{relicTeaser?.code}</p>
             </div>
-            <Button disabled className="mt-4 w-full gap-2">
-              <WandSparkles className="h-4 w-4" /> Forge Opens Soon
+            <Button asChild className="mt-4 w-full gap-2 border-2 border-[#485365] bg-[#80adbc] text-[#24303d]">
+              <Link to="/relic-forge"><WandSparkles className="h-4 w-4" /> Open Relic Forge</Link>
             </Button>
           </div>
         </div>

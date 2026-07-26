@@ -11,6 +11,7 @@ import {
   selectBobaSweetness,
   startNextBobaOrder,
   submitBobaDrink,
+  restoreBobaCafePracticeState,
   tickBobaCafe,
 } from "./bobaCafeRules.js";
 
@@ -21,6 +22,15 @@ describe("bobaCafeRules", () => {
 
     assert.equal(first.activeOrder.label, second.activeOrder.label);
     assert.deepEqual(first.activeOrder.recipe, second.activeOrder.recipe);
+  });
+
+  it("recovers safely from stale or malformed local practice state", () => {
+    const recovered = restoreBobaCafePracticeState({ phase: "serving", score: "oops" }, { seed: "recovery-seed", now: 1000 });
+    assert.equal(recovered.daySeed, "recovery-seed");
+    assert.equal(recovered.score, 0);
+
+    const valid = createInitialBobaCafeState({ seed: "valid-seed", now: 1000 });
+    assert.equal(restoreBobaCafePracticeState(valid), valid);
   });
 
   it("fills a tray by ingredient group and sweetness", () => {

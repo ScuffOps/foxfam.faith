@@ -1,5 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { communityClient, LOGIN_EVENT_NAME, supabase } from "@/api/communityClient";
+import {
+  communityClient,
+  isSupabaseConfigured,
+  LOGIN_EVENT_NAME,
+  supabase,
+} from "@/api/communityClient";
 import LoginDialog from "@/components/auth/LoginDialog";
 import { classifyAuthFailure } from "@/lib/authFailure";
 
@@ -37,6 +42,12 @@ export const AuthProvider = ({ children }) => {
   const checkUserAuth = async () => {
     setIsLoadingAuth(true);
     setAuthError(null);
+    if (!isSupabaseConfigured) {
+      setUser(null);
+      setIsAuthenticated(false);
+      setIsLoadingAuth(false);
+      return;
+    }
     try {
       const currentUser = await communityClient.auth.me();
       setUser(currentUser);

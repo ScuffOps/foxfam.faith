@@ -8,6 +8,7 @@ export default function WordFlower({ center, petals, draftWord, disabled, onPeta
       </div>
 
       <div className="word-flower__bed">
+        <div className="word-flower__soil" aria-hidden="true"><i /><i /><i /></div>
         <div className="word-flower__stem" aria-hidden="true" />
         <div className="word-flower__leaves" aria-hidden="true"><i /><i /></div>
         <div className="word-flower__petals">

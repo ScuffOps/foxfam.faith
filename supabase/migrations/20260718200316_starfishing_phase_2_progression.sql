@@ -1,5 +1,7 @@
 -- Starfishing Phase 2 authoritative progression schema.
 
+begin;
+
 create table public.game_fish_catalog (
   fish_key text primary key,
   label text not null,
@@ -1382,8 +1384,7 @@ declare
   material_multiplier_bps integer := 0;
   rare_bite_bonus_bps integer := 0;
   size_floor_bps integer := 0;
-  existing_ticket public.game_cast_tickets%rowtype;
-  existing_qte_length smallint;
+  existing_ticket record;
   selected_fish public.game_fish_catalog%rowtype;
 begin
   if (select auth.uid()) is null then
@@ -1408,8 +1409,8 @@ begin
 
   cast_created_at := pg_catalog.clock_timestamp();
 
-  select ticket_row, fish_row.qte_length
-  into existing_ticket, existing_qte_length
+  select ticket_row.*, fish_row.qte_length as catalog_qte_length
+  into existing_ticket
   from public.game_cast_tickets as ticket_row
   left join public.game_fish_catalog as fish_row
     on fish_row.fish_key = ticket_row.fish_key
@@ -1421,7 +1422,7 @@ begin
   limit 1
   for update of ticket_row;
 
-  if existing_ticket.id is not null and existing_qte_length is null then
+  if existing_ticket.id is not null and existing_ticket.catalog_qte_length is null then
     raise exception using errcode = '22023', message = 'Existing cast ticket catalog version is unavailable';
   end if;
 
@@ -1429,7 +1430,7 @@ begin
     return pg_catalog.jsonb_build_object(
       'ticket_id', existing_ticket.id,
       'fish_key', existing_ticket.fish_key,
-      'qte_length', existing_qte_length,
+      'qte_length', existing_ticket.catalog_qte_length,
       'applied_effects', existing_ticket.applied_effects,
       'not_before', existing_ticket.not_before,
       'expires_at', existing_ticket.expires_at
@@ -1630,12 +1631,14 @@ set search_path = ''
 as $$
 declare
   transport_safe_max constant bigint := 9007199254740991;
+  duplicate_release_daily_favor_cap constant integer := 40;
   caller_id uuid := (select auth.uid());
   requested_idempotency_key uuid := claim_idempotency_key;
   locked_user_id uuid;
   claim_created_at timestamptz;
   claim_catch_id uuid := pg_catalog.gen_random_uuid();
   existing_result_snapshot jsonb;
+  existing_play_evidence jsonb;
   claim_result_snapshot jsonb;
   claim_ticket public.game_cast_tickets%rowtype;
   claim_fish public.game_fish_catalog%rowtype;
@@ -1651,6 +1654,7 @@ declare
   claim_applied_effects jsonb := '[]'::jsonb;
   base_favor_delta integer := 0;
   favor_delta bigint := 0;
+  duplicate_release_favor_earned bigint := 0;
   favor_balance bigint := 0;
   prior_favor_balance bigint := 0;
   favor_entry_result jsonb;
@@ -1711,13 +1715,26 @@ begin
     raise exception using errcode = '42501', message = 'Authentication required';
   end if;
 
-  select catch_row.result_snapshot
-  into existing_result_snapshot
+  select
+    catch_row.result_snapshot,
+    catch_row.play_evidence
+  into
+    existing_result_snapshot,
+    existing_play_evidence
   from public.game_catches as catch_row
   where catch_row.user_id = caller_id
     and catch_row.idempotency_key = requested_idempotency_key;
 
   if existing_result_snapshot is not null then
+    if coalesce(existing_play_evidence ->> 'ticket_id', '') <> claim_ticket_id::text
+      or coalesce(existing_play_evidence ->> 'requested_duplicate_policy', '') <> claim_duplicate_policy
+      or coalesce(existing_play_evidence ->> 'qte_action_count', '') <> claim_qte_action_count::text
+      or coalesce(existing_play_evidence ->> 'miss_count', '') <> claim_miss_count::text
+      or coalesce(existing_play_evidence ->> 'duration_ms', '') <> claim_duration_ms::text then
+      raise exception using
+        errcode = '23505',
+        message = 'Catch idempotency key was reused for a different request';
+    end if;
     return pg_catalog.jsonb_set(
       existing_result_snapshot,
       '{replayed}',
@@ -1763,7 +1780,7 @@ begin
   claim_min_duration_ms := greatest(
     250,
     pg_catalog.ceil(
-      pg_catalog.extract(epoch from (claim_ticket.not_before - claim_ticket.created_at)) * 1000
+      extract(epoch from (claim_ticket.not_before - claim_ticket.created_at)) * 1000
     )::integer
       - (claim_fish.qte_length * 150)
       - 350
@@ -1771,7 +1788,7 @@ begin
   claim_max_duration_ms := least(
     600000,
     pg_catalog.floor(
-      pg_catalog.extract(epoch from (claim_ticket.expires_at - claim_ticket.created_at)) * 1000
+      extract(epoch from (claim_ticket.expires_at - claim_ticket.created_at)) * 1000
     )::integer
   );
 
@@ -1885,8 +1902,8 @@ begin
   elsif effective_duplicate_policy = 'convert' then
     base_material_drops := pg_catalog.jsonb_build_array(
       pg_catalog.jsonb_build_object(
-        'key', 'star-dust',
-        'label', 'Star Dust',
+        'key', 'star-glass',
+        'label', 'Star Glass',
         'quantity', case claim_fish.rarity
           when 'common' then 1
           when 'uncommon' then 2
@@ -1902,6 +1919,27 @@ begin
   favor_delta := pg_catalog.round(
     base_favor_delta::numeric * (10000 + favor_multiplier_bps) / 10000
   )::bigint;
+  if claim_duplicate and effective_duplicate_policy = 'release' then
+    select coalesce(pg_catalog.sum(ledger.amount), 0)
+    into duplicate_release_favor_earned
+    from public.currency_ledger as ledger
+    where ledger.user_id = caller_id
+      and ledger.currency_key = 'favor'
+      and ledger.source_type = 'starfishing_catch'
+      and ledger.metadata ->> 'duplicate_policy' = 'release'
+      and ledger.created_at >= pg_catalog.date_trunc(
+        'day',
+        claim_created_at at time zone 'UTC'
+      ) at time zone 'UTC'
+      and ledger.created_at < (
+        pg_catalog.date_trunc('day', claim_created_at at time zone 'UTC') + interval '1 day'
+      ) at time zone 'UTC';
+
+    favor_delta := least(
+      favor_delta,
+      greatest(0, duplicate_release_daily_favor_cap - duplicate_release_favor_earned)
+    );
+  end if;
 
   for material_reward in
     select
@@ -2232,6 +2270,8 @@ begin
     claim_duplicate,
     effective_duplicate_policy,
     pg_catalog.jsonb_build_object(
+      'ticket_id', claim_ticket_id,
+      'requested_duplicate_policy', claim_duplicate_policy,
       'qte_action_count', claim_qte_action_count,
       'miss_count', claim_miss_count,
       'duration_ms', claim_duration_ms
@@ -2582,8 +2622,8 @@ begin
   end if;
 
   effect_count := pg_catalog.jsonb_array_length(relic_effects);
-  if effect_count not between 1 and 6 then
-    raise exception using errcode = '22023', message = 'Relic must have between 1 and 6 effects';
+  if effect_count <> 1 then
+    raise exception using errcode = '22023', message = 'Relic must have exactly one signature effect';
   end if;
   if (
     select pg_catalog.count(distinct effect.value)
@@ -3260,3 +3300,5 @@ revoke execute on function public.start_starfishing_cast() from public, anon, au
 
 revoke execute on function public.claim_starfishing_catch(uuid, uuid, text, integer, integer, integer)
 from public, anon, authenticated;
+
+commit;

@@ -98,6 +98,8 @@ test("migration owns forge validation, canonical costs, receipts, and balance de
   assert.match(migration, /when 'sigil-glow' then 16/);
   assert.match(migration, /when 'snow-dots' then 8/);
   assert.match(migration, /when 'lore-script' then 14/);
+  assert.match(migration, /if effect_count <> 1 then/);
+  assert.match(migration, /Relic must have exactly one signature effect/);
   assert.match(migration, /private\.post_favor_entry\(\s*caller_id,\s*-favor_due/);
   assert.match(migration, /greatest\(prior_favor_spent, canonical_cost\)/);
   assert.match(
@@ -123,6 +125,16 @@ test("migration owns forge validation, canonical costs, receipts, and balance de
   assert.match(migration, /Relic Forge is closed/);
   assert.match(migration, /caller_role not in \('admin', 'lead_mod'\)/);
   assert.match(migration, /Relic request id was reused with a different payload/);
+});
+
+test("relic normalization and Forge UI charge for one visible signature effect", async () => {
+  const { DEFAULT_RELIC, normalizeRelic, calculateRelicFavorCost } = await import("./relicCharms.js");
+  const normalized = normalizeRelic({ ...DEFAULT_RELIC, effects: ["star-orbit", "blue-flame"] });
+  assert.deepEqual(normalized.effects, ["star-orbit"]);
+  assert.equal(calculateRelicFavorCost(normalized), 63);
+  assert.match(forgePage, /Choose one signature visual motif/);
+  assert.match(forgePage, /updateRelic\("effects", \[item\.id\]\)/);
+  assert.doesNotMatch(forgePage, /toggleListValue/);
 });
 
 test("completed Forge and charm request replays return before the current gate check", () => {

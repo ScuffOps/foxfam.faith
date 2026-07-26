@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, Check, Sparkles } from "lucide-react";
+import { ArrowLeft, Check, Sparkles, Trophy } from "lucide-react";
 
 export default function GameResultSheet({
   intent,
@@ -8,6 +8,8 @@ export default function GameResultSheet({
   onChoose,
   onReturn,
   title = "Session complete",
+  rewardLabel = "Reward preview",
+  finalReward = false,
 }) {
   const [pendingChoice, setPendingChoice] = useState("");
 
@@ -26,7 +28,7 @@ export default function GameResultSheet({
       <div className="game-result-sheet__heading">
         <span className="game-result-sheet__seal" aria-hidden="true"><Sparkles /></span>
         <div>
-          <p>Reward preview</p>
+          <p>{rewardLabel}</p>
           <h2 id="game-result-title">{title}</h2>
         </div>
       </div>
@@ -40,9 +42,12 @@ export default function GameResultSheet({
 
       {intent ? (
         <div className="game-result-sheet__rewards">
-          <strong>+{intent.favorPreview || 0} Favor preview</strong>
+          <strong>+{intent.favorPreview || 0} Favor{finalReward ? "" : " preview"}</strong>
           {(intent.items || []).map((item) => (
             <span key={`${item.key}-${item.quantity}`}>+{item.quantity} {item.label}</span>
+          ))}
+          {(intent.achievements || []).map((achievement) => (
+            <span key={achievement.key}><Trophy aria-hidden="true" /> {achievement.title} · Achievement unlocked</span>
           ))}
         </div>
       ) : null}

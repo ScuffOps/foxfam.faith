@@ -28,11 +28,11 @@ describe("gameRewards", () => {
     assert.deepEqual(result.items, []);
   });
 
-  it("converts duplicate catches into local forge dust preview", () => {
+  it("converts duplicate catches into local Star Glass preview", () => {
     const result = convertDuplicateCatch({ policy: DUPLICATE_POLICIES.convert, fish: rareFish });
     assert.equal(result.policy, "convert");
     assert.equal(result.favorPreview, 0);
-    assert.equal(result.items[0].key, "star-dust");
+    assert.equal(result.items[0].key, "star-glass");
     assert.equal(result.items[0].quantity, 4);
   });
 

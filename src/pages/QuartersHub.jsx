@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Loader2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { AlertTriangle, Gem, LibraryBig, Loader2, Trophy } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
 import IsometricRoom from "@/components/quarters/IsometricRoom";
 import PrioryCourtyard from "@/components/quarters/PrioryCourtyard";
 import QuartersHud from "@/components/quarters/QuartersHud";
@@ -22,15 +22,19 @@ import { DEFAULT_RELIC } from "@/lib/relicCharms";
 import { loadRelicRollGate, loadUserRelicInventory } from "@/lib/relicService";
 import { GAME_ACTIONS } from "@/games/shared/input/actions";
 import { useGameControls } from "@/games/shared/input/useGameControls";
+import { useFamiliar } from "@/games/shared/familiar/useFamiliar";
 import { DEFAULT_FAMILIAR } from "@/games/shared/familiar/familiarCatalog";
+import { loadPublicGameProgression } from "@/games/shared/progression/publicGameProgressionClient";
 import { loadStarfishingProgression } from "@/games/starfishing/api/starfishingProgressionClient";
 
 const STATION_ROUTES = {
   forge: "/relic-forge",
-  customize: "/profile",
-  trophies: "/profile",
-  collections: "/codex",
+  customize: "/profile/familiar",
+  trophies: "/collections",
+  collections: "/collections",
 };
+
+const VISITOR_PRIVATE_STATIONS = new Set(["forge", "customize", "decorate"]);
 
 export default function QuartersHub() {
   const {
@@ -42,7 +46,10 @@ export default function QuartersHub() {
     checkUserAuth,
   } = useAuth();
   const navigate = useNavigate();
+  const { profileUserId = "" } = useParams();
+  const { familiar } = useFamiliar();
   const [loading, setLoading] = useState(true);
+  const [publicProgression, setPublicProgression] = useState(null);
   const [notice, setNotice] = useState("");
   const [level, setLevel] = useState(null);
   const [relicInventory, setRelicInventory] = useState({ relic: null, charms: [] });
@@ -52,16 +59,52 @@ export default function QuartersHub() {
   const [gate, setGate] = useState(null);
   const [scene, setScene] = useState("quarters");
   const [cursor, setCursor] = useState({ x: 50, y: 65 });
-  const [selectedStation, setSelectedStation] = useState("forge");
-  const familiar = DEFAULT_FAMILIAR;
+  const [selectedStation, setSelectedStation] = useState("");
   const loadEpochRef = useRef(0);
   const previousOwnerRef = useRef("");
   const activeOwnerRef = useRef("");
+  const isVisitorMode = Boolean(profileUserId);
   const ownerId = isAuthenticated && user?.id ? user.id : "";
   const privateUserKey = getPrivateUserKey(user);
   activeOwnerRef.current = ownerId;
 
   useEffect(() => {
+    if (isVisitorMode) {
+      const loadEpoch = loadEpochRef.current + 1;
+      loadEpochRef.current = loadEpoch;
+      let cancelled = false;
+
+      setLoadedOwnerId("");
+      setLevel(null);
+      setRelicInventory({ relic: DEFAULT_RELIC, charms: [] });
+      setStarfishingProgression(null);
+      setStarfishingStatus(isAuthenticated ? "loading" : "signed-out");
+      setGate(null);
+      setPublicProgression(null);
+      setNotice(isLoadingAuth || isAuthenticated
+        ? ""
+        : "Sign in to visit another member's public Quarters collection.");
+      setLoading(isLoadingAuth || isAuthenticated);
+
+      if (isLoadingAuth || !isAuthenticated) {
+        return () => { cancelled = true; };
+      }
+
+      loadPublicGameProgression(profileUserId)
+        .then((progression) => {
+          if (cancelled || loadEpochRef.current !== loadEpoch) return;
+          setPublicProgression(progression);
+          setLoading(false);
+        })
+        .catch((loadError) => {
+          if (cancelled || loadEpochRef.current !== loadEpoch) return;
+          setNotice(loadError?.message || "This public collection is resting for a moment.");
+          setLoading(false);
+        });
+
+      return () => { cancelled = true; };
+    }
+
     const plan = planProgressSurfaceSession({
       isLoadingAuth,
       isAuthenticated,
@@ -81,6 +124,7 @@ export default function QuartersHub() {
       setStarfishingProgression(null);
       setGate(null);
     }
+    setPublicProgression(null);
     setNotice(plan.status === "signed-out"
       ? "Guest preview: real Favor, forge grants, and saved decor unlock after sign-in."
       : "");
@@ -132,7 +176,7 @@ export default function QuartersHub() {
 
     loadQuartersOwner();
     return () => { cancelled = true; };
-  }, [isAuthenticated, isLoadingAuth, ownerId, privateUserKey]);
+  }, [isAuthenticated, isLoadingAuth, isVisitorMode, ownerId, privateUserKey, profileUserId]);
 
   const worlds = useMemo(() => GAME_WORLD_ORDER, []);
   const hasCurrentOwnerData = Boolean(ownerId) && loadedOwnerId === ownerId;
@@ -144,16 +188,28 @@ export default function QuartersHub() {
   const visibleStarfishingStatus = hasCurrentOwnerData
     ? starfishingStatus
     : (ownerId ? "loading" : "signed-out");
-  const favor = Math.max(0, Number(visibleLevel?.points || 0));
+  const favor = Math.max(0, Number(visibleProgression?.favorBalance ?? visibleLevel?.points ?? 0));
 
   const openStation = useCallback((stationKey) => {
+    if (isVisitorMode) {
+      if (VISITOR_PRIVATE_STATIONS.has(stationKey)) {
+        setNotice("That station belongs to this Quarters' owner. Your own stations are waiting back in your Quarters.");
+        setSelectedStation("");
+        return;
+      }
+      if (stationKey === "trophies" || stationKey === "collections") {
+        setNotice("This member's public collection is displayed below.");
+        setSelectedStation("");
+        return;
+      }
+    }
     if (stationKey === "decorate") {
       setNotice("Decoration placement is staged for the next persistence pass.");
       return;
     }
     const route = STATION_ROUTES[stationKey];
     if (route) navigate(route);
-  }, [navigate]);
+  }, [isVisitorMode, navigate]);
 
   const activateStation = useCallback((stationKey) => {
     if (stationKey === "courtyard") {
@@ -161,8 +217,12 @@ export default function QuartersHub() {
       setSelectedStation("");
       return;
     }
+    if (isVisitorMode && VISITOR_PRIVATE_STATIONS.has(stationKey)) {
+      openStation(stationKey);
+      return;
+    }
     setSelectedStation(stationKey);
-  }, []);
+  }, [isVisitorMode, openStation]);
 
   const handleShortcut = useCallback((action) => {
     if (action === "courtyard") {
@@ -173,8 +233,14 @@ export default function QuartersHub() {
     if (action === "inventory") navigate("/reliquary");
     if (action === "charms") navigate("/profile");
     if (action === "quests") navigate("/");
-    if (action === "collections") setSelectedStation("collections");
-  }, [navigate]);
+    if (action === "collections") {
+      if (isVisitorMode) {
+        openStation("collections");
+      } else {
+        setSelectedStation("collections");
+      }
+    }
+  }, [isVisitorMode, navigate, openStation]);
 
   const handleControl = useCallback((action) => {
     if (scene !== "quarters") {
@@ -199,14 +265,18 @@ export default function QuartersHub() {
     if (action === GAME_ACTIONS.cancel) setSelectedStation("");
   }, [openStation, scene, selectedStation]);
 
-  useGameControls({ enabled: !loading, onAction: handleControl });
+  useGameControls({
+    enabled: !loading,
+    onAction: handleControl,
+    preserveNativeButtonActivation: true,
+  });
 
   if (loading) {
     return (
       <div className="flex min-h-[28rem] items-center justify-center">
         <div className="rounded-lg border-2 border-[#485365] bg-[#FAF3EB] p-6 text-center text-[#364152]">
           <Loader2 className="mx-auto h-8 w-8 animate-spin" />
-          <p className="mt-3 text-sm font-bold">Opening your Quarters...</p>
+          <p className="mt-3 text-sm font-bold">{isVisitorMode ? "Opening public Quarters..." : "Opening your Quarters..."}</p>
         </div>
       </div>
     );
@@ -214,9 +284,9 @@ export default function QuartersHub() {
 
   if (isAuthUnavailable(authError)) {
     return (
-      <main className="mx-auto max-w-2xl animate-fade-in space-y-4">
+      <section className="mx-auto max-w-2xl animate-fade-in space-y-4">
         <section className="rounded-lg border-2 border-[#707989] bg-[#f6f3ee] p-6 text-center text-[#3f4857] shadow-[4px_4px_0_#c7bbb0]" role="alert">
-          <p className="text-[10px] font-bold uppercase text-[#7c6f72]">Quarters connection</p>
+          <p className="text-[10px] font-bold uppercase text-[#62575a]">Quarters connection</p>
           <h1 className="mt-2 font-heading text-xl font-bold">Quarters service unavailable</h1>
           <p className="mt-2 text-sm leading-6 text-[#657080]">
             {authError.message || "Foxfam could not verify your session. Your saved Quarters have not been changed."}
@@ -226,12 +296,13 @@ export default function QuartersHub() {
           </Button>
         </section>
         <StarfishingProgressCard status="unavailable" compact />
-      </main>
+      </section>
     );
   }
 
   return (
-    <main className="quarters-home animate-fade-in">
+    <section className="quarters-home animate-fade-in" data-game-controls tabIndex={0} aria-labelledby="quarters-heading">
+      <h1 id="quarters-heading" className="sr-only">{isVisitorMode ? "Visiting Quarters" : "Personal Quarters"}</h1>
       {notice ? (
         <div className="quarters-home__notice" role="status">
           <span className="inline-flex items-center gap-2"><AlertTriangle className="h-4 w-4" aria-hidden="true" />{notice}</span>
@@ -244,22 +315,23 @@ export default function QuartersHub() {
           <IsometricRoom
             cursor={cursor}
             selectedStation={selectedStation}
-            familiar={familiar}
+            familiar={isVisitorMode ? DEFAULT_FAMILIAR : familiar}
             onMove={(position) => setCursor(moveSceneCursor(position, { x: 0, y: 0 }))}
             onActivate={activateStation}
           />
         ) : (
           <PrioryCourtyard
             worlds={worlds}
-            familiar={familiar}
+            familiar={isVisitorMode ? DEFAULT_FAMILIAR : familiar}
             onBack={() => setScene("quarters")}
             onEnterWorld={navigate}
           />
         )}
 
         <QuartersHud
-          name={user?.display_name}
-          favor={favor}
+          name={isVisitorMode ? "Foxfam Member" : user?.display_name}
+          favor={isVisitorMode ? null : favor}
+          subtitle={isVisitorMode ? "Visiting Quarters" : "Personal Quarters"}
           scene={scene}
           onAction={handleShortcut}
         />
@@ -273,18 +345,57 @@ export default function QuartersHub() {
         ) : null}
       </div>
 
-      <div className="mt-4 max-w-xl">
-        <StarfishingProgressCard
-          progression={visibleProgression}
-          charms={visibleInventory.charms}
-          status={visibleStarfishingStatus}
-          compact
-        />
-      </div>
+      {isVisitorMode ? (
+        <section className="mt-4 max-w-3xl rounded-lg border-2 border-[#586577] bg-[#faf3eb] p-4 text-[#364152] shadow-[4px_4px_0_#c7bbb0]" aria-labelledby="visitor-collection-title">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase text-[#62575a]">Public collection</p>
+              <h2 id="visitor-collection-title" className="font-heading text-lg font-bold">A glimpse of their journey</h2>
+            </div>
+            <span className="inline-flex items-center gap-2 rounded-md border border-[#7da3ad] bg-[#d9e6ec] px-3 py-2 text-sm font-bold">
+              <LibraryBig className="h-4 w-4" aria-hidden="true" />
+              {publicProgression?.fishpedia.discoveredCount ?? 0}/{publicProgression?.fishpedia.catalogCount ?? 0} Fishpedia
+            </span>
+          </div>
+          {publicProgression ? (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-md border border-[#b7a9a4] bg-[#fffaf5] p-3">
+                <p className="inline-flex items-center gap-2 text-sm font-bold"><Gem className="h-4 w-4" aria-hidden="true" />Equipped charms</p>
+                <p className="mt-1 text-sm text-[#657080]">
+                  {publicProgression.equippedCharms.length
+                    ? publicProgression.equippedCharms.map((charm) => charm.label).join(", ")
+                    : "No public charm loadout equipped yet."}
+                </p>
+              </div>
+              <div className="rounded-md border border-[#b7a9a4] bg-[#fffaf5] p-3">
+                <p className="inline-flex items-center gap-2 text-sm font-bold"><Trophy className="h-4 w-4" aria-hidden="true" />Achievement trophies</p>
+                <p className="mt-1 text-sm text-[#657080]">
+                  {publicProgression.trophies.length
+                    ? publicProgression.trophies.map((trophy) => trophy.title).join(", ")
+                    : "No public trophies displayed yet."}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-[#657080]">
+              {isAuthenticated ? "This public collection could not be loaded." : "Sign in to view this member's public collection."}
+            </p>
+          )}
+        </section>
+      ) : (
+        <div className="mt-4 max-w-xl">
+          <StarfishingProgressCard
+            progression={visibleProgression}
+            charms={visibleInventory.charms}
+            status={visibleStarfishingStatus}
+            compact
+          />
+        </div>
+      )}
 
-      <p className="sr-only">
+      {!isVisitorMode ? <p className="sr-only">
         Forge access is {gate?.enabled ? "open" : "restricted"}. Loaded {visibleInventory.charms.length} charms.
-      </p>
-    </main>
+      </p> : null}
+    </section>
   );
 }

@@ -38,6 +38,7 @@ test("provider, app, Profile, and Quarters preserve unavailable auth distinctly"
   const starfishingSource = readFileSync(join(here, "../pages/Starfishing.jsx"), "utf8");
 
   assert.match(authSource, /classifyAuthFailure\(error\)/);
+  assert.match(authSource, /if \(!isSupabaseConfigured\)[\s\S]*setUser\(null\)[\s\S]*setIsAuthenticated\(false\)[\s\S]*setIsLoadingAuth\(false\)/);
   assert.match(authSource, /setAuthError\(classifyAuthFailure\(error\)\)/);
   assert.match(appSource, /isAuthUnavailable\(authError\)/);
   assert.match(appSource, /Foxfam service unavailable/);
@@ -51,6 +52,10 @@ test("provider, app, Profile, and Quarters preserve unavailable auth distinctly"
   assert.match(starfishingSource, /isAuthUnavailable\(authError\)/);
   assert.match(starfishingSource, /AUTH_MODES\.unavailable/);
   assert.match(starfishingSource, /retrySessionCheck/);
+  assert.match(
+    starfishingSource,
+    /if \(!isSupabaseConfigured\)[\s\S]{0,300}setAuthMode\(AUTH_MODES\.guest\)[\s\S]{0,200}setIsProgressionLoading\(false\)/,
+  );
   assert.doesNotMatch(
     starfishingSource,
     /catch\s*\([^)]*\)\s*\{[\s\S]{0,300}setAuthMode\(AUTH_MODES\.guest\)/,

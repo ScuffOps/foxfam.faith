@@ -1,8 +1,10 @@
 import Phaser from "phaser";
 import { TIME_RUNNER_PHASES, TIME_RUNNER_POSTURES } from "@/games/timeRunner/simulation/timeRunnerRules";
+import { DEFAULT_FAMILIAR, FAMILIAR_COATS } from "@/games/shared/familiar/familiarCatalog";
 
 const COLORS = {
   linen: 0xfaf3eb,
+  petal: 0xf8e6e6,
   blue: 0xd9e6ec,
   bell: 0xb4c6dc,
   teal: 0x80adbc,
@@ -12,9 +14,19 @@ const COLORS = {
   green: 0xeaeee0,
   ink: 0x364152,
   outline: 0x485365,
+  wood: 0xa97f67,
+  deepWood: 0x795b54,
 };
 
-const ROMAN_NUMERALS = ["XII", "III", "VI", "IX"];
+const DIAL_NUMERALS = ["XII", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI"];
+const ROUTE = [
+  [0.08, 0.76], [0.23, 0.68], [0.39, 0.75], [0.55, 0.62], [0.72, 0.7], [0.9, 0.59],
+];
+
+function phaserColor(hex, fallback) {
+  if (typeof hex !== "string" || !/^#[0-9a-f]{6}$/i.test(hex)) return fallback;
+  return Number.parseInt(hex.slice(1), 16);
+}
 
 export default class TimeRunnerScene extends Phaser.Scene {
   constructor({ bridge } = {}) {
@@ -53,63 +65,103 @@ export default class TimeRunnerScene extends Phaser.Scene {
     const g = this.worldGraphics;
 
     g.fillStyle(COLORS.blue, 1).fillRect(0, 0, width, height);
-    g.fillStyle(COLORS.linen, 0.72).fillCircle(width * 0.78, height * 0.18, Math.min(width, height) * 0.34);
-    g.lineStyle(3, COLORS.outline, 0.18);
-    for (let x = -80; x < width + 100; x += 96) g.lineBetween(x, 0, x + 210, height);
-
-    this.drawClockFace(g, width * 0.78, height * 0.28, Math.min(width, height) * 0.23);
-    this.drawTower(g, width, height);
+    this.drawSkyline(g, width, height);
+    this.drawTowerRoom(g, width, height);
+    this.drawMainClock(g, width * 0.76, height * 0.27, Math.min(width, height) * 0.23);
     this.drawRoute(g, width, height);
+    this.drawForeground(g, width, height);
   }
 
-  drawClockFace(g, cx, cy, radius) {
-    g.fillStyle(COLORS.linen, 0.8).fillCircle(cx, cy, radius);
-    g.lineStyle(5, COLORS.outline, 0.55).strokeCircle(cx, cy, radius);
-    g.lineStyle(2, COLORS.brass, 0.8).strokeCircle(cx, cy, radius * 0.82);
-    ROMAN_NUMERALS.forEach((numeral, index) => {
-      const angle = index * (Math.PI / 2) - Math.PI / 2;
-      const label = this.add.text(cx + Math.cos(angle) * radius * 0.68, cy + Math.sin(angle) * radius * 0.68, numeral, {
-        fontFamily: "Georgia, serif", fontSize: `${Math.max(12, radius * 0.11)}px`, color: "#485365", fontStyle: "bold",
-      }).setOrigin(0.5).setDepth(3);
-      this.labels.push(label);
+  drawSkyline(g, width, height) {
+    const skyY = height * 0.22;
+    g.fillStyle(COLORS.linen, 1).fillCircle(width * 0.13, skyY * 0.72, Math.max(24, height * 0.065));
+    g.fillStyle(COLORS.bell, 1);
+    [0.03, 0.24, 0.43, 0.91].forEach((ratio, index) => {
+      const towerWidth = Math.max(42, width * (index % 2 ? 0.08 : 0.06));
+      const towerHeight = height * (0.15 + index * 0.018);
+      g.fillRect(width * ratio, skyY - towerHeight, towerWidth, towerHeight);
+      g.fillTriangle(width * ratio - 5, skyY - towerHeight, width * ratio + towerWidth / 2, skyY - towerHeight - 28, width * ratio + towerWidth + 5, skyY - towerHeight);
+    });
+    g.lineStyle(3, COLORS.outline, 1).lineBetween(0, skyY, width, skyY);
+  }
+
+  drawTowerRoom(g, width, height) {
+    const floorY = height * 0.82;
+    g.fillStyle(COLORS.green, 1).fillRect(0, height * 0.22, width, floorY - height * 0.22);
+    g.fillStyle(COLORS.brass, 1).fillTriangle(0, floorY, width, floorY, width, height);
+    g.lineStyle(4, COLORS.outline, 1).lineBetween(0, floorY, width, floorY);
+
+    const beamWidth = Math.max(28, width * 0.045);
+    [0.035, 0.46, 0.93].forEach((ratio) => {
+      const x = width * ratio;
+      g.fillStyle(COLORS.deepWood, 1).fillRect(x, height * 0.19, beamWidth, floorY - height * 0.19);
+      g.lineStyle(3, COLORS.outline, 1).strokeRect(x, height * 0.19, beamWidth, floorY - height * 0.19);
+    });
+    g.fillStyle(COLORS.wood, 1).fillRect(0, height * 0.2, width, Math.max(24, height * 0.055));
+    g.lineStyle(4, COLORS.outline, 1).strokeRect(-2, height * 0.2, width + 4, Math.max(24, height * 0.055));
+
+    [0.3, 0.52].forEach((ratio, index) => {
+      const x = width * ratio;
+      const top = height * (0.25 + index * 0.05);
+      const bob = height * (0.48 + index * 0.05);
+      g.lineStyle(5, COLORS.deepWood, 1).lineBetween(x, top, x, bob);
+      g.fillStyle(index ? COLORS.rose : COLORS.gold, 1).fillCircle(x, bob, Math.max(15, height * 0.028));
+      g.lineStyle(3, COLORS.outline, 1).strokeCircle(x, bob, Math.max(15, height * 0.028));
     });
   }
 
-  drawTower(g, width, height) {
-    const floorY = height * 0.82;
-    g.fillStyle(COLORS.green, 1).fillTriangle(0, floorY - 15, width, floorY - 15, width, height);
-    g.fillStyle(COLORS.brass, 0.5).fillRect(width * 0.05, height * 0.2, width * 0.07, floorY - height * 0.2);
-    g.fillStyle(COLORS.rose, 0.5).fillRect(width * 0.88, height * 0.36, width * 0.07, floorY - height * 0.36);
-    g.lineStyle(4, COLORS.outline, 0.7);
-    g.lineBetween(width * 0.085, height * 0.2, width * 0.085, floorY);
-    g.lineBetween(width * 0.915, height * 0.36, width * 0.915, floorY);
-    [0.3, 0.56, 0.82].forEach((ratio, index) => {
-      const x = width * ratio;
-      const ropeTop = height * (0.12 + index * 0.05);
-      const bobY = height * (0.48 + index * 0.05);
-      g.lineStyle(4, COLORS.brass, 0.8).lineBetween(x, ropeTop, x, bobY);
-      g.fillStyle(index % 2 ? COLORS.rose : COLORS.gold, 0.95).fillCircle(x, bobY, 17);
-      g.lineStyle(3, COLORS.outline, 0.8).strokeCircle(x, bobY, 17);
+  drawMainClock(g, cx, cy, radius) {
+    g.fillStyle(COLORS.deepWood, 1).fillCircle(cx, cy + 5, radius + 14);
+    g.lineStyle(4, COLORS.outline, 1).strokeCircle(cx, cy + 5, radius + 14);
+    g.fillStyle(COLORS.gold, 1).fillCircle(cx, cy, radius + 5);
+    g.lineStyle(4, COLORS.outline, 1).strokeCircle(cx, cy, radius + 5);
+    g.fillStyle(COLORS.linen, 1).fillCircle(cx, cy, radius - 5);
+    g.lineStyle(3, COLORS.outline, 1).strokeCircle(cx, cy, radius - 5);
+    g.lineStyle(2, COLORS.brass, 1).strokeCircle(cx, cy, radius * 0.78);
+
+    DIAL_NUMERALS.forEach((numeral, index) => {
+      const angle = index * (Math.PI / 6) - Math.PI / 2;
+      const label = this.add.text(cx + Math.cos(angle) * radius * 0.66, cy + Math.sin(angle) * radius * 0.66, numeral, {
+        fontFamily: "Georgia, serif",
+        fontSize: `${Math.max(10, radius * 0.095)}px`,
+        color: "#485365",
+        fontStyle: "bold",
+      }).setOrigin(0.5).setDepth(3);
+      this.labels.push(label);
+      const tickStart = radius * 0.81;
+      g.lineStyle(2, COLORS.outline, 1).lineBetween(
+        cx + Math.cos(angle) * tickStart,
+        cy + Math.sin(angle) * tickStart,
+        cx + Math.cos(angle) * radius * 0.88,
+        cy + Math.sin(angle) * radius * 0.88,
+      );
     });
   }
 
   drawRoute(g, width, height) {
-    const points = [
-      [0.08, 0.75], [0.24, 0.67], [0.41, 0.75], [0.58, 0.62], [0.76, 0.72], [0.93, 0.61],
-    ];
-    points.forEach(([px, py], index) => {
+    ROUTE.forEach(([px, py], index) => {
       const x = width * px;
       const y = height * py;
-      const platformWidth = Math.max(74, width * 0.12);
-      const platformHeight = Math.max(22, height * 0.055);
-      const color = [COLORS.gold, COLORS.bell, COLORS.rose][index % 3];
-      g.fillStyle(COLORS.outline, 0.22).fillTriangle(x, y + 9, x + platformWidth / 2, y + platformHeight + 9, x - platformWidth / 2, y + platformHeight + 9);
-      g.fillStyle(color, 1).fillTriangle(x, y, x + platformWidth / 2, y + platformHeight, x - platformWidth / 2, y + platformHeight);
-      g.lineStyle(3, COLORS.outline, 0.8);
-      g.lineBetween(x, y, x + platformWidth / 2, y + platformHeight);
-      g.lineBetween(x + platformWidth / 2, y + platformHeight, x - platformWidth / 2, y + platformHeight);
-      g.lineBetween(x - platformWidth / 2, y + platformHeight, x, y);
+      const next = ROUTE[index + 1];
+      if (next) {
+        g.lineStyle(Math.max(10, height * 0.022), COLORS.outline, 1).lineBetween(x, y, width * next[0], height * next[1]);
+        g.lineStyle(Math.max(6, height * 0.013), index % 2 ? COLORS.rose : COLORS.brass, 1).lineBetween(x, y - 2, width * next[0], height * next[1] - 2);
+      }
+      g.fillStyle(COLORS.outline, 1).fillCircle(x, y + 4, Math.max(14, height * 0.032));
+      g.fillStyle(index % 3 === 0 ? COLORS.gold : index % 3 === 1 ? COLORS.bell : COLORS.petal, 1).fillCircle(x, y, Math.max(12, height * 0.028));
+      g.lineStyle(3, COLORS.outline, 1).strokeCircle(x, y, Math.max(12, height * 0.028));
+      g.fillStyle(COLORS.brass, 1).fillCircle(x, y, 4);
     });
+  }
+
+  drawForeground(g, width, height) {
+    const floorY = height * 0.82;
+    for (let index = 0; index < 8; index += 1) {
+      const x = (width / 7) * index - 20;
+      g.lineStyle(2, COLORS.deepWood, 1).lineBetween(x, floorY, x + width * 0.12, height);
+    }
+    g.fillStyle(COLORS.wood, 1).fillRect(0, height - Math.max(18, height * 0.04), width, Math.max(18, height * 0.04));
+    g.lineStyle(3, COLORS.outline, 1).lineBetween(0, height - Math.max(18, height * 0.04), width, height - Math.max(18, height * 0.04));
   }
 
   syncLandingButtons(state) {
@@ -121,11 +173,17 @@ export default class TimeRunnerScene extends Phaser.Scene {
       }
     });
     state.availableLandings.forEach((landing, index) => {
-      if (state.phase !== TIME_RUNNER_PHASES.running || this.landingButtons.has(landing.id)) return;
-      const x = this.scale.width * (index === 0 ? 0.42 : 0.59);
-      const y = this.scale.height * (index === 0 ? 0.63 : 0.51);
-      const button = this.add.circle(x, y, 20, index === 0 ? COLORS.gold : COLORS.rose, 0.9)
-        .setStrokeStyle(4, COLORS.outline, 0.9)
+      if (state.phase !== TIME_RUNNER_PHASES.running) return;
+      const point = ROUTE[index === 0 ? 3 : 4];
+      const x = this.scale.width * point[0];
+      const y = this.scale.height * point[1];
+      const existingButton = this.landingButtons.get(landing.id);
+      if (existingButton) {
+        existingButton.setPosition(x, y);
+        return;
+      }
+      const button = this.add.circle(x, y, 21, index === 0 ? COLORS.gold : COLORS.rose, 1)
+        .setStrokeStyle(4, COLORS.outline, 1)
         .setDepth(20)
         .setInteractive({ useHandCursor: true })
         .setData("landingId", landing.id)
@@ -142,60 +200,128 @@ export default class TimeRunnerScene extends Phaser.Scene {
     g.clear();
     this.drawHands(g, state, width, height);
     state.hazards.forEach((hazard) => this.drawHazard(g, hazard, width, height));
-    this.drawFamiliar(g, state, width * 0.18, height * 0.66);
+    this.drawFamiliar(g, state, width * 0.18, height * 0.68);
     const progress = state.phase === TIME_RUNNER_PHASES.ready ? 0 : Math.min(1, state.elapsedMs / 45000);
-    g.fillStyle(COLORS.linen, 0.95).fillRoundedRect(width * 0.07, height * 0.06, width * 0.38, 16, 8);
-    g.lineStyle(2, COLORS.outline, 0.7).strokeRoundedRect(width * 0.07, height * 0.06, width * 0.38, 16, 8);
-    g.fillStyle(COLORS.teal, 1).fillRoundedRect(width * 0.07 + 3, height * 0.06 + 3, Math.max(1, (width * 0.38 - 6) * progress), 10, 5);
+    const meterWidth = width * 0.35;
+    g.fillStyle(COLORS.linen, 1).fillRoundedRect(width * 0.055, height * 0.055, meterWidth, 16, 7);
+    g.lineStyle(2, COLORS.outline, 1).strokeRoundedRect(width * 0.055, height * 0.055, meterWidth, 16, 7);
+    g.fillStyle(COLORS.teal, 1).fillRoundedRect(width * 0.055 + 3, height * 0.055 + 3, Math.max(1, (meterWidth - 6) * progress), 10, 4);
   }
 
   drawHands(g, state, width, height) {
-    const cx = width * 0.78;
-    const cy = height * 0.28;
+    const cx = width * 0.76;
+    const cy = height * 0.27;
     const ratio = Math.min(1, state.elapsedMs / 45000);
     const minuteAngle = ratio * Math.PI * 4 - Math.PI / 2;
     const hourAngle = ratio * Math.PI - Math.PI / 2;
-    g.lineStyle(9, COLORS.brass, 0.9).lineBetween(cx, cy, cx + Math.cos(minuteAngle) * width * 0.15, cy + Math.sin(minuteAngle) * width * 0.15);
-    g.lineStyle(12, COLORS.rose, 0.75).lineBetween(cx, cy, cx + Math.cos(hourAngle) * width * 0.09, cy + Math.sin(hourAngle) * width * 0.09);
-    g.fillStyle(COLORS.outline, 1).fillCircle(cx, cy, 8);
+    const radius = Math.min(width, height) * 0.23;
+    this.drawClockHand(g, cx, cy, minuteAngle, radius * 0.82, 8, COLORS.brass);
+    this.drawClockHand(g, cx, cy, hourAngle, radius * 0.56, 11, COLORS.rose);
+    g.fillStyle(COLORS.outline, 1).fillCircle(cx, cy, 9);
+    g.fillStyle(COLORS.gold, 1).fillCircle(cx, cy, 4);
+  }
+
+  drawClockHand(g, cx, cy, angle, length, thickness, color) {
+    const tipX = cx + Math.cos(angle) * length;
+    const tipY = cy + Math.sin(angle) * length;
+    g.lineStyle(thickness + 5, COLORS.outline, 1).lineBetween(cx, cy, tipX, tipY);
+    g.lineStyle(thickness, color, 1).lineBetween(cx, cy, tipX, tipY);
+    g.fillStyle(COLORS.outline, 1).fillCircle(tipX, tipY, thickness * 0.68);
+    g.fillStyle(COLORS.gold, 1).fillCircle(tipX, tipY, thickness * 0.35);
   }
 
   drawFamiliar(g, state, x, baseY) {
+    const familiar = this.bridge?.getFamiliar?.() || DEFAULT_FAMILIAR;
+    const coat = FAMILIAR_COATS[familiar.coat] || FAMILIAR_COATS.cream;
+    const coatColor = phaserColor(coat.base, COLORS.linen);
+    const detailColor = phaserColor(coat.detail, COLORS.rose);
     const jumping = state.posture === TIME_RUNNER_POSTURES.jump;
     const ducking = state.posture === TIME_RUNNER_POSTURES.duck;
     const focus = state.posture === TIME_RUNNER_POSTURES.focus;
-    const y = baseY - (jumping ? 52 : ducking ? 4 : 20) + Math.sin(this.time.now / 130) * 2;
+    const reducedMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const bob = reducedMotion ? 0 : Math.sin(this.time.now / 130) * 2;
+    const y = baseY - (jumping ? 58 : ducking ? 4 : 23) + bob;
+    const bodyWidth = ducking ? 60 : 44;
+    const bodyHeight = ducking ? 29 : 50;
+
     if (focus) {
-      g.fillStyle(COLORS.teal, 0.2).fillCircle(x, y, 48);
-      g.lineStyle(3, COLORS.teal, 0.8).strokeCircle(x, y, 52);
+      g.fillStyle(COLORS.gold, 1).fillCircle(x, y + 8, 48);
+      g.lineStyle(3, COLORS.outline, 1).strokeCircle(x, y + 8, 48);
     }
-    g.fillStyle(COLORS.brass, 1).fillEllipse(x, y + 17, ducking ? 56 : 43, ducking ? 28 : 50);
-    g.lineStyle(3, COLORS.outline, 1).strokeEllipse(x, y + 17, ducking ? 56 : 43, ducking ? 28 : 50);
-    g.fillStyle(COLORS.linen, 1).fillCircle(x, y - 8, 24);
-    g.lineStyle(3, COLORS.outline, 1).strokeCircle(x, y - 8, 24);
-    g.fillStyle(COLORS.linen, 1).fillTriangle(x - 20, y - 23, x - 10, y - 45, x - 1, y - 25);
-    g.fillTriangle(x + 2, y - 25, x + 12, y - 45, x + 21, y - 22);
-    g.lineStyle(3, COLORS.outline, 1);
-    g.lineBetween(x - 20, y - 23, x - 10, y - 45); g.lineBetween(x - 10, y - 45, x - 1, y - 25);
-    g.lineBetween(x + 2, y - 25, x + 12, y - 45); g.lineBetween(x + 12, y - 45, x + 21, y - 22);
-    g.fillStyle(COLORS.ink, 1).fillCircle(x - 8, y - 9, 2.5).fillCircle(x + 8, y - 9, 2.5);
-    g.fillStyle(COLORS.rose, 1).fillTriangle(x - 3, y - 2, x + 3, y - 2, x, y + 2);
-    g.fillStyle(COLORS.bell, 1).fillRoundedRect(x - 20, y + 6, 40, 12, 5);
-    g.lineStyle(3, COLORS.outline, 1).strokeRoundedRect(x - 20, y + 6, 40, 12, 5);
+
+    this.drawTail(g, x - bodyWidth * 0.42, y + 18, ducking, familiar.species, coatColor, detailColor);
+    g.fillStyle(detailColor, 1).fillEllipse(x, y + 21, bodyWidth, bodyHeight);
+    g.lineStyle(4, COLORS.outline, 1).strokeEllipse(x, y + 21, bodyWidth, bodyHeight);
+    g.fillStyle(coatColor, 1).fillCircle(x, y - 6, 25);
+    g.lineStyle(4, COLORS.outline, 1).strokeCircle(x, y - 6, 25);
+    const earLift = familiar.species === "moon-rabbit" ? 16 : 0;
+    this.drawEar(g, x - 18, y - 24, x - 11, y - 46 - earLift, x - 2, y - 27, coatColor, detailColor);
+    this.drawEar(g, x + 2, y - 27, x + 13, y - 46 - earLift, x + 21, y - 22, coatColor, detailColor);
+    g.fillStyle(COLORS.bell, 1).fillRoundedRect(x - 23, y + 6, 46, 13, 5);
+    g.lineStyle(3, COLORS.outline, 1).strokeRoundedRect(x - 23, y + 6, 46, 13, 5);
+    g.fillStyle(COLORS.gold, 1).fillCircle(x, y + 19, 6);
+    g.lineStyle(2, COLORS.outline, 1).strokeCircle(x, y + 19, 6);
+    g.fillStyle(COLORS.ink, 1).fillCircle(x - 8, y - 8, 3).fillCircle(x + 8, y - 8, 3);
+    g.fillStyle(COLORS.deepWood, 1).fillTriangle(x - 3, y, x + 3, y, x, y + 4);
+    g.lineStyle(2, COLORS.deepWood, 1).lineBetween(x, y + 4, x - 5, y + 7).lineBetween(x, y + 4, x + 5, y + 7);
+
+    const footY = y + (ducking ? 34 : 48);
+    g.fillStyle(COLORS.deepWood, 1).fillEllipse(x - 13, footY, 20, 9).fillEllipse(x + 13, footY, 20, 9);
+    g.lineStyle(2, COLORS.outline, 1).strokeEllipse(x - 13, footY, 20, 9).strokeEllipse(x + 13, footY, 20, 9);
+  }
+
+  drawEar(g, ax, ay, bx, by, cx, cy, coatColor, detailColor) {
+    g.fillStyle(coatColor, 1).fillTriangle(ax, ay, bx, by, cx, cy);
+    g.lineStyle(4, COLORS.outline, 1).lineBetween(ax, ay, bx, by).lineBetween(bx, by, cx, cy);
+    g.fillStyle(detailColor, 1).fillTriangle((ax + bx) / 2, (ay + by) / 2 + 2, bx, by + 7, (bx + cx) / 2, (by + cy) / 2 + 3);
+  }
+
+  drawTail(g, x, y, ducking, species, coatColor, detailColor) {
+    const tipX = x - (ducking ? 28 : 35);
+    const tipY = y - (ducking ? 2 : 22);
+    if (species === "moon-rabbit") {
+      g.fillStyle(coatColor, 1).fillCircle(x - 18, y + 2, 14);
+      g.lineStyle(4, COLORS.outline, 1).strokeCircle(x - 18, y + 2, 14);
+      return;
+    }
+    g.lineStyle(18, COLORS.outline, 1).lineBetween(x, y, tipX, tipY);
+    g.lineStyle(12, detailColor, 1).lineBetween(x, y, tipX, tipY);
+    g.fillStyle(coatColor, 1).fillCircle(tipX, tipY, 7);
+    g.lineStyle(2, COLORS.outline, 1).strokeCircle(tipX, tipY, 7);
   }
 
   drawHazard(g, hazard, width, height) {
     const x = width * (hazard.x / 100);
-    const y = height * 0.74;
+    const y = height * 0.76;
     if (hazard.kind === "hand-sweep") {
-      g.lineStyle(10, COLORS.brass, 0.95).lineBetween(x - 38, y, x + 48, y - 38);
-      g.fillStyle(COLORS.gold, 1).fillCircle(x + 48, y - 38, 9);
+      g.lineStyle(15, COLORS.outline, 1).lineBetween(x - 44, y, x + 50, y - 42);
+      g.lineStyle(9, COLORS.brass, 1).lineBetween(x - 44, y, x + 50, y - 42);
+      g.fillStyle(COLORS.gold, 1).fillCircle(x + 50, y - 42, 10);
+      g.lineStyle(3, COLORS.outline, 1).strokeCircle(x + 50, y - 42, 10);
     } else if (hazard.kind === "roman-gate") {
-      g.fillStyle(COLORS.rose, 0.9).fillRoundedRect(x - 27, y - 92, 54, 80, 7);
-      g.lineStyle(4, COLORS.outline, 0.9).strokeRoundedRect(x - 27, y - 92, 54, 80, 7);
+      this.drawRomanGate(g, x, y);
     } else {
-      g.fillStyle(COLORS.teal, 1).fillTriangle(x, y - 82, x + 17, y - 45, x - 16, y - 42);
-      g.lineStyle(3, COLORS.outline, 0.9).strokeTriangle(x, y - 82, x + 17, y - 45, x - 16, y - 42);
+      this.drawClockBrass(g, x, y - 56);
     }
+  }
+
+  drawRomanGate(g, x, y) {
+    const left = x - 34;
+    const top = y - 104;
+    g.fillStyle(COLORS.outline, 1).fillRoundedRect(left - 4, top - 4, 76, 98, 8);
+    g.fillStyle(COLORS.petal, 1).fillRoundedRect(left, top, 68, 90, 6);
+    g.fillStyle(COLORS.green, 1).fillRoundedRect(left + 15, top + 25, 38, 65, 18);
+    g.lineStyle(3, COLORS.outline, 1).strokeRoundedRect(left + 15, top + 25, 38, 65, 18);
+    g.fillStyle(COLORS.brass, 1).fillRect(left + 7, top + 9, 54, 21);
+    g.lineStyle(2, COLORS.outline, 1).strokeRect(left + 7, top + 9, 54, 21);
+    g.lineStyle(3, COLORS.ink, 1);
+    [-14, -7, 7, 14].forEach((offset) => g.lineBetween(x + offset, top + 13, x + offset, top + 25));
+  }
+
+  drawClockBrass(g, x, y) {
+    g.fillStyle(COLORS.outline, 1).fillTriangle(x, y - 24, x + 22, y + 18, x - 20, y + 15);
+    g.fillStyle(COLORS.gold, 1).fillTriangle(x, y - 18, x + 16, y + 12, x - 14, y + 10);
+    g.lineStyle(3, COLORS.brass, 1).lineBetween(x - 7, y + 4, x + 8, y - 8);
+    g.fillStyle(COLORS.linen, 1).fillCircle(x + 3, y, 4);
   }
 }

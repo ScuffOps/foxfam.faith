@@ -1,14 +1,29 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
 import OnboardingModal from "./OnboardingModal";
 import Splash from "../pages/Splash";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { communityClient } from "@/api/communityClient";
 
 const GUEST_ONBOARDING_KEY = "commhub_guest_onboarding_seen";
+const FLAT_VECTOR_ROUTES = new Set([
+  "/quarters",
+  "/relic-forge",
+  "/profile/familiar",
+  "/starfishing",
+  "/match-merge",
+  "/boba-cafe",
+  "/find-vezmir",
+  "/time-runner",
+  "/word-garden",
+  "/collections",
+]);
 
 export default function Layout() {
+  const location = useLocation();
+  const contentRef = useRef(null);
+  const usesFlatVectorBackdrop = FLAT_VECTOR_ROUTES.has(location.pathname);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const forceSplash = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("splash");
@@ -35,13 +50,17 @@ export default function Layout() {
     });
   }, []);
 
+  useEffect(() => {
+    contentRef.current?.scrollTo({ top: 0, left: 0 });
+  }, [location.pathname]);
+
   const handleGuestContinue = () => {
     localStorage.setItem(GUEST_ONBOARDING_KEY, "1");
     setShowOnboarding(false);
   };
 
   return (
-    <div className="app-viewport flex overflow-hidden bg-background">
+    <div className={`app-viewport flex overflow-hidden bg-background${usesFlatVectorBackdrop ? " app-viewport--game" : ""}`}>
       {showSplash && <Splash onEnter={handleEnterSite} />}
       {showOnboarding && (
         <OnboardingModal
@@ -71,7 +90,7 @@ export default function Layout() {
       {/* Main Content */}
       <div className="clockyboii-shell relative z-10 flex flex-1 flex-col overflow-hidden">
         <MobileNav onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 lg:p-8">
+        <main ref={contentRef} className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 lg:p-8">
           <Outlet />
         </main>
       </div>
