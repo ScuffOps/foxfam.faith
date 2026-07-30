@@ -41,6 +41,17 @@ const rows = {
   bug_reports: [],
   codex_entries: [],
   offerings: [],
+  collab_requests: [row("collab-1", {
+    request_type: "collab",
+    game_category: "Portal launch stream",
+    preferred_time: "2026-08-02T12:00:00.000Z",
+    estimated_duration: "1 hour",
+    description: "Walk through the new community portal.",
+    extra_info: "Bring a backup scene.",
+    shared_chat: true,
+    status: "pending",
+    submitted_by_name: "Veri",
+  })],
   prayers: [],
   blessings: [],
   user_levels: [row("level-1", { user_key: authUser.id, points: 42, level: 3 })],
@@ -196,6 +207,41 @@ async function seedAuthenticatedSession(page) {
   );
 }
 
+async function verifyCollabManagement(page, failures) {
+  await page.goto(`${baseUrl}/collabs`, { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(1000);
+  const streamCollab = page.getByRole("button", { name: "Stream collab" }).first();
+  if (!(await streamCollab.isVisible())) {
+    const collabText = await page.locator("body").innerText();
+    failures.push(`Collab form did not render. Visible text: ${collabText.slice(0, 500)}`);
+    return;
+  }
+  await streamCollab.click();
+  await page.screenshot({ path: path.join(outputDir, "collab-management-before-actions.png"), fullPage: false });
+  if (!(await page.getByRole("button", { name: "Use shared chat" }).isVisible())) failures.push("Stream collab form did not render Shared Chat.");
+  await page.getByRole("button", { name: "1:1 with Veri" }).first().click();
+  if (await page.getByRole("button", { name: "Use shared chat" }).count()) failures.push("1:1 form still rendered Shared Chat.");
+  const editCollab = page.getByRole("button", { name: "Edit Portal launch stream" });
+  if (!(await editCollab.isVisible())) {
+    const collabText = await page.locator("body").innerText();
+    failures.push(`Admin collab edit control did not render. Visible collab text: ${collabText.slice(0, 500)}`);
+    return;
+  }
+  await editCollab.click();
+  if (!(await page.getByRole("dialog").isVisible())) failures.push("Collab edit dialog did not open.");
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await page.getByRole("button", { name: "Archive Portal launch stream" }).click();
+  await page.getByText("Collab archived", { exact: true }).waitFor();
+  const collabTitle = page.getByText("Portal launch stream", { exact: true });
+  await collabTitle.waitFor({ state: "hidden" });
+  const archivedView = page.locator('[aria-label="Collab request view"]').getByRole("button", { name: "Archived", exact: true });
+  await archivedView.click();
+  await collabTitle.waitFor({ state: "visible" });
+  if ((await archivedView.getAttribute("aria-pressed")) !== "true") failures.push("Archived collab view did not become selected.");
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: path.join(outputDir, "collab-management-desktop.png"), fullPage: false });
+}
+
 async function main() {
   await mkdir(outputDir, { recursive: true });
   const browser = await chromium.launch({ headless: true });
@@ -206,6 +252,14 @@ async function main() {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     await seedAuthenticatedSession(page);
     await installSupabaseMocks(page, calls);
+
+    if (process.env.E2E_FOCUS === "collabs") {
+      await verifyCollabManagement(page, failures);
+      await page.close();
+      if (failures.length > 0) throw new Error(failures.join("\n"));
+      console.log(`Authenticated collab e2e passed. Screenshot: ${path.join(outputDir, "collab-management-desktop.png")}`);
+      return;
+    }
 
     await page.goto(`${baseUrl}/`, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(700);
@@ -335,6 +389,8 @@ async function main() {
     const timerEntry = rows.staff_time_entries.find((entry) => entry.data?.timer_source === "start_stop");
     if (!timerEntry?.data?.started_at || !timerEntry?.data?.ended_at) failures.push("Staff timer did not save a completed time entry.");
     if (timerEntry?.data?.status !== "submitted") failures.push("Staff timer did not mark the saved entry as submitted.");
+
+    await verifyCollabManagement(page, failures);
 
     await page.goto(`${baseUrl}/start`, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(600);
