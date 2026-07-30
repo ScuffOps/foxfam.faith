@@ -36,6 +36,8 @@ import {
   Gem,
   FilePenLine,
   Inbox,
+  Compass,
+  FolderOpen,
 } from "lucide-react";
 import SidebarProfile from "./SidebarProfile";
 import { canBookCollab, canManageRoles, canUseAdminPanel } from "@/lib/roles";
@@ -43,6 +45,7 @@ import { loadRelicRollGate } from "@/lib/relicService";
 
 const rootNavItems = [
   { path: "/", label: "Dashboard", icon: Home },
+  { path: "/start", label: "Start Here", icon: Compass },
 ];
 
 const standaloneNavItems = [
@@ -109,6 +112,7 @@ const staffOpsGroup = {
     { path: "/ops/meds", label: "Medication", icon: Pill },
     { path: "/ops/tasks", label: "Tasklist", icon: ClipboardList },
     { path: "/ops/members", label: "Team", icon: Users },
+    { path: "/ops/resources", label: "Resources", icon: FolderOpen },
   ],
 };
 
@@ -150,8 +154,10 @@ export default function Sidebar({ onClose }) {
     : null;
   const visibleUtilityItems = utilityNavItems.filter(canShowItem);
 
-  const isPathActive = (path) =>
-    path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
+  const isPathActive = (path) => {
+    if (path === "/" || path === "/ops") return location.pathname === path;
+    return location.pathname === path || location.pathname.startsWith(`${path}/`);
+  };
 
   const isGroupActive = (group) =>
     group.activePaths?.some(isPathActive) || group.items.some((item) => isPathActive(item.path));

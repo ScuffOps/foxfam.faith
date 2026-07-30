@@ -25,6 +25,7 @@ import StaffOps from './pages/StaffOps';
 import RelicForge from './pages/RelicForge';
 import Activity from './pages/Activity';
 import Drafts from './pages/Drafts';
+import StartHere from './pages/StartHere';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -54,6 +55,7 @@ const AuthenticatedApp = () => {
     <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/start" element={<StartHere />} />
         <Route path="/shrine" element={<Dashboard />} />
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/events" element={<Calendar />} />
@@ -90,6 +92,7 @@ const AuthenticatedApp = () => {
         <Route path="/ops/meds" element={<StaffOps defaultTab="meds" />} />
         <Route path="/ops/tasks" element={<StaffOps defaultTab="tasks" />} />
         <Route path="/ops/members" element={<StaffOps defaultTab="members" />} />
+        <Route path="/ops/resources" element={<StaffOps defaultTab="resources" />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

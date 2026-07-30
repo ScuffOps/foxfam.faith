@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CalendarDays, Users, Cake, MessageSquare, ArrowRight, Check, LogIn, Sparkles, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const STEPS = [
   {
@@ -53,6 +54,7 @@ const STEPS = [
 ];
 
 export default function OnboardingModal({ onComplete, onGuestContinue, isGuest = false }) {
+  const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [displayName, setDisplayName] = useState("");
   const [saving, setSaving] = useState(false);
@@ -80,6 +82,7 @@ export default function OnboardingModal({ onComplete, onGuestContinue, isGuest =
       } catch {}
       setSaving(false);
       onComplete();
+      navigate("/start");
     } else {
       setStep((s) => s + 1);
     }

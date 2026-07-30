@@ -389,7 +389,12 @@ export default function Settings() {
         </SettingsSection>
 
         {/* Linked Accounts */}
-        <SettingsSection title="Linked Accounts" icon={Link2} accentClass="bg-chart-2/15 text-chart-2">
+        <SettingsSection
+          title="Linked Accounts"
+          icon={Link2}
+          accentClass="bg-chart-2/15 text-chart-2"
+          defaultOpen={window.location.hash === "#integrations"}
+        >
           <div id="integrations" className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {OAUTH_PROVIDERS.map((item) => {
               const identity = linkedIdentities.find((linked) => linked.provider === item.authProvider);

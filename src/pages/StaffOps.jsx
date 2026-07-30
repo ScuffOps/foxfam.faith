@@ -14,6 +14,7 @@ import {
   Clock,
   ClipboardList,
   ExternalLink,
+  FolderOpen,
   Keyboard,
   ListFilter,
   Pill,
@@ -81,6 +82,7 @@ const TABS = [
   { key: "meds", label: "Medication", icon: Pill },
   { key: "tasks", label: "Tasklist", icon: ClipboardList },
   { key: "members", label: "Team", icon: UserCog },
+  { key: "resources", label: "Resources", icon: FolderOpen },
 ];
 
 const STAFF_HANDY_LINKS = [
@@ -90,6 +92,24 @@ const STAFF_HANDY_LINKS = [
   { label: "Google Drive", description: "Docs, Sheets, and shared staff references.", href: "https://drive.google.com/drive/my-drive", icon: ExternalLink },
   { label: "Discord", description: "Mod channels, stream threads, and handoff notes.", href: "https://discord.com/channels/@me", icon: Bell },
   { label: "Veri Lore", description: "Codex context for the blessed nonsense.", to: "/codex", icon: BookOpen },
+];
+
+const STAFF_RESOURCE_LINKS = [
+  ...STAFF_HANDY_LINKS,
+  {
+    label: "Throne",
+    description: "Gift and campaign reference for staff coordination.",
+    href: import.meta.env.VITE_STAFF_THRONE_URL || "",
+    icon: ExternalLink,
+    configurationKey: "VITE_STAFF_THRONE_URL",
+  },
+  {
+    label: "Shared Staff Docs",
+    description: "Canonical procedures, references, and handoff notes.",
+    href: import.meta.env.VITE_STAFF_DOCS_URL || "",
+    icon: FolderOpen,
+    configurationKey: "VITE_STAFF_DOCS_URL",
+  },
 ];
 
 const STAFF_MODULE_SHORTCUTS = [
@@ -2098,8 +2118,60 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
               </div>
             </div>
           )}
+
+          {activeTab === "resources" && (
+            <StaffResourceHub resources={STAFF_RESOURCE_LINKS} />
+          )}
         </>
       )}
+    </div>
+  );
+}
+
+function StaffResourceHub({ resources }) {
+  return (
+    <div className="space-y-5">
+      <GlassCard>
+        <SectionHeader
+          icon={FolderOpen}
+          title="Staff Resource Hub"
+          subtitle="Rules, tools, references, and handoff destinations in one staff-only directory."
+        />
+      </GlassCard>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {resources.map((resource) => {
+          const Icon = resource.icon;
+          const content = (
+            <>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#4546ff]/15 text-[#7778ff]">
+                <Icon className="h-5 w-5" />
+              </span>
+              <span className="min-w-0">
+                <strong className="block font-heading text-sm text-foreground">{resource.label}</strong>
+                <span className="mt-1 block text-xs leading-5 text-muted-foreground">{resource.description}</span>
+                {resource.configurationKey && !resource.href ? (
+                  <span className="mt-2 block text-[10px] font-semibold uppercase text-amber-300">
+                    Needs {resource.configurationKey}
+                  </span>
+                ) : null}
+              </span>
+            </>
+          );
+
+          const className = "flex min-h-28 items-start gap-3 rounded-lg border border-border bg-card/85 p-4 text-left transition-colors hover:border-[#4546ff]/55 hover:bg-card";
+          if (resource.to) {
+            return <Link key={resource.label} to={resource.to} className={className}>{content}</Link>;
+          }
+          if (resource.href) {
+            return (
+              <a key={resource.label} href={resource.href} target="_blank" rel="noreferrer" className={className}>
+                {content}
+              </a>
+            );
+          }
+          return <div key={resource.label} className={`${className} cursor-not-allowed opacity-70`}>{content}</div>;
+        })}
+      </div>
     </div>
   );
 }

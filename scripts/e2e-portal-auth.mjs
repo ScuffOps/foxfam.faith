@@ -57,6 +57,9 @@ const rows = {
   staff_time_entries: [],
   stream_logs: [],
   sync_states: [],
+  forum_chat_messages: [],
+  forum_chat_reactions: [],
+  forum_chat_reads: [],
 };
 
 function getStorageKey() {
@@ -93,6 +96,17 @@ async function installSupabaseMocks(page, calls) {
     const url = new URL(request.url());
     const method = request.method();
 
+    if (url.pathname.includes("/auth/v1/user/identities")) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          identities: [
+            { id: "identity-twitch", provider: "twitch", identity_data: { user_name: "Veri" } },
+          ],
+        }),
+      });
+    }
     if (url.pathname.includes("/auth/v1/user")) {
       return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(authUser) });
     }
@@ -321,6 +335,36 @@ async function main() {
     const timerEntry = rows.staff_time_entries.find((entry) => entry.data?.timer_source === "start_stop");
     if (!timerEntry?.data?.started_at || !timerEntry?.data?.ended_at) failures.push("Staff timer did not save a completed time entry.");
     if (timerEntry?.data?.status !== "submitted") failures.push("Staff timer did not mark the saved entry as submitted.");
+
+    await page.goto(`${baseUrl}/start`, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(600);
+    if (!(await page.getByRole("heading", { name: "Start Here" }).isVisible())) failures.push("Start Here route did not render.");
+    if (!(await page.getByRole("heading", { name: "Connect Twitch or Discord" }).isVisible())) failures.push("Start Here did not render identity guidance.");
+    await page.screenshot({ path: path.join(outputDir, "start-here-desktop.png"), fullPage: true });
+
+    await page.goto(`${baseUrl}/forum?section=introductions&compose=1`, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(700);
+    if (!(await page.getByRole("heading", { name: "Forum" }).isVisible())) failures.push("Forum redesign did not render.");
+    if (!(await page.getByRole("dialog").isVisible())) failures.push("Introduction deep link did not open the thread composer.");
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(300);
+    const seal = page.locator(".forum-chat-seal");
+    if (!(await seal.isVisible())) failures.push("Forum live-chat seal did not render.");
+    const sealBox = await seal.boundingBox();
+    if (!sealBox || sealBox.width < 52 || sealBox.width > 58) failures.push("Desktop chat seal is outside the 52-58px target.");
+    await seal.click();
+    if (!(await page.getByRole("heading", { name: "Foxfam Live Chat" }).isVisible())) failures.push("Forum chat did not open from the seal.");
+    await page.screenshot({ path: path.join(outputDir, "forum-chat-desktop.png"), fullPage: false });
+    await page.setViewportSize({ width: 390, height: 844 });
+    const mobileChatBox = await page.locator(".forum-chat-window").boundingBox();
+    if (!mobileChatBox || mobileChatBox.width < 380) failures.push("Mobile chat did not open as a full-width bottom sheet.");
+    await page.screenshot({ path: path.join(outputDir, "forum-chat-mobile.png"), fullPage: false });
+    await page.setViewportSize({ width: 1280, height: 900 });
+
+    await page.goto(`${baseUrl}/ops/resources`, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(700);
+    if (!(await page.getByRole("heading", { name: "Staff Resource Hub" }).isVisible())) failures.push("Staff Resources route did not render.");
+    if (!(await page.getByText("Needs VITE_STAFF_DOCS_URL", { exact: true }).isVisible())) failures.push("Unconfigured staff resource did not show a useful setup state.");
 
     await page.screenshot({ path: path.join(outputDir, "portal-auth-e2e.png"), fullPage: true });
     await page.close();
