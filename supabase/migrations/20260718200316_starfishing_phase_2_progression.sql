@@ -2665,11 +2665,11 @@ begin
   )
   values (
     caller_id,
-    request_id,
+    save_user_relic_with_favor.request_id,
     payload_hash
   )
-  on conflict (user_id, request_id) do nothing
-  returning request_id into receipt_inserted;
+  on conflict on constraint relic_forge_receipts_pkey do nothing
+  returning private.relic_forge_receipts.request_id into receipt_inserted;
 
   if receipt_inserted is null then
     select receipt.payload_hash, receipt.result_snapshot
@@ -2710,14 +2710,14 @@ begin
     raise exception using errcode = 'P0001', message = 'Relic investment state is unavailable';
   end if;
 
-  favor_due := pg_catalog.greatest(0, canonical_cost - prior_favor_spent);
+  favor_due := greatest(0::bigint, canonical_cost - prior_favor_spent);
   if favor_due > 0 then
     favor_result := private.post_favor_entry(
       caller_id,
       -favor_due,
       'relic_forge_save',
-      request_id,
-      request_id,
+      save_user_relic_with_favor.request_id,
+      save_user_relic_with_favor.request_id,
       pg_catalog.jsonb_build_object(
         'canonical_cost', canonical_cost,
         'prior_favor_spent', prior_favor_spent
@@ -2734,7 +2734,7 @@ begin
     'theme', relic_theme,
     'lore', relic_lore,
     'effects', relic_effects,
-    'favor_spent', pg_catalog.greatest(prior_favor_spent, canonical_cost),
+    'favor_spent', greatest(prior_favor_spent, canonical_cost),
     'status', coalesce(relic_row.data ->> 'status', 'active'),
     'equipped_charm_ids', coalesce(relic_row.data -> 'equipped_charm_ids', '[]'::jsonb)
   );
@@ -2745,7 +2745,7 @@ begin
   where id = relic_row.id;
 
   update private.relic_forge_investments
-  set favor_invested = pg_catalog.greatest(prior_favor_spent, canonical_cost),
+  set favor_invested = greatest(prior_favor_spent, canonical_cost),
       updated_at = saved_at
   where user_id = caller_id
     and relic_id = relic_row.id;
@@ -2763,11 +2763,11 @@ begin
     )
   );
 
-  update private.relic_forge_receipts
+  update private.relic_forge_receipts as receipt
   set result_snapshot = forge_result_snapshot,
       completed_at = saved_at
-  where user_id = caller_id
-    and request_id = save_user_relic_with_favor.request_id;
+  where receipt.user_id = caller_id
+    and receipt.request_id = save_user_relic_with_favor.request_id;
 
   return forge_result_snapshot;
 end;

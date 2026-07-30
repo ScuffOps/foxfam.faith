@@ -25,6 +25,9 @@ function RoomArtwork() {
         <path className="scene-wall scene-wall--blue" d="M78 76 600 212v278L78 626Z" />
         <path className="scene-wall scene-wall--rose" d="m600 212 522-136v550L600 490Z" />
         <path className="scene-floor" d="m78 626 522-136 522 136-522 136Z" />
+        <path className="scene-wall-shadow scene-wall-shadow--left" d="m78 589 522-136v37L78 626Z" />
+        <path className="scene-wall-shadow scene-wall-shadow--right" d="m600 453 522 136v37L600 490Z" />
+        <path className="scene-floor-shadow" d="m600 726 401-104 121 4-522 136-522-136 121-4Z" />
 
         <g className="scene-beams">
           <path d="M600 212v278M78 76l522 136 522-136M78 626l522-136 522 136" />
@@ -40,8 +43,17 @@ function RoomArtwork() {
           <circle className="room-window__star" cx="177" cy="206" r="5" />
           <circle className="room-window__star" cx="239" cy="292" r="4" />
         </g>
+        <g className="wall-sprigs">
+          <path d="m449 190 17 22m-10-13-14 1m20 7 13-6" />
+          <circle cx="441" cy="200" r="4" />
+          <circle cx="475" cy="201" r="4" />
+          <path d="m746 183-18 24m11-14 14 1m-20 7-13-6" />
+          <circle cx="754" cy="194" r="4" />
+          <circle cx="720" cy="195" r="4" />
+        </g>
 
         <g className="collection-cabinet">
+          <path className="wood-shadow" d="m228 275 18 21v160l-18 11Z" />
           <path className="wood-dark" d="m228 275 168 44v192l-168-44Z" />
           <path className="wood" d="m246 296 132 34v160l-132-34Z" />
           <path className="glass" d="m260 315 104 27v104l-104-27Z" />
@@ -50,6 +62,7 @@ function RoomArtwork() {
           <path className="book-rose" d="m293 442 17 4v28l-17-4Z" />
           <path className="book-gold" d="m314 447 18 5v28l-18-5Z" />
           <path className="jar" d="m334 412 18 5v34l-18-5Z" />
+          <path className="cabinet-sigil" d="m277 342 14 4-7 14-14-4Zm59 15 14 4-7 14-14-4Z" />
           <circle className="metal" cx="362" cy="414" r="5" />
         </g>
 
@@ -81,6 +94,11 @@ function RoomArtwork() {
           <path className="blanket" d="m322 501 49 13-27 19-48-12Z" />
           <path className="plant-pot" d="m111 432 46 12-10 55-29-8Z" />
           <path className="plant" d="M128 438c-30-26-17-54 5-41 5-31 36-32 33-5 28-15 43 11 18 29 17 20-9 37-26 19Z" />
+          <g className="plant-blooms">
+            <circle cx="133" cy="406" r="7" />
+            <circle cx="164" cy="399" r="6" />
+            <circle cx="177" cy="423" r="6" />
+          </g>
         </g>
 
         <g className="tea-table">
@@ -100,6 +118,10 @@ function RoomArtwork() {
           <path className="forge-top" d="m859 239 94-24 128 33-94 24Z" />
           <path className="forge-arch" d="m888 310 69 18v76l-69-18Zm15 38 39 10v25l-39-10Z" />
           <path className="forge-fire" d="m910 374 10-25 9 15 9-9 5 29Z" />
+          <g className="forge-bricks">
+            <path d="m877 279 92 24m-92 21 92 24m-92 21 92 24" />
+            <path d="m906 286-5 20m41-11-5 20m-31 13-5 20m41-11-5 20m-31 13-5 20m41-11-5 20" />
+          </g>
           <path className="forge-anvil" d="m805 321 82 21-43 28-67-18 19-13Z" />
           <path d="m832 363-8 54m30-49 9 54" />
           <path className="metal" d="m1019 254 18-4v-42l-18 4Z" />
@@ -111,6 +133,7 @@ function RoomArtwork() {
           <path className="wardrobe-front" d="m1043 448 70-18v177l-70 19Z" />
           <path className="wardrobe-top" d="m928 418 70-18 115 30-70 18Z" />
           <path d="m984 433v178m59-163v178" />
+          <path className="wardrobe-panel" d="m946 456 79 20v105l-79-20Zm113 11 36-9v111l-36 9Z" />
           <circle className="wardrobe-knob" cx="1029" cy="527" r="5" />
           <path className="hanger" d="m1058 480 20-5 19 11-38 10 19-21" />
           <path className="hat" d="m1059 554 35-9 12 10-48 12Z" />
@@ -122,6 +145,7 @@ function RoomArtwork() {
           <path className="door-window" d="m1033 522 41-11v30l-41 11Z" />
           <circle className="door-knob" cx="1071" cy="567" r="4" />
           <path className="vine" d="M1011 493c-17 17-25 40-21 67m12-42-19 1m16 22-18 11" />
+          <path className="door-sigil" d="m1054 559 8 7-8 11-8-7Z" />
         </g>
       </g>
     </svg>

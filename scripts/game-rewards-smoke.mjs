@@ -142,11 +142,24 @@ async function runSmoke(config) {
   assert.equal(sessionA.game_key, "word-garden");
   assert.equal(sessionA.puzzle.accepted_words, undefined);
 
+  for (const action of [
+    { op: "submit", word: "PALE" },
+    { op: "submit", word: "PETALERS" },
+    { op: "rest" },
+  ]) {
+    const { error } = await clientA.rpc("progress_game_reward_session", {
+      progress_session_id: sessionA.session_id,
+      progress_idempotency_key: randomUUID(),
+      progress_action: action,
+    });
+    assert.ifError(error);
+  }
+
   const idempotencyKey = randomUUID();
   const claimParams = {
     claim_session_id: sessionA.session_id,
     claim_idempotency_key: idempotencyKey,
-    claim_evidence: { found_words: ["PALE", "PETALERS"] },
+    claim_evidence: {},
   };
   const { data: firstClaim, error: claimError } = await clientA.rpc("claim_game_reward", claimParams);
   assert.ifError(claimError);
@@ -168,16 +181,24 @@ async function runSmoke(config) {
 
   const { data: secondSession, error: secondStartError } = await clientA.rpc("start_game_reward_session", { requested_game_key: "word-garden" });
   assert.ifError(secondStartError);
+  for (const action of [{ op: "submit", word: "PALE" }, { op: "rest" }]) {
+    const { error } = await clientA.rpc("progress_game_reward_session", {
+      progress_session_id: secondSession.session_id,
+      progress_idempotency_key: randomUUID(),
+      progress_action: action,
+    });
+    assert.ifError(error);
+  }
   await expectRejected("cross-session idempotency reuse", () => clientA.rpc("claim_game_reward", {
     claim_session_id: secondSession.session_id,
     claim_idempotency_key: idempotencyKey,
-    claim_evidence: { found_words: ["PALE"] },
+    claim_evidence: {},
   }));
 
   await expectRejected("client-authored score", () => clientA.rpc("claim_game_reward", {
     claim_session_id: secondSession.session_id,
     claim_idempotency_key: randomUUID(),
-    claim_evidence: { found_words: ["PALE"], score: 999 },
+    claim_evidence: { score: 999 },
   }));
 
   return { sessionId: sessionA.session_id, rewardEventId: firstClaim.reward_event_id };

@@ -42,7 +42,7 @@ const MAX_FORGE_PAYLOAD = Object.freeze({
   base_type: "mask",
   theme: "celestial",
   lore: "A disposable database relic used to prove atomic Favor rollback and replay behavior.",
-  effects: ["blue-flame", "star-orbit", "petal-drift", "sigil-glow", "snow-dots", "lore-script"],
+  effects: ["star-orbit"],
 });
 
 const MIN_FORGE_PAYLOAD = Object.freeze({
@@ -53,7 +53,7 @@ const MIN_FORGE_PAYLOAD = Object.freeze({
   effects: ["snow-dots"],
 });
 
-const MAX_FORGE_COST = 133;
+const MAX_FORGE_COST = 73;
 const MIN_FORGE_COST = 43;
 const MIN_EARLY_CLAIM_MARGIN_MS = 10000;
 const ISOLATION_TROPHY_KEY = "phase2-smoke-isolation";

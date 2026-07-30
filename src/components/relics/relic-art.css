@@ -76,8 +76,6 @@
 .relic-art__artifact--compact { width: min(76%, 14rem); height: min(76%, 14rem); }
 
 .relic-art__layer { transform-box: fill-box; transform-origin: center; }
-.relic-art__layer--ornament { opacity: 0.74; }
-.relic-art__layer--effect { opacity: 0.88; }
 
 .relic-art__socket-rail {
   position: absolute;

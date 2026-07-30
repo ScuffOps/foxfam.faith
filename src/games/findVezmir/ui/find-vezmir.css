@@ -52,11 +52,11 @@
 }
 
 .diorama-layer {
-  opacity: .38;
-  transition: opacity 160ms ease;
+  visibility: hidden;
+  pointer-events: none;
 }
 
-.diorama-layer[data-active="true"] { opacity: 1; }
+.diorama-layer[data-active="true"] { visibility: visible; }
 
 .vezmir-diorama__toolbar {
   position: absolute;
@@ -138,20 +138,20 @@
 
 .vezmir-hotspot:hover {
   border-color: #faf3eb;
-  background: #dfd8ab66;
+  background: #f0e7bd;
   transform: scale(1.05);
 }
 
 .vezmir-hotspot[data-hinted="true"] {
   border-color: #b98b4d;
-  background: #dfd8ab99;
+  background: #dfd8ab;
   animation: vezmirHint 1.4s ease-in-out infinite;
 }
 
 .vezmir-hotspot[data-found="true"] {
   border-style: solid;
   border-color: #63816b;
-  background: #c5d7c299;
+  background: #c5d7c2;
   animation: none;
 }
 

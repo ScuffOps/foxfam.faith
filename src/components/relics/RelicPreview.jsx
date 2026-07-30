@@ -122,8 +122,8 @@ function RelicArtifactSvg({ baseId, compact, effects, stage, theme }) {
 
 function EvolutionOrnaments({ colors, stage }) {
   if (stage === 0) return null;
-  return <g fill="none" stroke={colors.accent} strokeLinecap="round" opacity={0.22 + stage * 0.08}>
-    <circle cx="80" cy="78" r={48 + Math.min(stage, 3) * 2} strokeWidth="5" />
+  return <g fill="none" stroke={colors.accent} strokeLinecap="round">
+    <circle cx="80" cy="78" r={48 + Math.min(stage, 3) * 2} strokeWidth="3" />
     {stage >= 3 ? <path d="M39 104c13 19 69 25 87-1" strokeWidth="3" /> : null}
   </g>;
 }
@@ -158,7 +158,7 @@ function InstrumentRelic({ colors }) {
   return <g stroke={WARM_OUTLINE} strokeLinecap="round" strokeLinejoin="round" strokeWidth="5"><path d="M42 97c-12 12-10 29 5 34 18 6 38-13 51-39 11-23 27-31 36-26-8-22-32-19-48 10-12 21-27 21-44 21Z" fill={WOOD} /><path d="M63 109c5 7 20 6 33-20" fill="none" /><path d="m102 42 24-20 11 12-26 18" fill={colors.highlight} /><path d="m96 51 25 25" fill="none" /><path d="M48 99c9-15 30-18 44-8" fill="none" stroke={colors.accent} /></g>;
 }
 
-function StarOrbit() { return <g fill={GOLD} opacity=".72"><path d="m25 50 3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7Z" /><path d="m135 80 2 5 5 2-5 2-2 5-2-5-5-2 5-2 2-5Z" /></g>; }
+function StarOrbit() { return <g fill={GOLD} stroke={OUTLINE} strokeLinejoin="round" strokeWidth="2"><path d="m25 50 3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7Z" /><path d="m135 80 2 5 5 2-5 2-2 5-2-5-5-2 5-2 2-5Z" /></g>; }
 function BlueFlameEffect({ colors }) { return <g stroke={OUTLINE} strokeLinejoin="round" strokeWidth="3"><path d="M80 20c12 13 12 24 0 33-12-9-12-20 0-33Z" fill={colors.accent} /><path d="M80 35c5 6 5 11 0 15-5-4-5-9 0-15Z" fill={colors.highlight} /></g>; }
 function PetalDrift() { return <g fill={ROSE} stroke={OUTLINE} strokeWidth="2"><path d="M26 116c11-6 19-5 23 2-10 4-18 3-23-2Z" /><path d="M116 27c7 9 7 17 0 22-5-9-5-16 0-22Z" /></g>; }
 function SigilMark({ colors }) { return <g fill={CREAM} stroke={colors.accent} strokeLinecap="round" strokeLinejoin="round" strokeWidth="3"><path d="m80 115 15 10-15 9-15-9 15-10Z" /><path d="M67 125h26" /></g>; }

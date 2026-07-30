@@ -120,7 +120,7 @@ test("migration owns forge validation, canonical costs, receipts, and balance de
   );
   assert.match(
     migration,
-    /update private\.relic_forge_investments[\s\S]*favor_invested = pg_catalog\.greatest\(prior_favor_spent, canonical_cost\)/,
+    /update private\.relic_forge_investments[\s\S]*favor_invested = greatest\(prior_favor_spent, canonical_cost\)/,
   );
   assert.match(migration, /Relic Forge is closed/);
   assert.match(migration, /caller_role not in \('admin', 'lead_mod'\)/);

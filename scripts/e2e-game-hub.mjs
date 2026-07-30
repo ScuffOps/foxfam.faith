@@ -24,6 +24,7 @@ const routes = [
   { slug: "time-runner", path: "/time-runner", heading: /Time Runner/i, canvas: true },
   { slug: "word-garden", path: "/word-garden", heading: /Blooming Ink/i },
   { slug: "collections", path: "/collections", heading: /Collections/i },
+  { slug: "profile", path: "/profile", heading: /Profile/i },
   { slug: "familiar-wardrobe", path: "/profile/familiar", heading: /Familiar Wardrobe/i },
 ];
 
@@ -83,9 +84,23 @@ async function sampleCanvas(page, canvas) {
   }, dataUrl);
 }
 
-async function exerciseRoute(page, route) {
+async function activateControl(page, locator, viewport) {
+  if (viewport.isMobile) {
+    await locator.click();
+    return;
+  }
+  await locator.focus();
+  await page.keyboard.press("Enter");
+}
+
+async function exerciseRoute(page, route, viewport) {
   if (route.slug === "starfishing") {
-    await page.getByRole("button", { name: /Cast line/i }).click();
+    const castButton = page.getByRole("button", { name: /Cast line/i });
+    if (viewport.isMobile) await castButton.click();
+    else {
+      await page.locator(".starfishing-world").click({ position: { x: 12, y: 12 } });
+      await page.keyboard.press("Space");
+    }
     for (let step = 0; step < 16; step += 1) {
       const outcomeHandle = await page.waitForFunction(() => {
         if (document.querySelector('.reel-qte button[data-active="true"]')) return "active";
@@ -98,18 +113,24 @@ async function exerciseRoute(page, route) {
       if (outcome === "escaped") throw new Error("The QTE escaped before the automated input could advance.");
       const activePull = page.locator('.reel-qte button[data-active="true"]');
       if (!(await activePull.count())) break;
-      await activePull.click();
+      if (viewport.isMobile) await activePull.click();
+      else {
+        const direction = (await activePull.getAttribute("aria-label"))?.replace("Reel ", "");
+        const key = { Left: "ArrowLeft", Up: "ArrowUp", Right: "ArrowRight", Down: "ArrowDown" }[direction];
+        if (!key) throw new Error(`Unknown keyboard QTE direction: ${direction || "missing"}`);
+        await page.keyboard.press(key);
+      }
     }
     await page.locator(".game-result-sheet").waitFor({ state: "visible" });
-    return "complete one cast and directional QTE";
+    return `complete one cast and directional QTE by ${viewport.isMobile ? "touch" : "keyboard"}`;
   }
 
   if (route.slug === "match-merge") {
     const cells = page.locator(".reliquary-board > button");
-    await cells.nth(0).click();
-    await cells.nth(1).click();
+    await activateControl(page, cells.nth(0), viewport);
+    await activateControl(page, cells.nth(1), viewport);
     await page.waitForFunction(() => document.body.innerText.includes("Refined into"));
-    return "merge matching offerings";
+    return `merge matching offerings by ${viewport.isMobile ? "touch" : "keyboard"}`;
   }
 
   if (route.slug === "boba-cafe") {
@@ -127,13 +148,33 @@ async function exerciseRoute(page, route) {
       ])));
       for (const [station, label] of stationRows) {
         await page.locator(`#boba-tab-${station}`).click();
-        await page.getByRole("button", { name: new RegExp(`^${escapeRegExp(recipe[label])}(?:,|$)`, "i") }).last().click();
+        const option = page.getByRole("button", { name: new RegExp(`^${escapeRegExp(recipe[label])}(?:,|$)`, "i") }).last();
+        if (viewport.isMobile) await option.click();
+        else {
+          const options = page.locator(".boba-stations__options > button");
+          const optionCount = await options.count();
+          let ordinal = 0;
+          for (let index = 0; index < optionCount; index += 1) {
+            if (await options.nth(index).evaluate((node, expected) => node.getAttribute("aria-label")?.startsWith(expected), recipe[label])) {
+              ordinal = index + 1;
+              break;
+            }
+          }
+          if (!ordinal) throw new Error(`Could not resolve keyboard shortcut for ${recipe[label]}`);
+          await page.evaluate(() => document.activeElement?.blur());
+          await page.keyboard.press(String(ordinal));
+        }
       }
-      await page.getByRole("button", { name: /^Serve\b/i }).click();
-      await page.getByRole("button", { name: /Next ticket/i }).first().click();
+      if (viewport.isMobile) {
+        await page.getByRole("button", { name: /^Serve\b/i }).click();
+        await page.getByRole("button", { name: /Next ticket/i }).first().click();
+      } else {
+        await activateControl(page, page.getByRole("button", { name: /^Serve\b/i }), viewport);
+        await activateControl(page, page.getByRole("button", { name: /Next ticket/i }).first(), viewport);
+      }
     }
     await page.getByText("Moonbrew shift complete", { exact: true }).waitFor();
-    return "fulfill all three cafe tickets";
+    return `fulfill all three cafe tickets by ${viewport.isMobile ? "touch" : "keyboard shortcuts"}`;
   }
 
   if (route.slug === "find-vezmir") {
@@ -155,19 +196,34 @@ async function exerciseRoute(page, route) {
       searchedLayers.add(nextLayer);
       for (const label of labelsByLayer[nextLayer] || []) {
         const object = FIND_VEZMIR_OBJECTS.find((candidate) => candidate.label === label);
-        await page.getByRole("button", { name: `Search ${object.region} for ${object.label}` }).click();
+        await activateControl(
+          page,
+          page.getByRole("button", { name: `Search ${object.region} for ${object.label}` }),
+          viewport,
+        );
       }
     }
     const vezmir = FIND_VEZMIR_OBJECTS.find((object) => object.label === "Vezmir");
-    await page.getByRole("button", { name: `Search ${vezmir.region} for ${vezmir.label}` }).click();
+    await activateControl(
+      page,
+      page.getByRole("button", { name: `Search ${vezmir.region} for ${vezmir.label}` }),
+      viewport,
+    );
     await page.getByText("Vezmir found", { exact: true }).first().waitFor();
-    return "find all five clues and Vezmir";
+    return `find all five clues and Vezmir by ${viewport.isMobile ? "touch" : "keyboard activation"}`;
   }
 
   if (route.slug === "time-runner") {
-    await page.getByRole("button", { name: /^Start (the )?traverse$/i }).first().click();
+    await activateControl(page, page.getByRole("button", { name: /^Start (the )?traverse$/i }).first(), viewport);
     await page.waitForFunction(() => Boolean(document.querySelector('[aria-label="Pause Time Runner"]')));
-    return "start clocktower traverse";
+    const leap = page.getByRole("button", { name: /^Leap/i }).last();
+    if (viewport.isMobile) await leap.click();
+    else {
+      await page.locator(".time-runner-stage").click({ position: { x: 12, y: 12 } });
+      await page.keyboard.press("ArrowUp");
+    }
+    await page.waitForFunction(() => Array.from(document.querySelectorAll("button.is-active")).some((button) => /Leap/i.test(button.textContent)));
+    return `start and leap in the clocktower by ${viewport.isMobile ? "touch" : "keyboard"}`;
   }
 
   if (route.slug === "word-garden") {
@@ -179,14 +235,22 @@ async function exerciseRoute(page, route) {
       : ["L", "O", "V", "E"].every((letter) => letterSet.has(letter))
         ? "LOVE"
         : "ACHE";
-    await page.locator(".word-garden-scene").click({ position: { x: 12, y: 12 } });
-    await page.evaluate(() => document.activeElement?.blur());
-    await page.keyboard.type(word);
-    await page.keyboard.press("Enter");
+    if (viewport.isMobile) {
+      for (const letter of word) {
+        const petal = page.getByRole("button", { name: new RegExp(`^Add (?:required center letter )?${letter}$`) });
+        await petal.click();
+      }
+      await page.getByRole("button", { name: "Bloom word" }).click();
+    } else {
+      await page.locator(".word-garden-scene").click({ position: { x: 12, y: 12 } });
+      await page.evaluate(() => document.activeElement?.blur());
+      await page.keyboard.type(word);
+      await page.keyboard.press("Enter");
+    }
     await page.locator(".word-garden-hud__found li", { hasText: word }).waitFor();
     await page.getByRole("button", { name: /Rest the garden/i }).click();
     await page.getByText("Garden resting", { exact: true }).waitFor();
-    return "bloom a valid word by keyboard and complete the garden";
+    return `bloom a valid word by ${viewport.isMobile ? "touch" : "keyboard"} and complete the garden`;
   }
 
   return null;
@@ -313,7 +377,7 @@ async function inspectRoute(page, viewport, route, failures, results) {
     await page.screenshot({ path: screenshotPath, fullPage: true });
     let interaction = null;
     try {
-      interaction = await exerciseRoute(page, route);
+      interaction = await exerciseRoute(page, route, viewport);
     } catch (error) {
       failures.push(formatFailure(viewport, route, `primary interaction failed: ${error.message}`));
     }

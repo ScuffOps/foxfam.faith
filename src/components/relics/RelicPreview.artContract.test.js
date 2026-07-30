@@ -8,6 +8,7 @@ const familiarCss = fs.readFileSync(new URL("../../games/shared/familiar/familia
 
 test("relic and familiar presentation avoids filtered or blend-mode rendering", () => {
   assert.doesNotMatch(`${previewSource}\n${artCss}\n${familiarCss}`, /mix-blend-mode|filter\s*:|drop-shadow|(?:linear|radial|conic)-gradient/i);
+  assert.doesNotMatch(`${previewSource}\n${artCss}`, /opacity[=:]/i);
 });
 
 test("relic preview renders no more than one active cosmetic effect", () => {

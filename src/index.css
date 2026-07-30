@@ -302,6 +302,48 @@
   background: #faf3eb;
 }
 
+.app-viewport--game .portal-button {
+  border-color: #485365;
+  background: #80adbc;
+  color: #26333f;
+  box-shadow: 0 3px 0 #485365;
+  filter: none;
+}
+
+.app-viewport--game .portal-button[data-variant="destructive"] {
+  background: #d5a1a3;
+  color: #3f2930;
+}
+
+.app-viewport--game .portal-button[data-variant="outline"] {
+  background: #faf3eb;
+  color: #364152;
+}
+
+.app-viewport--game .portal-button[data-variant="secondary"] {
+  background: #dfd8ab;
+  color: #364152;
+}
+
+.app-viewport--game .portal-button[data-variant="ghost"],
+.app-viewport--game .portal-button[data-variant="link"] {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-viewport--game .portal-button:not(:disabled):hover {
+  background-color: #b4c6dc;
+  box-shadow: 0 4px 0 #485365;
+  filter: none;
+}
+
+.app-viewport--game .portal-button:not(:disabled):active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #485365;
+  filter: none;
+}
+
 .community-dashboard {
   position: relative;
   isolation: isolate;
