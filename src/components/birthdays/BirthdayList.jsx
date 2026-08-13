@@ -2,6 +2,7 @@ import { format, differenceInDays, setYear } from "date-fns";
 import { Cake, Check, X } from "lucide-react";
 import PublicAvatar from "@/components/PublicAvatar";
 import { getRecordAuthorAvatar, getRecordAuthorName } from "@/lib/publicAuthor";
+import BirthdayWishDialog from "@/components/birthdays/BirthdayWishDialog";
 
 function getDaysUntil(birthday_date) {
   const today = new Date();
@@ -72,6 +73,7 @@ export default function BirthdayList({ birthdays, isAdmin, onApprove, onReject }
                   {isToday ? "🎉 Today!" : daysUntil === 1 ? "❝ tomorrow ❞" : `❝ in ${daysUntil} days ❞`}
                 </span>
                 {b.note && <p className="mt-2 text-[10px] text-muted-foreground/70 italic line-clamp-2">{b.note}</p>}
+                {isToday && <BirthdayWishDialog birthday={b} />}
               </div>
             );
           })}

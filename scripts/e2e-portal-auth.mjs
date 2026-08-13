@@ -36,6 +36,7 @@ const rows = {
   community_thread_comments: [],
   events: [],
   birthdays: [],
+  birthday_messages: [],
   community_posts: [],
   suggestions: [],
   bug_reports: [],

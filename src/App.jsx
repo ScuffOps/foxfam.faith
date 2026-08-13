@@ -23,9 +23,12 @@ import Reliquary from './pages/Reliquary';
 import Offerings from './pages/Offerings';
 import StaffOps from './pages/StaffOps';
 import RelicForge from './pages/RelicForge';
+import RelicCollection from './pages/RelicCollection';
 import Activity from './pages/Activity';
 import Drafts from './pages/Drafts';
 import StartHere from './pages/StartHere';
+import PermissionRoute from './components/PermissionRoute';
+import { canModerate, canUseAdminPanel } from './lib/roles';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -78,21 +81,28 @@ const AuthenticatedApp = () => {
         <Route path="/offerings" element={<Offerings />} />
         <Route path="/codex" element={<Codex />} />
         <Route path="/reliquary" element={<Reliquary />} />
+        <Route path="/relics" element={<RelicCollection />} />
+        <Route path="/relics/draw" element={<RelicCollection mode="draw" />} />
+        <Route path="/relics/forge" element={<RelicForge />} />
         <Route path="/relic-forge" element={<RelicForge />} />
-        <Route path="/admin" element={<Admin />} />
-        <Route path="/ops" element={<StaffOps />} />
-        <Route path="/ops/dashboard" element={<StaffOps defaultTab="dashboard" />} />
-        <Route path="/ops/braindump" element={<StaffOps defaultTab="braindump" />} />
-        <Route path="/ops/handbook" element={<StaffOps defaultTab="handbook" />} />
-        <Route path="/ops/updates" element={<StaffOps defaultTab="updates" />} />
-        <Route path="/ops/commands" element={<StaffOps defaultTab="commands" />} />
-        <Route path="/ops/schedule" element={<StaffOps defaultTab="schedule" />} />
-        <Route path="/ops/time" element={<StaffOps defaultTab="time" />} />
-        <Route path="/ops/streams" element={<StaffOps defaultTab="streams" />} />
-        <Route path="/ops/meds" element={<StaffOps defaultTab="meds" />} />
-        <Route path="/ops/tasks" element={<StaffOps defaultTab="tasks" />} />
-        <Route path="/ops/members" element={<StaffOps defaultTab="members" />} />
-        <Route path="/ops/resources" element={<StaffOps defaultTab="resources" />} />
+        <Route element={<PermissionRoute allow={canUseAdminPanel} areaName="the Admin Panel" />}>
+          <Route path="/admin" element={<Admin />} />
+        </Route>
+        <Route element={<PermissionRoute allow={canModerate} areaName="Staff Ops" />}>
+          <Route path="/ops" element={<StaffOps />} />
+          <Route path="/ops/dashboard" element={<StaffOps defaultTab="dashboard" />} />
+          <Route path="/ops/braindump" element={<StaffOps defaultTab="braindump" />} />
+          <Route path="/ops/handbook" element={<StaffOps defaultTab="handbook" />} />
+          <Route path="/ops/updates" element={<StaffOps defaultTab="updates" />} />
+          <Route path="/ops/commands" element={<StaffOps defaultTab="commands" />} />
+          <Route path="/ops/schedule" element={<StaffOps defaultTab="schedule" />} />
+          <Route path="/ops/time" element={<StaffOps defaultTab="time" />} />
+          <Route path="/ops/streams" element={<StaffOps defaultTab="streams" />} />
+          <Route path="/ops/meds" element={<StaffOps defaultTab="meds" />} />
+          <Route path="/ops/tasks" element={<StaffOps defaultTab="tasks" />} />
+          <Route path="/ops/members" element={<StaffOps defaultTab="members" />} />
+          <Route path="/ops/resources" element={<StaffOps defaultTab="resources" />} />
+        </Route>
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

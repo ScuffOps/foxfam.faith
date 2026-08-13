@@ -14,6 +14,7 @@ lerna-debug.log*
 
 # Dependencies and builds
 node_modules
+.vite-cache
 dist
 dist-ssr
 .vite

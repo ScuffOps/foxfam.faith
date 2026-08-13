@@ -240,7 +240,7 @@ export default function RelicForge() {
           {gate?.reason || "Relic charms are locked until Veri opens the forge."}
         </p>
         <Button asChild className="mt-5 gap-2">
-          <Link to="/profile"><Shield className="h-4 w-4" /> Back to Profile</Link>
+          <Link to="/relics"><Shield className="h-4 w-4" /> Back to Collection</Link>
         </Button>
       </div>
     );
@@ -260,7 +260,7 @@ export default function RelicForge() {
           </p>
         </div>
         <Button asChild variant="outline" className="gap-2">
-          <Link to="/profile"><Shield className="h-4 w-4" /> Back to Profile</Link>
+          <Link to="/relics"><Shield className="h-4 w-4" /> Back to Collection</Link>
         </Button>
       </div>
 
@@ -409,7 +409,7 @@ export default function RelicForge() {
                 {saving ? "Saving..." : "Save Relic"}
               </Button>
               <Button asChild variant="outline" className="h-10 gap-2">
-                <Link to="/profile"><Sparkles className="h-4 w-4" /> Manage Charms</Link>
+                <Link to="/relics"><Sparkles className="h-4 w-4" /> Manage Charms</Link>
               </Button>
             </div>
           </aside>

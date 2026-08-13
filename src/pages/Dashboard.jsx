@@ -20,6 +20,8 @@ import FavorShopPreview from "../components/dashboard/FaithShopPreview";
 import WeeklyPortalPoll from "../components/dashboard/WeeklyPortalPoll";
 import CommunityBlessingPrompt from "../components/dashboard/CommunityBlessingPrompt";
 import WelcomeHome from "../components/dashboard/WelcomeHome";
+import ActivityChart from "../components/dashboard/ActivityChart";
+import PortalVisualGallery from "../components/dashboard/PortalVisualGallery";
 import ProgressionLoop from "../components/ProgressionLoop";
 import {
   DASHBOARD_CARD_IDS,
@@ -39,6 +41,8 @@ const CARD_META = {
   "favor-shop-preview": { className: "sm:col-span-2 lg:col-span-2", render: () => <FavorShopPreview /> },
   "weekly-portal-poll": { className: "sm:col-span-2 lg:col-span-2", render: () => <WeeklyPortalPoll /> },
   "community-blessing": { className: "sm:col-span-2 lg:col-span-2", render: () => <CommunityBlessingPrompt /> },
+  "activity-chart": { className: "sm:col-span-2 lg:col-span-4", render: () => <ActivityChart /> },
+  "visual-library": { className: "sm:col-span-2 lg:col-span-2", render: () => <PortalVisualGallery /> },
   progression: { className: "sm:col-span-2 lg:col-span-4", render: () => <ProgressionLoop collapsible positionable /> },
   "upcoming-events": { className: "sm:col-span-2 lg:col-span-2", render: () => <UpcomingEvents /> },
   codex: { className: "sm:col-span-1", render: () => <RecentCodexEntries /> },

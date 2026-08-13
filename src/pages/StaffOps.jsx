@@ -52,6 +52,7 @@ import {
   TASK_PRIORITY_LABELS,
   TASK_STATUS_LABELS,
   TIME_ENTRY_STATUS_LABELS,
+  TIME_ENTRY_CATEGORY_LABELS,
   formatTimerDuration,
   getTimeEntryHours,
   getTimeRangeHours,
@@ -69,6 +70,8 @@ import {
   parseStaffTimeEntryForm,
   parseStreamLogForm,
 } from "@/lib/staffOps";
+import TimeCategoryChart from "@/components/staff/TimeCategoryChart";
+import PortalVisualGallery from "@/components/dashboard/PortalVisualGallery";
 
 const TABS = [
   { key: "dashboard", label: "Dashboard", icon: Activity },
@@ -243,6 +246,7 @@ const DEFAULT_SHIFT_FORM = {
 
 const DEFAULT_TIME_FORM = {
   staff_name: "",
+  category: "stream_support",
   work_date: "",
   started_at: "",
   ended_at: "",
@@ -831,6 +835,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
     const now = new Date();
     const timer = {
       staff_name: timeForm.staff_name?.trim() || staffName,
+      category: timeForm.category || "stream_support",
       started_at: now.toISOString(),
       break_minutes: Number(timeForm.break_minutes || 0),
       notes: timeForm.notes || "",
@@ -841,6 +846,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
     setTimeForm((current) => ({
       ...current,
       staff_name: timer.staff_name,
+      category: timer.category,
       started_at: toDateTimeInputValue(timer.started_at),
       ended_at: "",
       break_minutes: timer.break_minutes,
@@ -858,6 +864,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
     try {
       const payload = parseStaffTimeEntryForm({
         staff_name: activeTimer.staff_name || staffName,
+        category: activeTimer.category || "stream_support",
         work_date: activeTimer.started_at,
         started_at: activeTimer.started_at,
         ended_at: endedAt,
@@ -1749,10 +1756,16 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                     </div>
 
                     {activeTimer && (
-                      <div className="mt-4 grid gap-3 md:grid-cols-[0.8fr_0.45fr]">
+                      <div className="mt-4 grid gap-3 md:grid-cols-2">
                         <Input value={activeTimer.staff_name} onChange={(event) => updateActiveTimer("staff_name", event.target.value)} placeholder="Staff name" />
+                        <Select value={activeTimer.category || "stream_support"} onValueChange={(value) => updateActiveTimer("category", value)}>
+                          <SelectTrigger aria-label="Timer work category"><SelectValue placeholder="Work category" /></SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(TIME_ENTRY_CATEGORY_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
                         <Input type="number" min="0" value={activeTimer.break_minutes} onChange={(event) => updateActiveTimer("break_minutes", event.target.value)} placeholder="Break minutes" />
-                        <Textarea className="md:col-span-2" value={activeTimer.notes} onChange={(event) => updateActiveTimer("notes", event.target.value)} placeholder="Work notes for this timer" rows={3} />
+                        <Textarea value={activeTimer.notes} onChange={(event) => updateActiveTimer("notes", event.target.value)} placeholder="Work notes for this timer" rows={3} />
                       </div>
                     )}
                   </div>
@@ -1762,6 +1775,12 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                   <SectionHeader icon={Plus} title="Manual Entry" subtitle="For the times someone remembered after the stream because time is decorative." />
                   <form className="mt-5 space-y-3" onSubmit={handleCreateTimeEntry}>
                     <Input value={timeForm.staff_name} onChange={(event) => updateForm(setTimeForm, "staff_name", event.target.value)} placeholder="Staff name" />
+                    <Select value={timeForm.category} onValueChange={(value) => updateForm(setTimeForm, "category", value)}>
+                      <SelectTrigger aria-label="Work category"><SelectValue placeholder="Work category" /></SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(TIME_ENTRY_CATEGORY_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                     <div className="grid gap-3 md:grid-cols-2">
                       <DateTimeInput value={timeForm.started_at} onChange={(event) => updateForm(setTimeForm, "started_at", event.target.value)} placeholder="Started, e.g. 2026-07-01" />
                       <DateTimeInput value={timeForm.ended_at} onChange={(event) => updateForm(setTimeForm, "ended_at", event.target.value)} allowDateOnly defaultTime="00:00" />
@@ -1792,6 +1811,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
               </div>
 
               <div className="space-y-3">
+                <TimeCategoryChart entries={data.timeEntries} />
                 <GlassCard>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm font-medium">Payable total</p>
@@ -1826,6 +1846,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
                           <div className="flex flex-wrap items-center gap-2">
                             <h3 className="font-heading text-base font-semibold">{entry.staff_name}</h3>
                             <Badge variant="outline">{TIME_ENTRY_STATUS_LABELS[entry.status] || "Draft"}</Badge>
+                            <Badge variant="secondary">{TIME_ENTRY_CATEGORY_LABELS[entry.category] || "Other"}</Badge>
                             {entry.payable ? <Badge variant="outline">Payable</Badge> : <Badge variant="secondary">Not payable</Badge>}
                           </div>
                           <p className="mt-1 text-xs text-muted-foreground">
@@ -2464,6 +2485,13 @@ function StaffDashboard({ activeUpdates, commandCount, data, onTabChange, openTa
         upcomingShifts={upcomingShifts}
       />
 
+      <PortalVisualGallery mode="staff" />
+
+      <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
+        <TimeCategoryChart entries={data.timeEntries} />
+        <StaffWorkloadBars tasks={data.tasks} />
+      </div>
+
       <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
         <GlassCard>
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -2574,6 +2602,35 @@ function StaffDashboard({ activeUpdates, commandCount, data, onTabChange, openTa
         )}
       </GlassCard>
     </div>
+  );
+}
+
+function StaffWorkloadBars({ tasks = [] }) {
+  const rows = TASK_STATUS_ORDER.map((status) => ({
+    status,
+    label: TASK_STATUS_LABELS[status] || status,
+    count: tasks.filter((task) => task.status === status).length,
+  }));
+  const max = Math.max(1, ...rows.map((row) => row.count));
+  const colors = ["#6d5dfc", "#32c6ff", "#fbbf24", "#fb7185", "#34d399"];
+
+  return (
+    <GlassCard>
+      <SectionHeader icon={Activity} title="Workload Signal" subtitle="Task pressure by work state, without spreadsheet archaeology." />
+      <div className="mt-5 space-y-3">
+        {rows.map((row, index) => (
+          <div key={row.status}>
+            <div className="mb-1.5 flex items-center justify-between gap-3 text-xs">
+              <span className="truncate text-muted-foreground">{row.label}</span>
+              <strong className="tabular-nums text-foreground">{row.count}</strong>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-secondary">
+              <div className="h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none" style={{ width: `${(row.count / max) * 100}%`, backgroundColor: colors[index] }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </GlassCard>
   );
 }
 

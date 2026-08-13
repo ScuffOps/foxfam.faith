@@ -95,6 +95,14 @@ export function canManageRoles(user) {
   return hasRole(user, [ROLE_VALUES.admin, ROLE_VALUES.leadMod]);
 }
 
+export function canManageForumCategories(user) {
+  return canManageRoles(user);
+}
+
+export function canPublishShrinePosts(user) {
+  return hasRole(user, ROLE_VALUES.admin);
+}
+
 export function canModerateForum(user) {
   return hasRole(user, ROLE_VALUES.forumModerator) || canModerate(user);
 }

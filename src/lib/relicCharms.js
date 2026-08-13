@@ -142,3 +142,28 @@ export function groupCharmsByRarity(charms = []) {
     return { ...groups, [rarity]: [...(groups[rarity] || []), charm] };
   }, {});
 }
+
+export function stackCharmInstances(charms = [], maximumStackSize = 10) {
+  const grouped = charms.reduce((stacks, charm) => {
+    const key = charm.charm_key || charm.key || charm.id;
+    return { ...stacks, [key]: [...(stacks[key] || []), charm] };
+  }, {});
+
+  return Object.values(grouped).flatMap((instances) => {
+    const sorted = [...instances].sort((left, right) => Number(Boolean(right.equipped)) - Number(Boolean(left.equipped)));
+    const stacks = [];
+    for (let index = 0; index < sorted.length; index += maximumStackSize) {
+      const batch = sorted.slice(index, index + maximumStackSize);
+      const equipped = batch.find((instance) => instance.equipped);
+      stacks.push({
+        ...batch[0],
+        representative: equipped || batch[0],
+        instances: batch,
+        quantity: batch.length,
+        equippedCount: batch.filter((instance) => instance.equipped).length,
+        stackKey: `${batch[0].charm_key || batch[0].key}-${index / maximumStackSize}`,
+      });
+    }
+    return stacks;
+  });
+}

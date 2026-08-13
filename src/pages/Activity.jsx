@@ -1,19 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bell, CheckCheck, Circle, ExternalLink, Inbox } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { communityClient } from "@/api/communityClient";
 import { Button } from "@/components/ui/button";
 import GlassCard from "@/components/GlassCard";
 import { useAuth } from "@/lib/AuthContext";
 import { isNotificationRead, markNotificationRead } from "@/lib/notificationState";
+import BirthdayWishInbox from "@/components/birthdays/BirthdayWishInbox";
 
-const FILTERS = ["all", "unread", "replies", "approvals", "events", "staff"];
+const FILTERS = ["all", "unread", "birthdays", "replies", "approvals", "events", "staff"];
 
 function getNotificationCategory(notification) {
   const value = `${notification.type || ""} ${notification.category || ""} ${notification.title || ""}`.toLowerCase();
+  if (/birthday/.test(value)) return "birthdays";
   if (/reply|comment|mention/.test(value)) return "replies";
   if (/approv|review|submission/.test(value)) return "approvals";
-  if (/event|calendar|birthday/.test(value)) return "events";
+  if (/event|calendar/.test(value)) return "events";
   if (/staff|shift|task|schedule/.test(value)) return "staff";
   return "updates";
 }
@@ -25,8 +27,9 @@ function getNotificationPath(notification) {
 
 export default function Activity() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [notifications, setNotifications] = useState([]);
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState(() => FILTERS.includes(searchParams.get("category")) ? searchParams.get("category") : "all");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -74,6 +77,8 @@ export default function Activity() {
           </button>
         ))}
       </div>
+
+      {(filter === "all" || filter === "birthdays") && <div className="mb-4"><BirthdayWishInbox userId={user?.id} compact title="Birthday Update Inbox" /></div>}
 
       <GlassCard className="p-0">
         {loading ? (

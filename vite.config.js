@@ -5,6 +5,7 @@ import path from 'node:path'
 // https://vite.dev/config/
 export default defineConfig({
   logLevel: 'error',
+  cacheDir: '.vite-cache',
   resolve: {
     alias: {
       '@': path.resolve(process.cwd(), 'src'),

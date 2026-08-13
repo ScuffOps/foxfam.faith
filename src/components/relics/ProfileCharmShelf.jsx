@@ -3,7 +3,7 @@ import { ChevronDown, Loader2, Search, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import RelicCharmIcon from "@/components/relics/RelicCharmIcon";
-import { RELIC_RARITY_META } from "@/lib/relicCharms";
+import { RELIC_RARITY_META, stackCharmInstances } from "@/lib/relicCharms";
 
 const RARITY_ORDER = ["mythic", "epic", "rare", "uncommon", "common"];
 
@@ -14,10 +14,11 @@ function formatAcquiredDate(value) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
 }
 
-export default function ProfileCharmShelf({ charms = [], groupedCharms = {}, equippingId = "", onToggleCharm }) {
+export default function ProfileCharmShelf({ charms = [], equippingId = "", onToggleCharm }) {
   const [query, setQuery] = useState("");
   const [rarityFilter, setRarityFilter] = useState("all");
-  const [collapsedGroups, setCollapsedGroups] = useState({});
+  const [collapsedGroups, setCollapsedGroups] = useState(() => Object.fromEntries(RARITY_ORDER.map((rarity) => [rarity, true])));
+  const stackedCharms = useMemo(() => stackCharmInstances(charms), [charms]);
   const filteredGroupedCharms = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return RARITY_ORDER.reduce((groups, rarity) => {
@@ -25,7 +26,7 @@ export default function ProfileCharmShelf({ charms = [], groupedCharms = {}, equ
         groups[rarity] = [];
         return groups;
       }
-      const items = (groupedCharms[rarity] || []).filter((charm) => {
+      const items = stackedCharms.filter((charm) => charm.rarity === rarity).filter((charm) => {
         if (!needle) return true;
         return [charm.name, charm.slot, charm.rarity, charm.description, charm.flavor_text]
           .filter(Boolean)
@@ -36,7 +37,7 @@ export default function ProfileCharmShelf({ charms = [], groupedCharms = {}, equ
       groups[rarity] = items;
       return groups;
     }, {});
-  }, [groupedCharms, query, rarityFilter]);
+  }, [stackedCharms, query, rarityFilter]);
   const filteredCount = Object.values(filteredGroupedCharms).reduce((sum, items) => sum + items.length, 0);
 
   return (
@@ -46,7 +47,7 @@ export default function ProfileCharmShelf({ charms = [], groupedCharms = {}, equ
           <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-muted-foreground">Trophy Case</p>
           <h2 className="mt-1 font-heading text-lg font-bold">Charm shelf</h2>
           <p className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">
-            View, equip, and compare obtained charms. One charm can be attached per relic slot.
+            View, equip, and compare obtained charms. Duplicate instances gather into stacks of ten.
           </p>
         </div>
         <span className="rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
@@ -100,10 +101,10 @@ export default function ProfileCharmShelf({ charms = [], groupedCharms = {}, equ
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     {items.map((charm) => (
                       <CharmShelfCard
-                        key={charm.id || charm.instance_id || charm.charm_key}
+                        key={charm.stackKey}
                         charm={charm}
-                        busy={equippingId === charm.id}
-                        onToggle={() => onToggleCharm(charm)}
+                        busy={equippingId === charm.representative.id}
+                        onToggle={() => onToggleCharm(charm.representative)}
                       />
                     ))}
                   </div>
@@ -128,7 +129,10 @@ function CharmShelfCard({ charm, busy, onToggle }) {
           <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-border/60 bg-background/35">
             <RelicCharmIcon charm={charm} className="h-16 w-16" />
           </div>
-          {charm.equipped && (
+          {charm.quantity > 1 && (
+            <span className="mt-2 rounded-full border border-border bg-background/70 px-2 py-0.5 text-[10px] font-bold">x{charm.quantity}</span>
+          )}
+          {charm.equippedCount > 0 && (
             <span className="mt-2 rounded-full border border-primary/40 bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-primary">
               Equipped
             </span>
@@ -144,8 +148,8 @@ function CharmShelfCard({ charm, busy, onToggle }) {
           <p className="mt-1 text-[10px] uppercase tracking-[0.16em] opacity-75">{charm.slot} slot</p>
           <p className="mt-2 line-clamp-3 text-xs leading-5 opacity-80">{charm.description}</p>
           <p className="mt-3 text-[11px] opacity-70">Acquired {formatAcquiredDate(charm.acquired_at)}</p>
-          <Button type="button" size="sm" variant={charm.equipped ? "default" : "outline"} onClick={onToggle} disabled={busy} className="mt-3 w-full">
-            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : charm.equipped ? "Unequip" : "Equip"}
+          <Button type="button" size="sm" variant={charm.equippedCount > 0 ? "default" : "outline"} onClick={onToggle} disabled={busy} className="mt-3 w-full">
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : charm.equippedCount > 0 ? "Unequip" : "Equip"}
           </Button>
         </div>
       </div>

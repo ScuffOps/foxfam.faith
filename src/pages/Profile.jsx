@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Dice5, Gem, Loader2, LogIn, Settings, Shield, Sparkles, WandSparkles } from "lucide-react";
+import { Gem, Loader2, LogIn, Settings, Shield, Sparkles, WandSparkles } from "lucide-react";
 import { communityClient } from "@/api/communityClient";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
-import RelicPreview from "@/components/relics/RelicPreview";
-import ProfileCharmShelf from "@/components/relics/ProfileCharmShelf";
 import RankBadge from "@/components/RankBadge";
 import ProgressionLoop from "@/components/ProgressionLoop";
 import { getPrivateUserKey } from "@/lib/communityActor";
@@ -13,9 +10,9 @@ import { useAuth } from "@/lib/AuthContext";
 import { getRoleLabel } from "@/lib/roles";
 import { getPublicAvatar, getPublicDisplayName } from "@/lib/userIdentity";
 import PublicAvatar from "@/components/PublicAvatar";
-import { loadCharmRollEligibility, loadUserRelicInventory, rollUserRelicCharm, setEquippedCharm } from "@/lib/relicService";
-import { groupCharmsByRarity, RELIC_RARITY_META } from "@/lib/relicCharms";
+import { loadUserRelicInventory } from "@/lib/relicService";
 import { getProfileRelicTeaser } from "@/lib/profileRelicTeasers";
+import BirthdayWishInbox from "@/components/birthdays/BirthdayWishInbox";
 
 function getRelicLoadMessage(error) {
   if (error?.status === 401 || error?.message === "Authentication required") {
@@ -29,15 +26,10 @@ function getRelicLoadMessage(error) {
 
 export default function Profile() {
   const { openLogin } = useAuth();
-  const { toast } = useToast();
   const [user, setUser] = useState(null);
   const [level, setLevel] = useState(null);
-  const [relic, setRelic] = useState(null);
   const [charms, setCharms] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [rolling, setRolling] = useState(false);
-  const [equippingId, setEquippingId] = useState("");
-  const [rollEligibility, setRollEligibility] = useState({ canRoll: false, reason: "Checking stream status..." });
   const [error, setError] = useState("");
 
   const loadProfile = async () => {
@@ -49,12 +41,9 @@ export default function Profile() {
         communityClient.entities.UserLevel.filter({ user_key: getPrivateUserKey(me) }).catch(() => []),
         loadUserRelicInventory(),
       ]);
-      const eligibility = await loadCharmRollEligibility();
       setUser(me);
       setLevel(levels[0] || null);
-      setRelic(inventory.relic);
       setCharms(inventory.charms);
-      setRollEligibility(eligibility);
     } catch (loadError) {
       setUser(null);
       setError(getRelicLoadMessage(loadError));
@@ -67,40 +56,8 @@ export default function Profile() {
     loadProfile();
   }, []);
 
-  const groupedCharms = useMemo(() => groupCharmsByRarity(charms), [charms]);
   const equippedCount = charms.filter((charm) => charm.equipped).length;
   const relicTeaser = useMemo(() => user ? getProfileRelicTeaser(user) : null, [user]);
-
-  const handleRollCharm = async () => {
-    setRolling(true);
-    try {
-      const charm = await rollUserRelicCharm();
-      setCharms((current) => [charm, ...current]);
-      const rarity = RELIC_RARITY_META[charm.rarity]?.label || "Charm";
-      toast({ title: `${rarity} charm acquired`, description: charm.name });
-    } catch (rollError) {
-      toast({
-        title: "Charm roll failed",
-        description: rollError?.message || "The relic table rejected the draw. Try again after refreshing.",
-        variant: "destructive",
-      });
-    } finally {
-      setRolling(false);
-    }
-  };
-
-  const handleToggleCharm = async (charm) => {
-    setEquippingId(charm.id);
-    try {
-      const updatedCharms = await setEquippedCharm(charm, charms, !charm.equipped);
-      setCharms(updatedCharms);
-      toast({ title: charm.equipped ? "Charm detached" : "Charm attached", description: charm.name });
-    } catch {
-      toast({ title: "Charm could not be equipped", description: "Refresh and try again.", variant: "destructive" });
-    } finally {
-      setEquippingId("");
-    }
-  };
 
   if (loading) {
     return (
@@ -198,34 +155,20 @@ export default function Profile() {
         </div>
       </section>
 
-      <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <RelicPreview relic={relic} charms={charms} />
+      <BirthdayWishInbox userId={user.id} />
 
-        <div className="space-y-4">
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-muted-foreground">Charm Draw</p>
-                <h2 className="mt-1 font-heading text-lg font-bold">Relic charm roll</h2>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">Weighted rarity draw. Duplicates are still collectible instances.</p>
-              </div>
-              <Dice5 className="h-5 w-5 text-primary" />
-            </div>
-            <Button onClick={handleRollCharm} disabled={rolling || !rollEligibility.canRoll} className="mt-4 w-full gap-2">
-              {rolling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Dice5 className="h-4 w-4" />}
-              {rolling ? "Drawing..." : rollEligibility.canRoll ? "Roll Charm" : "Locked"}
-            </Button>
-            <p className="mt-2 text-xs leading-5 text-muted-foreground">{rollEligibility.reason}</p>
+      <section className="rounded-xl border border-border bg-card/85 p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-muted-foreground">Relic Archive</p>
+            <h2 className="mt-1 font-heading text-xl font-bold">Your collection has its own room now</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Open the shelf to inspect stacks, equip charms, forge your relic, or visit the separate Charm Draw.</p>
           </div>
+          <Button asChild className="gap-2">
+            <Link to="/relics"><Gem className="h-4 w-4" /> Open Collection</Link>
+          </Button>
         </div>
       </section>
-
-      <ProfileCharmShelf
-        charms={charms}
-        groupedCharms={groupedCharms}
-        equippingId={equippingId}
-        onToggleCharm={handleToggleCharm}
-      />
     </div>
   );
 }

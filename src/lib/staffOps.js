@@ -44,6 +44,17 @@ const taskStatusSchema = z.enum(["in_queue", "pending", "working_on", "blocked",
 const taskPrioritySchema = z.enum(["low", "normal", "high", "urgent", "critical"]);
 const shiftStatusSchema = z.enum(["scheduled", "confirmed", "covered", "missed"]);
 const timeEntryStatusSchema = z.enum(["draft", "submitted", "approved", "paid"]);
+const timeEntryCategorySchema = z.enum([
+  "research",
+  "correspondence",
+  "editing",
+  "discord",
+  "clerical",
+  "moderation",
+  "stream_support",
+  "planning",
+  "other",
+]);
 const scuffoxUpdateStatusSchema = z.enum(["draft", "active", "archived"]);
 const scuffoxUpdateToneSchema = z.enum(["announcement", "mood", "info", "stream", "quiet"]);
 const availabilityStatusSchema = z.enum(["free", "on_call", "busy", "dnd"]);
@@ -105,6 +116,7 @@ const modShiftSchema = z.object({
 
 const staffTimeEntrySchema = z.object({
   staff_name: requiredTrimmedString,
+  category: timeEntryCategorySchema.default("stream_support"),
   work_date: optionalDateTime,
   started_at: optionalDateTime,
   ended_at: optionalDateTime,
@@ -201,6 +213,18 @@ export const TIME_ENTRY_STATUS_LABELS = {
   submitted: "Submitted",
   approved: "Approved",
   paid: "Paid",
+};
+
+export const TIME_ENTRY_CATEGORY_LABELS = {
+  research: "Research",
+  correspondence: "Correspondence",
+  editing: "Editing",
+  discord: "Discord",
+  clerical: "Clerical",
+  moderation: "Moderation",
+  stream_support: "Stream Support",
+  planning: "Planning",
+  other: "Other",
 };
 
 export const SCUFFOX_UPDATE_STATUS_LABELS = {

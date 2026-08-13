@@ -29,7 +29,7 @@ export default function StartHere() {
     ]);
     setProgress({
       identity: identities.some((identity) => ["twitch", "discord"].includes(identity.provider)),
-      birthday: birthdays.some((birthday) => birthday.user_id === me.id),
+      birthday: birthdays.some((birthday) => birthday.recipient_user_id === me.id || birthday.user_id === me.id),
       introduction: threads.some((thread) => (
         thread.user_id === me.id && thread.category === "introductions"
       )),

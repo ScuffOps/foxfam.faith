@@ -31,9 +31,11 @@ export default function BirthdaySubmitForm({ onSubmitted }) {
     if (!form.display_name || !form.birthday_date) return;
     setSubmitting(true);
     let submitterName = "Guest";
+    let recipientUserId = "";
     try {
       const user = await communityClient.auth.me();
       submitterName = getPublicDisplayName(user, "Guest");
+      recipientUserId = user.id;
     } catch {
       if (profile.name) submitterName = profile.name + (profile.discordId ? ` (${profile.discordId})` : "");
     }
@@ -41,6 +43,7 @@ export default function BirthdaySubmitForm({ onSubmitted }) {
       ...form,
       status: "approved",
       submitted_by_name: submitterName,
+      recipient_user_id: recipientUserId,
     });
     toast({ title: "Birthday added!", description: "It is live on the birthday calendar." });
     clearDraft(INITIAL_BIRTHDAY_FORM);

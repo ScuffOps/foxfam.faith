@@ -1,4 +1,4 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
 import OnboardingModal from "./OnboardingModal";
@@ -6,10 +6,13 @@ import Splash from "../pages/Splash";
 import { useState, useEffect } from "react";
 import { communityClient } from "@/api/communityClient";
 import GlobalCreate from "@/components/flow/GlobalCreate";
+import { LAST_AUTHORIZED_PATH_KEY } from "@/components/PermissionRoute";
+import BirthdayWelcomeDialog from "@/components/birthdays/BirthdayWelcomeDialog";
 
 const GUEST_ONBOARDING_KEY = "commhub_guest_onboarding_seen";
 
 export default function Layout() {
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const forceSplash = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("splash");
@@ -36,6 +39,11 @@ export default function Layout() {
     });
   }, []);
 
+  useEffect(() => {
+    const isRestricted = location.pathname === "/admin" || location.pathname.startsWith("/ops");
+    if (!isRestricted) window.sessionStorage.setItem(LAST_AUTHORIZED_PATH_KEY, `${location.pathname}${location.search}`);
+  }, [location.pathname, location.search]);
+
   const handleGuestContinue = () => {
     localStorage.setItem(GUEST_ONBOARDING_KEY, "1");
     setShowOnboarding(false);
@@ -51,6 +59,7 @@ export default function Layout() {
           isGuest={isGuest}
         />
       )}
+      <BirthdayWelcomeDialog />
       {/* Desktop Sidebar */}
       <div className="relative z-10 hidden shrink-0 md:block">
         <Sidebar />

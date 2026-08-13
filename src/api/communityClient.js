@@ -28,6 +28,7 @@ const AUTO_PROFILE_NAMES = new Set(["guest", "guest fox", "foxfam member"]);
 
 const ENTITY_TABLES = {
   Birthday: "birthdays",
+  BirthdayMessage: "birthday_messages",
   Blessing: "blessings",
   BlessingComment: "blessing_comments",
   BugReport: "bug_reports",

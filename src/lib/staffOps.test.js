@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatTimerDuration, getTimeEntryHours, getTimeRangeHours, parseStaffTaskForm } from "./staffOps.js";
+import { formatTimerDuration, getTimeEntryHours, getTimeRangeHours, parseStaffTaskForm, parseStaffTimeEntryForm } from "./staffOps.js";
 
 test("time range hours subtracts breaks and rejects backwards time", () => {
   assert.equal(getTimeRangeHours("2026-06-20T10:00:00.000Z", "2026-06-20T12:30:00.000Z", 30), 2);
@@ -34,4 +34,16 @@ test("staff task date-only inputs default start to noon and due date to midnight
 
   assert.equal(parsed.start_date, new Date("2026-07-01T12:00").toISOString());
   assert.equal(parsed.due_date, new Date("2026-07-02T00:00").toISOString());
+});
+
+test("staff time entries preserve a known work category", () => {
+  const parsed = parseStaffTimeEntryForm({
+    staff_name: "Veri",
+    category: "research",
+    started_at: "2026-08-06T12:00",
+    ended_at: "2026-08-06T13:00",
+  });
+
+  assert.equal(parsed.category, "research");
+  assert.throws(() => parseStaffTimeEntryForm({ staff_name: "Veri", category: "summoning" }));
 });

@@ -38,7 +38,7 @@ try {
     await page.waitForTimeout(1000);
 
     const text = await page.locator("body").innerText();
-    const hasExpectedGate = text.includes("Staff Ops") || text.includes("Access Denied");
+    const hasExpectedGate = text.includes("Staff Ops") || text.includes("staff-sealed");
     if (!hasExpectedGate) {
       failures.push(`${viewport.name}: /ops did not render staff page or access gate`);
     }
