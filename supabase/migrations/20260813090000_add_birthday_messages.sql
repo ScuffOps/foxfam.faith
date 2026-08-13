@@ -14,6 +14,7 @@ create index if not exists birthday_messages_recipient_idx on public.birthday_me
 alter table public.birthday_messages enable row level security;
 alter table public.birthday_messages force row level security;
 
+revoke all on public.birthday_messages from anon, authenticated;
 grant select, insert on public.birthday_messages to anon, authenticated;
 grant delete on public.birthday_messages to authenticated;
 
