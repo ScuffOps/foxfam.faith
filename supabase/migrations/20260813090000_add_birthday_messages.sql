@@ -69,7 +69,7 @@ begin
   if target.id is null then
     raise exception 'Birthday message not found';
   end if;
-  if target.data ->> 'recipient_user_id' <> (select auth.uid())::text and not private.is_staff() then
+  if target.data ->> 'recipient_user_id' is distinct from (select auth.uid())::text and not private.is_staff() then
     raise exception 'Only the recipient or staff can change birthday wish visibility';
   end if;
 
@@ -82,4 +82,5 @@ end;
 $$;
 
 revoke all on function public.set_birthday_message_visibility(uuid, boolean) from public;
+revoke execute on function public.set_birthday_message_visibility(uuid, boolean) from anon;
 grant execute on function public.set_birthday_message_visibility(uuid, boolean) to authenticated;
