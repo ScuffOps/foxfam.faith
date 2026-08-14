@@ -32,7 +32,7 @@ const NAV_ICONS = {
   words: Flower2,
 };
 
-export default function SanctuaryRail({ onOpenPortalNav }) {
+export default function SanctuaryRail({ onOpenPortalNav, mobile = false }) {
   const location = useLocation();
   const portalItems = SANCTUARY_NAV_ITEMS.filter((item) => item.group === "portal");
   const hubItems = SANCTUARY_NAV_ITEMS.filter((item) => item.group === "hub");
@@ -57,6 +57,41 @@ export default function SanctuaryRail({ onOpenPortalNav }) {
       </Link>
     );
   };
+
+  if (mobile) {
+    return (
+      <div className="sanctuary-mobile-dock-slot">
+        <nav className="sanctuary-mobile-dock" aria-label="Mobile game hub destinations">
+          {SANCTUARY_NAV_ITEMS.map((item) => {
+            const Icon = NAV_ICONS[item.icon];
+            const isActive = isSanctuaryDestinationActive(location.pathname, item.path);
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className="sanctuary-mobile-dock__link"
+                data-active={isActive || undefined}
+                aria-current={isActive ? "page" : undefined}
+                aria-label={item.label}
+                title={item.label}
+              >
+                <Icon aria-hidden="true" />
+              </Link>
+            );
+          })}
+          <button
+            type="button"
+            className="sanctuary-mobile-dock__link"
+            onClick={onOpenPortalNav}
+            aria-label="Open full portal navigation"
+            title="Open full portal navigation"
+          >
+            <PanelLeftOpen aria-hidden="true" />
+          </button>
+        </nav>
+      </div>
+    );
+  }
 
   return (
     <div className="sanctuary-rail-slot">

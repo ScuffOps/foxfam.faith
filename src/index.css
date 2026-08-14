@@ -494,9 +494,70 @@
   background: #202533;
 }
 
+.sanctuary-mobile-dock-slot {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .sanctuary-mobile-dock-slot {
+    display: block;
+    flex: 0 0 auto;
+    border-top: 2px solid #2d3342;
+    background: #11131c;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  .sanctuary-mobile-dock {
+    display: flex;
+    gap: 0.25rem;
+    overflow-x: auto;
+    padding: 0.4rem 0.5rem;
+    scrollbar-width: thin;
+    scroll-snap-type: x proximity;
+  }
+
+  .sanctuary-mobile-dock__link {
+    display: inline-flex;
+    width: 2.875rem;
+    height: 2.875rem;
+    flex: 0 0 2.875rem;
+    align-items: center;
+    justify-content: center;
+    scroll-snap-align: center;
+    border: 2px solid transparent;
+    border-radius: 0.5rem;
+    color: #aeb8c9;
+  }
+
+  .sanctuary-mobile-dock__link svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .sanctuary-mobile-dock__link:hover {
+    border-color: #59657a;
+    background: #202533;
+    color: #f7f1e8;
+  }
+
+  .sanctuary-mobile-dock__link:focus-visible {
+    outline: 3px solid #84b6c4;
+    outline-offset: -3px;
+    color: #f7f1e8;
+  }
+
+  .sanctuary-mobile-dock__link[data-active="true"] {
+    border-color: #6e788b;
+    background: #d6c97f;
+    color: #222b38;
+    box-shadow: 2px 2px 0 #59657a;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sanctuary-rail__link,
-  .sanctuary-rail__pin {
+  .sanctuary-rail__pin,
+  .sanctuary-mobile-dock__link {
     transition: none;
   }
 }

@@ -120,6 +120,9 @@ export default function Layout() {
         <main ref={contentRef} className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 lg:p-8">
           <Outlet />
         </main>
+        {usesSanctuaryNavigation ? (
+          <SanctuaryRail mobile onOpenPortalNav={() => setSidebarOpen(true)} />
+        ) : null}
       </div>
     </div>
   );

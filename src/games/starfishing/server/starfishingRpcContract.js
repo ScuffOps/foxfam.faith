@@ -43,6 +43,11 @@ const PASSIVE_EFFECT_CAPS = {
   rare_bite_bonus_bps: 500,
   size_floor_bps: 1000,
 };
+const COSMETIC_EFFECT_KEYS = new Set([
+  "catch_effect",
+  "profile_particle",
+  "profile_frame",
+]);
 const ACHIEVEMENT_CHARM_DEFINITIONS = {
   "starlit-bobber": {
     achievementKey: "first-light",
@@ -52,6 +57,22 @@ const ACHIEVEMENT_CHARM_DEFINITIONS = {
     effectKey: "favor_multiplier_bps",
     effectValue: 500,
   },
+  "merciful-tide": {
+    achievementKey: "gentle-return",
+    label: "Merciful Tide",
+    rarity: "rare",
+    slot: "catch-fx",
+    effectKey: "catch_effect",
+    effectValue: "merciful-tide",
+  },
+  "pocket-star": {
+    achievementKey: "pocket-constellation",
+    label: "Pocket Star",
+    rarity: "epic",
+    slot: "profile-particle",
+    effectKey: "profile_particle",
+    effectValue: "pocket-star",
+  },
   "glassfin-comet": {
     achievementKey: "myth-in-moonwater",
     label: "Glassfin Comet",
@@ -59,6 +80,14 @@ const ACHIEVEMENT_CHARM_DEFINITIONS = {
     slot: "fishing",
     effectKey: "rare_bite_bonus_bps",
     effectValue: 300,
+  },
+  "fishpedia-frame": {
+    achievementKey: "celestial-archivist",
+    label: "Fishpedia Frame",
+    rarity: "mythic",
+    slot: "profile-frame",
+    effectKey: "profile_frame",
+    effectValue: "fishpedia-frame",
   },
   "century-chain": {
     achievementKey: "hundred-lights",
@@ -245,13 +274,21 @@ function normalizeCharmResults(value) {
 
     const effects = requireObject(charm.effects, "Charm effects");
     const effectKeys = Object.keys(effects);
-    if (
-      effectKeys.length !== 1
-      || effectKeys[0] !== definition.effectKey
-      || effects[definition.effectKey] !== definition.effectValue
-      || PASSIVE_EFFECT_CAPS[definition.effectKey] === undefined
-    ) {
-      throw new TypeError("Achievement charm reward shape contains invalid passive effects.");
+    const effectValue = effects[definition.effectKey];
+    const passiveCap = PASSIVE_EFFECT_CAPS[definition.effectKey];
+    const hasCanonicalEffect = effectKeys.length === 1
+      && effectKeys[0] === definition.effectKey
+      && effectValue === definition.effectValue;
+    const hasAllowedPassiveEffect = typeof definition.effectValue === "number"
+      && passiveCap !== undefined
+      && Number.isSafeInteger(effectValue)
+      && effectValue >= 0
+      && effectValue <= passiveCap;
+    const hasAllowedCosmeticEffect = typeof definition.effectValue === "string"
+      && COSMETIC_EFFECT_KEYS.has(definition.effectKey);
+
+    if (!hasCanonicalEffect || (!hasAllowedPassiveEffect && !hasAllowedCosmeticEffect)) {
+      throw new TypeError("Achievement charm reward shape contains invalid effects.");
     }
 
     const id = requireUuid(charm.id, "Charm ID");

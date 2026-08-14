@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, Check, Circle, Gem, Hammer, Lamp, Loader2, LogIn, Music, RefreshCw, Save, Shield, Sparkles, Stars, VenetianMask, WandSparkles } from "lucide-react";
+import { ArrowLeft, BookOpen, Check, Circle, Gem, Hammer, Lamp, Loader2, LogIn, Music, RefreshCw, Save, Shield, Sparkles, Stars, VenetianMask, WandSparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,6 +35,7 @@ const EFFECT_ICONS = {
 };
 
 const STEPS = ["Base", "Theme", "Effects", "Name", "Lore"];
+const GUEST_OWNER_ID = "guest-preview";
 
 function getRelicLoadMessage(error) {
   if (error?.status === 401 || error?.message === "Authentication required") {
@@ -108,7 +109,7 @@ function EffectChip({ effect, active, onClick }) {
 }
 
 export default function RelicForge() {
-  const { openLogin, isAuthenticated, isLoadingAuth } = useAuth();
+  const { openLogin, user: authUser, isAuthenticated, isLoadingAuth } = useAuth();
   const { toast } = useToast();
   const [step, setStep] = useState("Base");
   const [user, setUser] = useState(null);
@@ -124,11 +125,35 @@ export default function RelicForge() {
   const [busyForgeAction, setBusyForgeAction] = useState("");
   const [retryForgeRequest, setRetryForgeRequest] = useState(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const [loadedOwnerId, setLoadedOwnerId] = useState("");
+  const loadEpochRef = useRef(0);
+  const activeOwnerRef = useRef("");
+  const ownerId = isAuthenticated && authUser?.id ? authUser.id : "";
   const isGuestPreview = !isLoadingAuth && !isAuthenticated;
+  activeOwnerRef.current = ownerId;
 
   useEffect(() => {
-    let mounted = true;
-    if (isLoadingAuth) return () => { mounted = false; };
+    const loadEpoch = loadEpochRef.current + 1;
+    loadEpochRef.current = loadEpoch;
+    let cancelled = false;
+
+    setLoadedOwnerId("");
+    setUser(null);
+    setRelic(null);
+    setGate(null);
+    setLevel(null);
+    setForgeState(null);
+    setForgeError("");
+    setError("");
+    setSaving(false);
+    setBusyForgeAction("");
+    setRetryForgeRequest(null);
+
+    if (isLoadingAuth) {
+      setLoading(true);
+      setForgeLoading(true);
+      return () => { cancelled = true; };
+    }
     if (!isAuthenticated) {
       setUser(null);
       setRelic(RELIC_FORGE_GUEST_PREVIEW.relic);
@@ -139,44 +164,66 @@ export default function RelicForge() {
       setForgeLoading(false);
       setError("");
       setLoading(false);
-      return () => { mounted = false; };
+      setLoadedOwnerId(GUEST_OWNER_ID);
+      return () => { cancelled = true; };
     }
     const loadRelic = async () => {
       setLoading(true);
+      setForgeLoading(true);
       setError("");
       try {
-        const [me, loaded, loadedGate, loadedForge] = await Promise.all([
-          communityClient.auth.me(),
+        const [loaded, loadedGate, loadedForge] = await Promise.all([
           getOrCreateUserRelic(),
           loadRelicRollGate(),
           relicForgeService.loadState()
             .then((state) => ({ state, error: null }))
             .catch((forgeLoadError) => ({ state: null, error: forgeLoadError })),
         ]);
-        const levels = await communityClient.entities.UserLevel.filter({ user_key: getPrivateUserKey(me) }).catch(() => []);
-        if (mounted) {
-          setUser(me);
+        const levels = await communityClient.entities.UserLevel
+          .filter({ user_key: getPrivateUserKey(authUser) })
+          .catch(() => []);
+        if (
+          !cancelled
+          && loadEpochRef.current === loadEpoch
+          && activeOwnerRef.current === ownerId
+        ) {
+          setUser(authUser);
           setRelic(loaded);
           setGate(loadedGate);
           setLevel(levels[0] || null);
           setForgeState(loadedForge.state);
           setForgeError(loadedForge.error?.message || "");
           setForgeLoading(false);
+          setLoadedOwnerId(ownerId);
         }
       } catch (loadError) {
-        if (mounted) setError(getRelicLoadMessage(loadError));
+        if (
+          !cancelled
+          && loadEpochRef.current === loadEpoch
+          && activeOwnerRef.current === ownerId
+        ) {
+          setLoadedOwnerId(ownerId);
+          setError(getRelicLoadMessage(loadError));
+        }
       } finally {
-        if (mounted) {
+        if (
+          !cancelled
+          && loadEpochRef.current === loadEpoch
+          && activeOwnerRef.current === ownerId
+        ) {
           setLoading(false);
           setForgeLoading(false);
         }
       }
     };
     loadRelic();
-    return () => { mounted = false; };
-  }, [isAuthenticated, isLoadingAuth, loadAttempt]);
+    return () => { cancelled = true; };
+  }, [authUser, isAuthenticated, isLoadingAuth, loadAttempt, ownerId]);
 
-  const normalizedRelic = normalizeRelic(relic);
+  const hasCurrentOwnerData = isGuestPreview
+    ? loadedOwnerId === GUEST_OWNER_ID
+    : Boolean(ownerId) && loadedOwnerId === ownerId;
+  const normalizedRelic = normalizeRelic(hasCurrentOwnerData ? relic : null);
   const canBypassGate = canManageRoles(user);
   const forgeOpen = isGuestPreview || Boolean(gate?.enabled) || canBypassGate;
   const selectedEffects = RELIC_EFFECTS.filter((item) => normalizedRelic.effects.includes(item.id));
@@ -204,9 +251,11 @@ export default function RelicForge() {
       return;
     }
     if (!relicReady) return;
+    const actionOwnerId = ownerId;
     setSaving(true);
     try {
       const result = await saveUserRelic(normalizedRelic);
+      if (activeOwnerRef.current !== actionOwnerId) return;
       const chargedFavor = Math.max(0, -result.favor.delta);
       setRelic(result.relic);
       setLevel((current) => ({ ...(current || {}), points: result.favor.balance }));
@@ -221,9 +270,10 @@ export default function RelicForge() {
           : "Your one profile relic has been updated.",
       });
     } catch (saveError) {
+      if (activeOwnerRef.current !== actionOwnerId) return;
       toast({ title: "Relic could not be saved", description: saveError?.message || "Refresh and try again.", variant: "destructive" });
     } finally {
-      setSaving(false);
+      if (activeOwnerRef.current === actionOwnerId) setSaving(false);
     }
   };
 
@@ -232,6 +282,7 @@ export default function RelicForge() {
       openLogin();
       return;
     }
+    const actionOwnerId = ownerId;
     const requestId = retryForgeRequest?.operation === operation && retryForgeRequest?.charmId === charm.id
       ? retryForgeRequest.requestId
       : crypto.randomUUID();
@@ -241,6 +292,7 @@ export default function RelicForge() {
       const receipt = operation === "awaken"
         ? await relicForgeService.upgradeCharm(charm.id, requestId)
         : await relicForgeService.convertDuplicateCharm(charm.id, requestId);
+      if (activeOwnerRef.current !== actionOwnerId) return;
       setForgeState((current) => applyForgeReceipt(current, receipt));
       setRetryForgeRequest(null);
       toast({
@@ -248,14 +300,15 @@ export default function RelicForge() {
         description: formatForgeReceipt(receipt),
       });
     } catch (forgeActionError) {
+      if (activeOwnerRef.current !== actionOwnerId) return;
       setRetryForgeRequest({ operation, charmId: charm.id, requestId });
       setForgeError(forgeActionError?.message || "The Forge could not complete that action. Retry uses the same protected request.");
     } finally {
-      setBusyForgeAction("");
+      if (activeOwnerRef.current === actionOwnerId) setBusyForgeAction("");
     }
   };
 
-  if (loading) {
+  if (loading || (!isLoadingAuth && !hasCurrentOwnerData)) {
     return (
       <div
         className="flex items-center justify-center gap-3 py-24 text-[#485365]"
@@ -298,7 +351,7 @@ export default function RelicForge() {
           {gate?.reason || "Relic charms are locked until Veri opens the forge."}
         </p>
         <Button asChild className="mt-5 gap-2">
-          <Link to="/profile"><Shield className="h-4 w-4" /> Back to Profile</Link>
+          <Link to="/quarters"><ArrowLeft className="h-4 w-4" /> Back to Quarters</Link>
         </Button>
       </div>
     );
@@ -318,7 +371,7 @@ export default function RelicForge() {
           </p>
         </div>
         <Button asChild variant="outline" className="gap-2">
-          <Link to="/profile"><Shield className="h-4 w-4" /> Back to Profile</Link>
+          <Link to="/quarters"><ArrowLeft className="h-4 w-4" /> Back to Quarters</Link>
         </Button>
       </div>
 

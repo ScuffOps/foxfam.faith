@@ -366,27 +366,129 @@ test("rejects contradictory duplicate policies and mismatched Fishpedia state", 
 
 test("allow-lists achievement and charm reward shapes", () => {
   const validResult = makeValidClaimResult();
-  const validCharm = {
-    id: "33333333-3333-4333-8333-333333333333",
-    charm_key: "starlit-bobber",
-    label: "Starlit Bobber",
-    rarity: "uncommon",
-    slot: "fishing",
-    effects: { favor_multiplier_bps: 500 },
-    equipped: false,
-    acquired_at: "2026-07-18T20:00:05.000Z",
-    source: { type: "achievement", key: "first-light" },
-  };
-
-  assert.doesNotThrow(() => normalizeCatchClaimResult({
-    ...validResult,
-    achievements: [{
-      achievement_key: "first-light",
-      title: "First Light",
-      description: "Make your first successful Starfishing catch.",
-    }],
-    charms: [validCharm],
+  const canonicalRewards = [
+    {
+      achievement: {
+        achievement_key: "first-light",
+        title: "First Light",
+        description: "Make your first successful Starfishing catch.",
+      },
+      charm: {
+        id: "33333333-3333-4333-8333-333333333333",
+        charm_key: "starlit-bobber",
+        label: "Starlit Bobber",
+        rarity: "uncommon",
+        slot: "fishing",
+        effects: { favor_multiplier_bps: 500 },
+      },
+    },
+    {
+      achievement: {
+        achievement_key: "gentle-return",
+        title: "Gentle Return",
+        description: "Release your first duplicate catch for Favor.",
+      },
+      charm: {
+        id: "44444444-4444-4444-8444-444444444444",
+        charm_key: "merciful-tide",
+        label: "Merciful Tide",
+        rarity: "rare",
+        slot: "catch-fx",
+        effects: { catch_effect: "merciful-tide" },
+      },
+    },
+    {
+      achievement: {
+        achievement_key: "pocket-constellation",
+        title: "Pocket Constellation",
+        description: "Catch a fish within the lowest 5% of its canonical size span.",
+      },
+      charm: {
+        id: "55555555-5555-4555-8555-555555555555",
+        charm_key: "pocket-star",
+        label: "Pocket Star",
+        rarity: "epic",
+        slot: "profile-particle",
+        effects: { profile_particle: "pocket-star" },
+      },
+    },
+    {
+      achievement: {
+        achievement_key: "myth-in-moonwater",
+        title: "Myth in Moonwater",
+        description: "Make your first mythic catch.",
+      },
+      charm: {
+        id: "66666666-6666-4666-8666-666666666666",
+        charm_key: "glassfin-comet",
+        label: "Glassfin Comet",
+        rarity: "mythic",
+        slot: "fishing",
+        effects: { rare_bite_bonus_bps: 300 },
+      },
+    },
+    {
+      achievement: {
+        achievement_key: "celestial-archivist",
+        title: "Celestial Archivist",
+        description: "Catch every active fish in the current catalog.",
+      },
+      charm: {
+        id: "77777777-7777-4777-8777-777777777777",
+        charm_key: "fishpedia-frame",
+        label: "Fishpedia Frame",
+        rarity: "mythic",
+        slot: "profile-frame",
+        effects: { profile_frame: "fishpedia-frame" },
+      },
+    },
+    {
+      achievement: {
+        achievement_key: "hundred-lights",
+        title: "Hundred Lights",
+        description: "Record 100 successful catches.",
+      },
+      charm: {
+        id: "88888888-8888-4888-8888-888888888888",
+        charm_key: "century-chain",
+        label: "Century Chain",
+        rarity: "epic",
+        slot: "fishing",
+        effects: { material_multiplier_bps: 750 },
+      },
+    },
+  ].map(({ achievement, charm }) => ({
+    achievement,
+    charm: {
+      ...charm,
+      equipped: false,
+      acquired_at: "2026-07-18T20:00:05.000Z",
+      source: { type: "achievement", key: achievement.achievement_key },
+    },
   }));
+  const [firstReward] = canonicalRewards;
+  const validCharm = firstReward.charm;
+
+  for (const reward of canonicalRewards) {
+    assert.doesNotThrow(() => normalizeCatchClaimResult({
+      ...validResult,
+      achievements: [reward.achievement],
+      charms: [reward.charm],
+    }), reward.charm.charm_key);
+  }
+
+  const migration = readFileSync(
+    new URL("../../../../supabase/migrations/20260718200316_starfishing_phase_2_progression.sql", import.meta.url),
+    "utf8",
+  );
+  const migrationCharmKeys = [...migration.matchAll(/"kind":"charm","charm_key":"([^"]+)"/g)]
+    .map((match) => match[1])
+    .sort();
+  assert.deepEqual(
+    migrationCharmKeys,
+    canonicalRewards.map(({ charm }) => charm.charm_key).sort(),
+    "Every migration-defined Starfishing charm must have an executable client contract test.",
+  );
   assert.throws(
     () => normalizeCatchClaimResult({
       ...validResult,
@@ -438,6 +540,26 @@ test("allow-lists achievement and charm reward shapes", () => {
     () => normalizeCatchClaimResult({
       ...validResult,
       charms: [{ ...validCharm, effects: { mint_favor: 999 } }],
+    }),
+    /charm reward shape/i,
+  );
+  assert.throws(
+    () => normalizeCatchClaimResult({
+      ...validResult,
+      charms: [{
+        ...canonicalRewards[1].charm,
+        effects: { catch_effect: "client-effect" },
+      }],
+    }),
+    /charm reward shape/i,
+  );
+  assert.throws(
+    () => normalizeCatchClaimResult({
+      ...validResult,
+      charms: [{
+        ...canonicalRewards[2].charm,
+        effects: { profile_particle: "pocket-star", mint_favor: 999 },
+      }],
     }),
     /charm reward shape/i,
   );

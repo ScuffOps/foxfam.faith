@@ -9,6 +9,10 @@ test("Collections loads authoritative charms and renders the Charm Reliquary", a
 
   assert.match(source, /loadUserRelicInventory/);
   assert.match(source, /Promise\.all\(\[loadStarfishingProgression\(\), loadUserRelicInventory\(\)\]\)/);
+  assert.match(source, /const ownerId = isAuthenticated && user\?\.id \? user\.id : ""/);
+  assert.match(source, /loadEpochRef/);
+  assert.match(source, /activeOwnerRef\.current !== ownerId/);
+  assert.match(source, /loadedOwnerId === ownerId/);
   assert.match(source, /<CharmReliquary charms=\{charms\}/);
   assert.match(source, /<AchievementChronicle achievements=\{progression\?\.achievements \|\| \[\]\}/);
   assert.match(source, /getAchievementPresentation\(achievement\)/);

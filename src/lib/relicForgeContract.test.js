@@ -100,7 +100,8 @@ test("Forge contract rejects unsafe or malformed authoritative responses", () =>
 });
 
 test("Forge load failures expose the correct recovery action and labeled fields", () => {
-  assert.match(forgeSource, /const \{ openLogin, isAuthenticated, isLoadingAuth \} = useAuth\(\)/);
+  assert.match(forgeSource, /user: authUser/);
+  assert.match(forgeSource, /const ownerId = isAuthenticated && authUser\?\.id \? authUser\.id : ""/);
   assert.match(forgeSource, /isAuthenticated \|\| isLoadingAuth \? \(/);
   assert.match(forgeSource, /<RefreshCw[^>]*\/> Retry/);
   assert.match(forgeSource, /<label[^>]+htmlFor="relic-name"/);

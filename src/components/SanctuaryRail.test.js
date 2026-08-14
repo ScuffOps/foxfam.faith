@@ -40,3 +40,13 @@ test("the full portal menu is a dismissible overlay while the rail stays desktop
   assert.match(layoutSource, /aria-label="Dismiss portal navigation overlay"/);
   assert.match(layoutSource, /event\.key === "Escape"/);
 });
+
+test("Sanctuary Mode keeps every hub and game destination reachable on mobile", () => {
+  assert.match(railSource, /if \(mobile\)/);
+  assert.match(railSource, /aria-label="Mobile game hub destinations"/);
+  assert.match(railSource, /SANCTUARY_NAV_ITEMS\.map/);
+  assert.match(layoutSource, /<SanctuaryRail mobile onOpenPortalNav=/);
+  assert.match(cssSource, /@media \(max-width: 767px\)/);
+  assert.match(cssRule(".sanctuary-mobile-dock-slot"), /display:\s*none/);
+  assert.match(cssSource, /\.sanctuary-mobile-dock\s*\{[\s\S]*overflow-x:\s*auto/);
+});

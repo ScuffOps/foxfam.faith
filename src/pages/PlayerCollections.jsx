@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Award, BookOpen, Gem, Loader2, RefreshCw, Sparkles, Star, Trophy } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -26,44 +26,63 @@ function titleFromKey(value) {
 
 export default function PlayerCollections() {
   const navigate = useNavigate();
-  const { isAuthenticated, isLoadingAuth, openLogin } = useAuth();
+  const { user, isAuthenticated, isLoadingAuth, openLogin } = useAuth();
   const [status, setStatus] = useState("loading");
   const [collections, setCollections] = useState({ progression: null, charms: [] });
-
-  const loadCollections = useCallback(async () => {
-    setStatus("loading");
-    try {
-      const [progression, relicInventory] = await Promise.all([
-        loadStarfishingProgression(),
-        loadUserRelicInventory(),
-      ]);
-      setCollections({ progression, charms: relicInventory.charms || [] });
-      setStatus("ready");
-    } catch {
-      setStatus("error");
-    }
-  }, []);
+  const [loadedOwnerId, setLoadedOwnerId] = useState("");
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const loadEpochRef = useRef(0);
+  const activeOwnerRef = useRef("");
+  const ownerId = isAuthenticated && user?.id ? user.id : "";
+  activeOwnerRef.current = ownerId;
 
   useEffect(() => {
-    if (isLoadingAuth) return undefined;
-    if (!isAuthenticated) {
-      setStatus("signed-out");
-      return undefined;
+    const loadEpoch = loadEpochRef.current + 1;
+    loadEpochRef.current = loadEpoch;
+    let cancelled = false;
+
+    setLoadedOwnerId("");
+    setCollections({ progression: null, charms: [] });
+
+    if (isLoadingAuth) {
+      setStatus("loading");
+      return () => { cancelled = true; };
     }
-    let active = true;
+    if (!ownerId) {
+      setStatus("signed-out");
+      return () => { cancelled = true; };
+    }
+
+    setStatus("loading");
     Promise.all([loadStarfishingProgression(), loadUserRelicInventory()])
       .then(([progression, relicInventory]) => {
-        if (!active) return;
+        if (
+          cancelled
+          || loadEpochRef.current !== loadEpoch
+          || activeOwnerRef.current !== ownerId
+        ) return;
         setCollections({ progression, charms: relicInventory.charms || [] });
+        setLoadedOwnerId(ownerId);
         setStatus("ready");
       })
       .catch(() => {
-        if (active) setStatus("error");
+        if (
+          cancelled
+          || loadEpochRef.current !== loadEpoch
+          || activeOwnerRef.current !== ownerId
+        ) return;
+        setLoadedOwnerId(ownerId);
+        setStatus("error");
       });
-    return () => { active = false; };
-  }, [isAuthenticated, isLoadingAuth]);
+    return () => { cancelled = true; };
+  }, [isLoadingAuth, loadAttempt, ownerId]);
 
-  const { progression, charms } = collections;
+  const hasCurrentOwnerData = Boolean(ownerId) && loadedOwnerId === ownerId;
+  const displayStatus = hasCurrentOwnerData
+    ? status
+    : (isLoadingAuth ? "loading" : ownerId ? "loading" : "signed-out");
+  const progression = hasCurrentOwnerData ? collections.progression : null;
+  const charms = hasCurrentOwnerData ? collections.charms : [];
 
   return (
     <section className="mx-auto w-full max-w-6xl animate-fade-in space-y-4 text-[#364152]" aria-labelledby="collections-heading">
@@ -80,31 +99,31 @@ export default function PlayerCollections() {
             <h1 id="collections-heading" className="font-heading text-2xl font-black">Collections</h1>
           </div>
         </div>
-        {status === "ready" ? (
+        {displayStatus === "ready" ? (
           <span className="rounded-md border-2 border-[#485365] bg-[#d9e6ec] px-3 py-2 text-sm font-black">
             {progression?.favorBalance || 0} Favor
           </span>
         ) : null}
       </header>
 
-      {status === "loading" ? (
+      {displayStatus === "loading" ? (
         <section className="flex min-h-72 items-center justify-center rounded-lg border-[3px] border-[#485365] bg-[#faf3eb]" role="status">
           <div className="text-center"><Loader2 className="mx-auto h-8 w-8 animate-spin" aria-hidden="true" /><p className="mt-3 font-bold">Opening your archive...</p></div>
         </section>
       ) : null}
 
-      {status === "error" ? (
+      {displayStatus === "error" ? (
         <section className="rounded-lg border-[3px] border-[#485365] bg-[#faf3eb] p-7 text-center" role="alert">
           <BookOpen className="mx-auto h-8 w-8 text-[#80adbc]" aria-hidden="true" />
           <h2 className="mt-3 font-heading text-xl font-black">The archive is resting</h2>
           <p className="mx-auto mt-2 max-w-lg text-sm text-[#657080]">Your collection is still safe. The Priory could not read it just now.</p>
-          <Button type="button" className="mt-5 border-2 border-[#485365] bg-[#80adbc] text-[#24303d]" onClick={loadCollections}>
+          <Button type="button" className="mt-5 border-2 border-[#485365] bg-[#80adbc] text-[#24303d]" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>
             <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" /> Retry
           </Button>
         </section>
       ) : null}
 
-      {status === "signed-out" ? (
+      {displayStatus === "signed-out" ? (
         <section className="rounded-lg border-[3px] border-[#485365] bg-[#faf3eb] p-7 text-center" role="status">
           <BookOpen className="mx-auto h-8 w-8 text-[#80adbc]" aria-hidden="true" />
           <h2 className="mt-3 font-heading text-xl font-black">Your archive is sealed</h2>
@@ -113,7 +132,7 @@ export default function PlayerCollections() {
         </section>
       ) : null}
 
-      {status === "ready" ? (
+      {displayStatus === "ready" ? (
         <>
           <section className="overflow-hidden rounded-lg border-[3px] border-[#485365] shadow-[0_7px_0_rgb(72_83_101_/_18%)]">
             <FishpediaPanel authoritativeRows={progression?.fishpedia || []} />
