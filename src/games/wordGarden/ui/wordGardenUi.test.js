@@ -60,8 +60,11 @@ test("the authored flower and bloom family swap together while both fallbacks re
   assert.match(flowerSource, /className="word-flower__stem"/);
   assert.match(flowerSource, /className="word-flower__leaves"/);
 
-  assert.match(hudSource, /artFamily \? <BloomFamilyArt src=\{artFamily\.bloomFamily\} \/> : <Sprout/);
-  assert.match(hudSource, /artFamily \? <BloomFamilyArt src=\{artFamily\.bloomFamily\} \/> : <Flower2/);
+  assert.match(hudSource, /resolveWordGardenBloomStage\(state\)/);
+  assert.match(hudSource, /artFamily \? <BloomFamilyArt src=\{artFamily\.bloomFamily\} stage=\{bloomStage\} \/> : <Sprout/);
+  assert.match(hudSource, /artFamily \? <BloomFamilyArt src=\{artFamily\.bloomFamily\} stage=\{bloomStage\} \/> : <Flower2/);
+  assert.match(cssSource, /\.word-garden-hud__bloom-art img\s*\{[^}]*width:\s*400%;/s);
+  assert.match(cssSource, /data-bloom-stage="3"[^}]*translateX\(-75%\)/);
   assert.doesNotMatch(flowerSource, /["']\/assets\//);
   assert.doesNotMatch(hudSource, /["']\/assets\//);
 });

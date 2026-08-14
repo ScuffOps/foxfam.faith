@@ -1,17 +1,19 @@
 import { Flower2, Lightbulb, Sprout } from "lucide-react";
 import { calculateWordGardenScore, getWordGardenJournal } from "../simulation/wordGardenRules.js";
+import { resolveWordGardenBloomStage } from "./wordGardenBloomStage.js";
 
 export default function WordGardenHud({ artFamily = null, state, mode = "practice", onComplete, onRevealHint }) {
   const score = calculateWordGardenScore(state);
   const fullBlooms = state.foundWords.filter((word) => word.isFullBloom).length;
   const latestBloom = state.foundWords.at(-1);
   const journal = getWordGardenJournal(state);
+  const bloomStage = resolveWordGardenBloomStage(state);
 
   return (
     <div className="word-garden-hud">
       <section className="word-garden-hud__meter" aria-labelledby="personal-bloom-title">
         <div className="word-garden-hud__title">
-          {artFamily ? <BloomFamilyArt src={artFamily.bloomFamily} /> : <Sprout aria-hidden="true" />}
+          {artFamily ? <BloomFamilyArt src={artFamily.bloomFamily} stage={bloomStage} /> : <Sprout aria-hidden="true" />}
           <div><p>Personal bloom</p><h2 id="personal-bloom-title">{score} dewlight</h2></div>
         </div>
         <div className="word-garden-hud__stats">
@@ -22,7 +24,7 @@ export default function WordGardenHud({ artFamily = null, state, mode = "practic
 
       <section className="word-garden-hud__journal" aria-labelledby="featured-bloom-title">
         <div className="word-garden-hud__title">
-          {artFamily ? <BloomFamilyArt src={artFamily.bloomFamily} /> : <Flower2 aria-hidden="true" />}
+          {artFamily ? <BloomFamilyArt src={artFamily.bloomFamily} stage={bloomStage} /> : <Flower2 aria-hidden="true" />}
           <div><p>{journal.foundCount} of {journal.entries.length} found</p><h2 id="featured-bloom-title">Featured bloom journal</h2></div>
         </div>
         <ol className="word-garden-hud__journal-grid" aria-label="Featured words for today">
@@ -70,8 +72,12 @@ export default function WordGardenHud({ artFamily = null, state, mode = "practic
   );
 }
 
-function BloomFamilyArt({ src }) {
-  return <img className="word-garden-hud__bloom-art" src={src} alt="" aria-hidden="true" draggable="false" />;
+function BloomFamilyArt({ src, stage }) {
+  return (
+    <span className="word-garden-hud__bloom-art" data-bloom-stage={stage} aria-hidden="true">
+      <img src={src} alt="" draggable="false" />
+    </span>
+  );
 }
 
 function BloomRow({ foundWord }) {

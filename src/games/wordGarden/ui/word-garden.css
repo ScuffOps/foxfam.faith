@@ -173,7 +173,11 @@
 .word-garden-hud details { padding: 0.8rem; border: 2px solid #485365; border-radius: 7px; background: #faf3eb; }
 .word-garden-hud__title { display: flex; align-items: center; gap: 0.6rem; }
 .word-garden-hud__title > svg { width: 22px; flex: 0 0 22px; }
-.word-garden-hud__bloom-art { width: 2.25rem; height: 2.25rem; flex: 0 0 2.25rem; object-fit: contain; pointer-events: none; }
+.word-garden-hud__bloom-art { position: relative; width: 2.25rem; height: 2.25rem; flex: 0 0 2.25rem; overflow: hidden; pointer-events: none; }
+.word-garden-hud__bloom-art img { position: absolute; inset: 0 auto 0 0; width: 400%; max-width: none; height: 100%; transform: translateX(0); }
+.word-garden-hud__bloom-art[data-bloom-stage="1"] img { transform: translateX(-25%); }
+.word-garden-hud__bloom-art[data-bloom-stage="2"] img { transform: translateX(-50%); }
+.word-garden-hud__bloom-art[data-bloom-stage="3"] img { transform: translateX(-75%); }
 .word-garden-hud__title p,
 .word-garden-hud__community p { margin: 0; color: #485365; font-size: 0.65rem; font-weight: 900; text-transform: uppercase; }
 .word-garden-hud__title h2 { margin: 0.1rem 0 0; font-size: 1rem; }
