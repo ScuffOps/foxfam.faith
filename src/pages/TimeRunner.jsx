@@ -12,6 +12,12 @@ import {
   progressGameRewardSession,
   startGameRewardSession,
 } from "@/games/shared/rewards/gameRewardClient";
+import {
+  clearGameRewardRecovery,
+  readGameRewardRecovery,
+  updateRewardSessionContext,
+  writeGameRewardRecovery,
+} from "@/games/shared/rewards/gameRewardRecovery";
 import TimeRunnerScene from "@/games/timeRunner/phaser/TimeRunnerScene";
 import TimeRunnerHud from "@/games/timeRunner/ui/TimeRunnerHud";
 import {
@@ -37,7 +43,7 @@ import { useAuth } from "@/lib/AuthContext";
 
 export default function TimeRunner() {
   const { familiar } = useFamiliar();
-  const { isAuthenticated, isLoadingAuth, openLogin } = useAuth();
+  const { isAuthenticated, isLoadingAuth, openLogin, user } = useAuth();
   const [mode, setMode] = useState("practice");
   const [practiceState, setPracticeState] = useState(() => createInitialTimeRunnerState());
   const [rewardedState, setRewardedState] = useState(() => createInitialTimeRunnerState());
@@ -52,28 +58,82 @@ export default function TimeRunner() {
   const state = mode === "rewarded" ? rewardedState : practiceState;
   const stateRef = useRef(state);
   const requestInFlightRef = useRef(false);
+  const requestGenerationRef = useRef(0);
+  const rewardOwnerRef = useRef("");
   const lastSyncRef = useRef("");
 
   useEffect(() => { stateRef.current = state; }, [state]);
   useEffect(() => { writeLocalJson(TIME_RUNNER_REWARD_LOG_KEY, rewardLog.slice(0, 25)); }, [rewardLog]);
 
-  const runRequest = useCallback(async (request, operation) => {
+  const runRequest = useCallback(async (request, operation, recoverySession = null) => {
     if (requestInFlightRef.current) return null;
+    const requestGeneration = requestGenerationRef.current;
     requestInFlightRef.current = true;
     setIsBusy(true);
     setRewardError("");
     setRetryRequest(null);
     try {
-      return await operation();
+      const result = await operation();
+      if (requestGeneration !== requestGenerationRef.current) return null;
+      clearGameRewardRecovery(window.sessionStorage, {
+        gameKey: "time-runner",
+        ownerId: rewardOwnerRef.current,
+      });
+      return result;
     } catch (error) {
+      if (requestGeneration !== requestGenerationRef.current) return null;
       setRewardError(error?.message || "The reward service could not complete that request.");
       setRetryRequest(request);
+      writeGameRewardRecovery(window.sessionStorage, {
+        gameKey: "time-runner",
+        ownerId: rewardOwnerRef.current,
+        request,
+        session: recoverySession,
+      });
       return null;
     } finally {
-      requestInFlightRef.current = false;
-      setIsBusy(false);
+      if (requestGeneration === requestGenerationRef.current) {
+        requestInFlightRef.current = false;
+        setIsBusy(false);
+      }
     }
   }, []);
+
+  useEffect(() => {
+    if (isLoadingAuth) return;
+    const ownerKey = isAuthenticated ? (user?.id || "authenticated") : "";
+    if (rewardOwnerRef.current === ownerKey) return;
+    rewardOwnerRef.current = ownerKey;
+    requestGenerationRef.current += 1;
+    requestInFlightRef.current = false;
+    lastSyncRef.current = "";
+    setIsBusy(false);
+    setMode("practice");
+    setRewardSession(null);
+    setRewardContext(null);
+    setRewardReceipt(null);
+    setRewardError("");
+    setRetryRequest(null);
+    if (!ownerKey) return;
+    const recovery = readGameRewardRecovery(window.sessionStorage, {
+      gameKey: "time-runner",
+      ownerId: ownerKey,
+    });
+    if (recovery?.request.kind === "start") {
+      setMode("rewarded");
+      setRewardError("A clocktower session start is ready to retry safely.");
+      setRetryRequest(recovery.request);
+      return;
+    }
+    if (recovery?.session && recovery.request.kind !== "start") {
+      setMode("rewarded");
+      setRewardSession(recovery.session);
+      setRewardContext(recovery.session.context);
+      setRewardedState((current) => createRewardedTimeRunnerState(recovery.session.context, { previousState: current }));
+      setRewardError("A clocktower reward request is ready to retry safely.");
+      setRetryRequest(recovery.request);
+    }
+  }, [isAuthenticated, isLoadingAuth, user?.id]);
 
   const startRewardedRun = useCallback(async () => {
     if (!isAuthenticated) {
@@ -102,8 +162,9 @@ export default function TimeRunner() {
       sessionId: rewardSession.sessionId,
       idempotencyKey: request.idempotencyKey,
       action: request.action,
-    }));
+    }), rewardSession);
     if (!result) return;
+    setRewardSession((current) => updateRewardSessionContext(current, result.state));
     setRewardContext(result.state);
     setRewardedState((current) => applyRewardedPosture(
       createRewardedTimeRunnerState(result.state, { previousState: current }),
@@ -162,8 +223,9 @@ export default function TimeRunner() {
   const dispatchRewardedAction = useCallback((action, payload = {}) => {
     if (!rewardContext || isBusy || rewardError || rewardContext.phase !== "running") return;
     let rewardAction = null;
-    if (action === "select-landing" || action === GAME_ACTIONS.primary) {
-      const landingId = payload.landingId || rewardContext.available_landings?.[0]?.id;
+    if (["select-landing", GAME_ACTIONS.primary, GAME_ACTIONS.choiceOne, GAME_ACTIONS.choiceTwo].includes(action)) {
+      const choiceIndex = action === GAME_ACTIONS.choiceTwo ? 1 : 0;
+      const landingId = payload.landingId || rewardContext.available_landings?.[choiceIndex]?.id;
       if (landingId) rewardAction = { op: "land", landing_id: landingId };
     } else if (action === GAME_ACTIONS.moveUp || action === GAME_ACTIONS.qteUp) {
       rewardAction = findTimeRunnerHazardAction(rewardContext, "jump");
@@ -213,7 +275,7 @@ export default function TimeRunner() {
       sessionId: rewardSession.sessionId,
       idempotencyKey: request.idempotencyKey,
       evidence: {},
-    }));
+    }), rewardSession);
     if (receipt) setRewardReceipt(receipt);
   }, [rewardSession, runRequest]);
 
@@ -250,8 +312,8 @@ export default function TimeRunner() {
     </button>
   ) : null;
 
-  const hud = (
-    <>
+  const secondaryPanel = (
+    <div className="time-runner-secondary">
       <ModePanel
         mode={mode}
         isAuthenticated={isAuthenticated}
@@ -272,8 +334,9 @@ export default function TimeRunner() {
         onAction={dispatchAction}
         onClaimReward={handleClaimReward}
       />
+      <RouteGuide />
       {rewardError ? <RewardError message={rewardError} onRetry={handleRetry} disabled={isBusy} /> : null}
-    </>
+    </div>
   );
 
   return (
@@ -283,10 +346,34 @@ export default function TimeRunner() {
       title="Time Runner: Clocktower Traverse"
       status={status}
       actions={actions}
-      sidebar={hud}
+      sidebar={secondaryPanel}
     >
       <div className="time-runner-stage">
-        <GameCanvasHost scene={TimeRunnerScene} bridge={bridge} backgroundColor="#D9E6EC" />
+        <TimeRunnerHud
+          familiar={familiar}
+          state={state}
+          mode={mode}
+          isBusy={isBusy}
+          rewardIntent={rewardIntent}
+          rewardReceipt={rewardReceipt}
+          onStart={() => dispatchAction(GAME_ACTIONS.confirm)}
+          onReset={handleReset}
+          onAction={dispatchAction}
+          onClaimReward={handleClaimReward}
+          runStatus
+        />
+        <div className="time-runner-stage__canvas-wrap">
+          <GameCanvasHost
+            scene={TimeRunnerScene}
+            bridge={bridge}
+            backgroundColor="#D9E6EC"
+            className="time-runner-canvas"
+            width={960}
+            height={540}
+            scaleMode="fit"
+          />
+          {isPaused ? <div className="time-runner-stage__pause"><strong>Traverse paused</strong></div> : null}
+        </div>
         <div className="time-runner-stage__controls">
           <TimeRunnerHud
             familiar={familiar}
@@ -302,14 +389,19 @@ export default function TimeRunner() {
             compactControls
           />
         </div>
-        <div className="time-runner-stage__legend" aria-label="Clocktower route guide">
-          <div><strong>Clock hands</strong><span>Leap to a glowing brass landing.</span></div>
-          <div><strong>Numeral gates</strong><span>Duck beneath each carved arch.</span></div>
-          <div><strong>Clock Brass</strong><span>Gather fallen pieces of the old clock face.</span></div>
-        </div>
-        {isPaused ? <div className="absolute inset-0 z-30 grid place-items-center bg-[#FAF3EB]/80"><strong className="rounded-md border-2 border-[#485365] bg-[#D9E6EC] px-5 py-3 text-[#364152]">Traverse paused</strong></div> : null}
       </div>
     </GameShell>
+  );
+}
+
+function RouteGuide() {
+  return (
+    <section className="time-runner-stage__legend" aria-labelledby="time-runner-guide-title">
+      <h2 id="time-runner-guide-title">Clocktower field notes</h2>
+      <div><strong>Clock hands</strong><span>Leap to a glowing brass landing.</span></div>
+      <div><strong>Numeral gates</strong><span>Duck beneath each carved arch.</span></div>
+      <div><strong>Clock Brass</strong><span>Gather fallen pieces of the old clock face.</span></div>
+    </section>
   );
 }
 

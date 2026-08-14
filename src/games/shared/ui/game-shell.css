@@ -68,6 +68,21 @@
 .game-shell__playfield { overflow: hidden; }
 .game-shell__sidebar { padding: 1rem; align-self: start; }
 
+.game-familiar-companion {
+  display: flex;
+  min-height: 78px;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.75rem;
+  padding: 0.4rem 0.65rem;
+  border: 2px solid var(--game-outline);
+  border-radius: 6px;
+  background: var(--game-blue);
+  overflow: hidden;
+}
+.game-familiar-companion .familiar-avatar { flex: 0 0 auto; }
+.game-familiar-companion > span { min-width: 0; color: #485365; font-size: 0.72rem; font-weight: 800; line-height: 1.25; }
+
 .game-interaction-prompt {
   display: inline-flex;
   min-height: 36px;
@@ -104,6 +119,7 @@
   .game-shell__layout { grid-template-columns: minmax(0, 1fr); }
   .game-shell__playfield { order: 1; }
   .game-shell__sidebar { order: 2; width: 100%; }
+  .game-familiar-companion { min-height: 68px; }
   .game-interaction-prompt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 

@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" role="img" aria-labelledby="title description">
+  <title id="title">Foxfam Quarters fixture plane</title>
+  <desc id="description">The arched collection cabinet, trophy shelf, sofa nook, relic forge, wardrobe, courtyard door, and tea table.</desc>
+<!-- COLLECTION CABINET: arched crown, curved glazing, imperfect book heights. -->
+  <g aria-label="Collection cabinet">
+    <path d="M163 358q0-38 35-49l102-27q29-8 41 12l18 31v190l-196 52Z" fill="#875944" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M176 347q0-35 32-45l91-24q27-7 39 12l10 19v192l-172 45Z" fill="#c98a5a" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M191 351q0-23 22-30l79-21q20-5 31 10l10 14v157l-142 38Z" fill="#efbc79" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M207 357q0-15 14-19l62-16q18-5 27 9l7 10v87l-110 29Z" fill="#d8f1ee" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m207 420 110-29v37l-110 29Z" fill="#7fa9b7" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path fill="none" d="m262 331v111m-55 26 110-29" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m211 474 21-6v27l-21 6Z" fill="#c8b7e4" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m237 467 18-5v33l-18 5Z" fill="#d98f9b" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m260 461 22-6v26l-22 6Z" fill="#f2cf66" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m286 454 17-4v29l-17 4Z" fill="#b8d19f" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m306 452 13-4v24l-13 3Z" fill="#fff7e7" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m278 371 11-15 10 9-8 15Z" fill="#f2cf66" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="323" cy="457" r="6" fill="#f2cf66" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M187 344q4-23 27-31l66-17m-61 52 29-8" fill="none" stroke="#fff8e8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- TROPHY SHELF: curved brackets, soft fabric runner, three focal keepsakes. -->
+  <g aria-label="Trophy shelf">
+    <path d="m344 230 219 57-2 27-215-56Z" fill="#875944" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m337 216 218 57-2 24-216-56Z" fill="#efbc79" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m383 239 112 29-3 43-22-15-21 8-23-19-23 7-22-18Z" fill="#d98f9b" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m450 282 20 14 22-9v24l-22-15-21 8Z" fill="#9f6572" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m366 253 15 4-8 31-16-4Zm162 42 15 4-9 31-15-4Z" fill="#875944" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <g stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m363 198 43 11v25q0 20-21 15-22-6-22-31Z" fill="#f2cf66"/>
+      <path d="m385 225 21 6q0 19-21 18Z" fill="#bd873f"/>
+      <path fill="none" d="m363 207-16-4v10q0 17 16 20m43-15 17 4v10q0 14-17 11m-21 6v13m-16-4 32 8"/>
+      <circle cx="461" cy="257" r="22" fill="#c8b7e4"/>
+      <path d="M461 257h22q-3 17-18 21l-15-10Z" fill="#9280b7"/>
+      <path d="m453 260 8-16 8 12 12-5-8 18Z" fill="#fff7e7"/>
+      <path d="M501 253q28-17 49 13-19 25-48 4l-18 8 7-16-10-13Z" fill="#b9dce5"/>
+      <path d="q28 19 49-4-10 29-48 11Z" fill="#7fa9b7"/>
+      <circle cx="536" cy="259" r="3" stroke="none" fill="#455b78"/>
+    </g>
+    <path d="m351 223 87 23m78 20 25 7" fill="none" stroke="#fff8e8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- FAMILIAR NOOK: rounded upholstered arms, plump cushions, layered basket and foliage. -->
+  <g aria-label="Familiar nook">
+    <path d="M113 508q2-25 27-31l151-39q19-5 35 5l73 19q27 7 25 29l-5 42-182 62-125-35Z" fill="#9f6572" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M126 479q3-24 27-30l134-35q20-5 35 7l69 18q21 5 21 25l-3 44-174 58-111-30Z" fill="#d98f9b" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M149 459q7-18 26-23l103-27q21-5 35 6l58 15q16 4 18 19l-146 48Z" fill="#fff7e7" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M126 489q12 18 31 22l83 23 169-56v30l-174 58-111-30Z" fill="#9f6572" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M171 445q18-12 42-5l34 9q11 4 7 16l-44 15-52-14q-1-14 13-21Z" fill="#b9dce5" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M244 427q19-12 41-5l36 9q12 4 7 16l-42 14-57-15q0-11 15-19Z" fill="#c8b7e4" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M142 477q8-18 27-23l73-19m-58 14 22-5" fill="none" stroke="#fff8e8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M319 514q18-16 39-11l51 14q18 5 9 23l-45 34-79-22Z" fill="#875944" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m325 517 72 19-31 22-67-18Z" fill="#efbc79" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m331 520 58 15-23 16-55-15Z" fill="#b8d19f" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="m84 467 55 15-10 69-37-10Z" fill="#c98a5a" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M102 469q-34-23-15-50 15-17 31 1-2-34 28-38 27-3 27 25 22-22 44-4 21 18-3 39 20 17 2 38-18 20-42-1-10 30-37 17-16-8-14-28-9 12-21 1Z" fill="#78aa6c" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M174 479q24 21 42 1 18-21-2-38-15 15-40 37Z" fill="#50794f" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <g stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M105 425q12-13 24 0-2 17-18 15-13-4-6-15Z" fill="#f2cf66"/>
+      <path d="M142 406q13-13 25 2-3 17-19 14-13-4-6-16Z" fill="#d98f9b"/>
+      <path d="M182 424q13-12 24 3-4 16-19 13-13-5-5-16Z" fill="#c8b7e4"/>
+    </g>
+  </g>
+
+  <!-- RELIC FORGE: stout rounded kiln with curved hood, side anvil, hanging tool. -->
+  <g aria-label="Relic forge">
+    <path d="M730 274q9-34 45-43l94 25q33 9 39 44l3 118q0 25-27 32l-107-28q-25-7-27-31Z" fill="#455b78" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M869 256q34 9 39 44l3 118q0 24-27 32l-3-142q0-31-12-52Z" fill="#7fa9b7" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M739 267q12-25 40-32l86 22q18 5 30 20l-75 20Z" fill="#b9dce5" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M768 311q7-18 27-13l56 15q20 5 22 27l2 73-104-27Z" fill="#fff7e7" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M790 341q5-13 19-9l31 8q15 4 16 19l1 36-68-18Z" fill="#455b78" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m807 377 13-32 12 21 10-11 13 43Z" fill="#f08760" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m793 278 26 7-12 20-27-7Z" fill="#f2cf66" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M752 267q13-19 35-25l64 17m-71 54q7-10 20-6" fill="none" stroke="#fff8e8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M649 353q13-18 34-13l59 15 27 20-59 39-91-24 24-18Z" fill="#455b78" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m649 374 61 16 59-15-59 39-91-24Z" fill="#7fa9b7" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m669 410-9 61m57-69 11 59" fill="#875944" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m908 290 38-10 2-57-38 10Z" fill="#efbc79" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m918 254 12-20 11 27-12 16Z" fill="#c8b7e4" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- WARDROBE: arched top, asymmetrical curtain, hat and scarf on side pegs. -->
+  <g aria-label="Familiar wardrobe">
+    <path d="M946 356q0-28 27-35l50 13q36 10 47 42l2 170-126 34Z" fill="#875944" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M929 346q0-29 28-36l50 13q36 9 48 42l1 165-127 34Z" fill="#c98a5a" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m929 346 55-15q28-7 50 6l22 16-57 15Z" fill="#efbc79" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M947 377q4-20 24-16l49 13q16 5 17 23l1 108-91 24Z" fill="#fff7e7" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M962 388q13-9 26-3l26 7q13 3 13 18v81l-65 18Z" fill="#d98f9b" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m993 387 21 5q13 3 13 18v81l-33 9Z" fill="#9f6572" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path fill="none" d="m993 384 1 116" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="1025" cy="445" r="6" fill="#f2cf66" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m1067 402 28-7 17 12-45 12 15-20" fill="#c8b7e4" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m1068 460 31-8 15 11-47 13Z" fill="#b9dce5" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M941 345q11-22 35-24l27 7m-44 53q6-11 20-7" fill="none" stroke="#fff8e8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- COURTYARD DOOR: arched, slightly open, overlapping the wardrobe in the foreground. -->
+  <g aria-label="Courtyard door">
+    <path d="M884 478q0-36 33-45l34-9q36-9 48 23l2 163-117 31Z" fill="#d9c9b3" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M868 464q0-36 33-45l34-9q36-9 49 23l1 164-117 31Z" fill="#fff7e7" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M889 482q0-23 22-29l17-5q27-7 35 18l1 116-75 20Z" fill="#b9dce5" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m928 448q27-7 35 18l1 116-37 10Z" fill="#7fa9b7" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m904 486 45-12v34l-45 12Z" fill="#d8f1ee" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="946" cy="554" r="7" fill="#f2cf66" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m917 566 11 10-11 15-11-10Z" fill="#f2cf66" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M880 462q4-26 29-33l23-6m-31 65 32-9" fill="none" stroke="#fff8e8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M875 468q-21 25-14 78m8-49-21 1m18 24-21 14" fill="none" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m850 498 18 3-10 14Zm-6 39 19-3-8 15Z" fill="#78aa6c" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- MIDGROUND TEA TABLE: curved apron, one teapot, one cup, one charm. -->
+  <g aria-hidden="true">
+    <path d="M423 492q4-15 22-19l83-22q16-4 30 5l64 17q18 5 10 20l-102 65-145-40Z" fill="#875944" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M430 476q5-13 20-17l76-20q15-4 28 5l59 15q16 5 8 18l-98 62-138-37Z" fill="#efbc79" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M448 484q3-8 12-10l39-10 36 10-51 32Z" fill="#fff7e7" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M454 467q8-8 18-5l14 4q9 2 9 13v18l-39-10Z" fill="#c8b7e4" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path fill="none" d="m455 472-15 1m54 2 16 7" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <ellipse cx="557" cy="482" rx="15" ry="9" fill="#b9dce5" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m584 489 12 11-8 15-17 4-11-11 8-15Z" fill="#f2cf66" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m414 515-6 53m181-72 8 45" fill="#875944" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m445 467 75-20m30 5 47 12" fill="none" stroke="#fff8e8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

@@ -26,6 +26,10 @@ const PUBLIC_PROFILE_SELECT =
   "id,role,display_name,avatar_url,accent_color,notification_preferences,onboarded,created_at,updated_at";
 const AUTO_PROFILE_NAMES = new Set(["guest", "guest fox", "foxfam member"]);
 
+export function isProfileInsertConflict(error) {
+  return error?.code === "23505" || error?.status === 409 || error?.statusCode === 409;
+}
+
 const ENTITY_TABLES = {
   Birthday: "birthdays",
   Blessing: "blessings",
@@ -276,6 +280,17 @@ async function ensureProfile(user) {
     })
     .select(PUBLIC_PROFILE_SELECT)
     .single();
+  if (error && isProfileInsertConflict(error)) {
+    const retry = await client
+      .from("profiles")
+      .select(PUBLIC_PROFILE_SELECT)
+      .eq("id", user.id)
+      .maybeSingle();
+    if (retry.error) throw retry.error;
+    if (retry.data) {
+      return { ...normalizeProfile(retry.data), email: user.email || "" };
+    }
+  }
   if (error) throw error;
   return { ...normalizeProfile(data), email: user.email || "" };
 }

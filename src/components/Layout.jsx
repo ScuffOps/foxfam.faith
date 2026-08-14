@@ -5,11 +5,14 @@ import OnboardingModal from "./OnboardingModal";
 import Splash from "../pages/Splash";
 import { useState, useEffect, useRef } from "react";
 import { communityClient } from "@/api/communityClient";
+import SanctuaryRail from "./SanctuaryRail";
+import { isSanctuaryRoute } from "@/lib/sanctuaryNavigation";
 
 const GUEST_ONBOARDING_KEY = "commhub_guest_onboarding_seen";
 const FLAT_VECTOR_ROUTES = new Set([
   "/quarters",
   "/relic-forge",
+  "/profile",
   "/profile/familiar",
   "/starfishing",
   "/match-merge",
@@ -19,11 +22,17 @@ const FLAT_VECTOR_ROUTES = new Set([
   "/word-garden",
   "/collections",
 ]);
+const VISITOR_QUARTERS_ROUTE = /^\/quarters\/[^/]+$/;
+
+export function isFlatVectorRoute(pathname) {
+  return FLAT_VECTOR_ROUTES.has(pathname) || VISITOR_QUARTERS_ROUTE.test(pathname);
+}
 
 export default function Layout() {
   const location = useLocation();
   const contentRef = useRef(null);
-  const usesFlatVectorBackdrop = FLAT_VECTOR_ROUTES.has(location.pathname);
+  const usesFlatVectorBackdrop = isFlatVectorRoute(location.pathname);
+  const usesSanctuaryNavigation = isSanctuaryRoute(location.pathname);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const forceSplash = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("splash");
@@ -52,7 +61,19 @@ export default function Layout() {
 
   useEffect(() => {
     contentRef.current?.scrollTo({ top: 0, left: 0 });
+    setSidebarOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (!sidebarOpen) return undefined;
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") setSidebarOpen(false);
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [sidebarOpen]);
 
   const handleGuestContinue = () => {
     localStorage.setItem(GUEST_ONBOARDING_KEY, "1");
@@ -71,13 +92,19 @@ export default function Layout() {
       )}
       {/* Desktop Sidebar */}
       <div className="relative z-10 hidden shrink-0 md:block">
-        <Sidebar />
+        {usesSanctuaryNavigation ? (
+          <SanctuaryRail onOpenPortalNav={() => setSidebarOpen(true)} />
+        ) : (
+          <Sidebar />
+        )}
       </div>
 
-      {/* Mobile Sidebar Overlay */}
+      {/* Full portal navigation stays temporary inside Sanctuary Mode. */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
-          <div
+        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Portal navigation">
+          <button
+            type="button"
+            aria-label="Dismiss portal navigation overlay"
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setSidebarOpen(false)}
           />

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { ArrowLeft, Check, Sparkles, Trophy } from "lucide-react";
 
 export default function GameResultSheet({
@@ -12,6 +12,12 @@ export default function GameResultSheet({
   finalReward = false,
 }) {
   const [pendingChoice, setPendingChoice] = useState("");
+  const resultRef = useRef(null);
+  const titleId = useId();
+
+  useEffect(() => {
+    resultRef.current?.focus({ preventScroll: true });
+  }, []);
 
   const handleChoice = async (choice) => {
     if (pendingChoice || typeof onChoose !== "function") return;
@@ -24,12 +30,19 @@ export default function GameResultSheet({
   };
 
   return (
-    <section className="game-result-sheet" aria-labelledby="game-result-title">
+    <section
+      ref={resultRef}
+      className="game-result-sheet"
+      role="status"
+      aria-live="polite"
+      aria-labelledby={titleId}
+      tabIndex={-1}
+    >
       <div className="game-result-sheet__heading">
         <span className="game-result-sheet__seal" aria-hidden="true"><Sparkles /></span>
         <div>
           <p>{rewardLabel}</p>
-          <h2 id="game-result-title">{title}</h2>
+          <h2 id={titleId}>{title}</h2>
         </div>
       </div>
 
@@ -47,7 +60,11 @@ export default function GameResultSheet({
             <span key={`${item.key}-${item.quantity}`}>+{item.quantity} {item.label}</span>
           ))}
           {(intent.achievements || []).map((achievement) => (
-            <span key={achievement.key}><Trophy aria-hidden="true" /> {achievement.title} · Achievement unlocked</span>
+            <span key={achievement.key}>
+              <Trophy aria-hidden="true" /> {achievement.title} · Achievement unlocked
+              {achievement.collectible?.label ? ` · ${achievement.collectible.label} charm` : ""}
+              {achievement.collectible?.trophyKey ? " · Trophy added" : ""}
+            </span>
           ))}
         </div>
       ) : null}

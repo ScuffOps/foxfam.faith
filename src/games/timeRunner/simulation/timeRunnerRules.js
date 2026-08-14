@@ -167,6 +167,11 @@ export function applyTimeRunnerAction(state, action, now = Date.now()) {
     return landing ? beginJump(state, landing, now) : state;
   }
 
+  if (action === "choice-one" || action === "choice-two") {
+    const landing = state.availableLandings[action === "choice-one" ? 0 : 1];
+    return landing ? beginJump(state, landing, now) : state;
+  }
+
   if (action === "qte-up") {
     return setPosture(state, TIME_RUNNER_POSTURES.jump, 680, now);
   }

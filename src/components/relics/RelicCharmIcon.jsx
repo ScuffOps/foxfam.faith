@@ -32,6 +32,18 @@ const ART_BY_KEY = {
   "glassfin-comet": "glassfin",
   "fishpedia-frame": "fishpedia",
   "century-chain": "century-chain",
+  "refinement-seal": "refinement-seal",
+  "shapers-knot": "shapers-knot",
+  "first-service-ribbon": "service-ribbon",
+  "spotless-tea-bell": "tea-bell",
+  "vezmir-trail-pin": "trail-pin",
+  "lantern-eyed-lens": "lantern-lens",
+  "clockface-shard": "clock-shard",
+  "unfractured-loop": "unfractured-loop",
+  "blooming-ink-sprout": "ink-sprout",
+  "full-bloom-quill": "bloom-quill",
+  "hearthforged-seal": "hearthforged-seal",
+  "ascendant-anvil": "ascendant-anvil",
 };
 
 const ART_BY_KIND = {
@@ -67,15 +79,29 @@ const RARITY_ACCENT = {
 };
 
 export function resolveCharmArt(charm = {}) {
-  return ART_BY_KEY[charm.charm_key || charm.key]
+  return ART_BY_KEY[charm.charmKey || charm.charm_key || charm.key]
     || ART_BY_KIND[charm.kind]
     || ART_BY_SLOT[charm.slot]
     || "vow-core";
 }
 
 export default function RelicCharmIcon({ charm, className = "h-16 w-16" }) {
+  const charmKey = charm.charmKey || charm.charm_key || charm.key;
+  const approvedAsset = getApprovedCollectibleArtAsset(COLLECTIBLE_ART_KINDS.charm, charmKey);
   const art = resolveCharmArt(charm);
   const rarityAccent = RARITY_ACCENT[charm?.rarity] || RARITY_ACCENT.common;
+
+  if (approvedAsset) {
+    return (
+      <img
+        className={className}
+        src={approvedAsset}
+        alt={charm?.name || "Relic charm"}
+        data-charm-art={charmKey}
+        data-art-source="approved"
+      />
+    );
+  }
 
   return (
     <svg
@@ -84,6 +110,7 @@ export default function RelicCharmIcon({ charm, className = "h-16 w-16" }) {
       role="img"
       aria-label={charm?.name || "Relic charm"}
       data-charm-art={art}
+      data-art-source="fallback"
     >
       <path
         d="M18 22 48 10l30 12 8 28-15 27-23 9-23-9L10 50l8-28Z"
@@ -115,6 +142,18 @@ export default function RelicCharmIcon({ charm, className = "h-16 w-16" }) {
         {art === "glassfin" && <Glassfin />}
         {art === "fishpedia" && <Fishpedia />}
         {art === "century-chain" && <CenturyChain />}
+        {art === "refinement-seal" && <RefinementSeal />}
+        {art === "shapers-knot" && <ShapersKnot />}
+        {art === "service-ribbon" && <ServiceRibbon />}
+        {art === "tea-bell" && <TeaBell />}
+        {art === "trail-pin" && <TrailPin />}
+        {art === "lantern-lens" && <LanternLens />}
+        {art === "clock-shard" && <ClockShard />}
+        {art === "unfractured-loop" && <UnfracturedLoop />}
+        {art === "ink-sprout" && <InkSprout />}
+        {art === "bloom-quill" && <BloomQuill />}
+        {art === "hearthforged-seal" && <HearthforgedSeal />}
+        {art === "ascendant-anvil" && <AscendantAnvil />}
       </g>
       <RarityPips rarity={charm?.rarity} fill={rarityAccent} />
     </svg>
@@ -151,3 +190,19 @@ function PocketStar() { return <><path fill={SKY} d="M29 37h38l5 35H24l5-35Z" />
 function Glassfin() { return <><path fill={SKY} d="M19 49c17-22 39-24 55-7l12-12-2 21 2 20-12-11c-17 17-39 14-55-11Z" /><path fill={LILAC} d="m41 38 12-14 9 17-21-3Zm2 23 12 12 7-16-19 4Z" /><path fill="none" d="m30 48 10-6 9 6 10-6 12 7-12 7-10-6-10 6-9-8Z" /></>; }
 function Fishpedia() { return <><path fill={TEAL} d="M22 25c12-5 22-3 29 4v46c-8-6-17-8-29-3V25Z" /><path fill={SKY} d="M74 25c-12-5-22-3-29 4v46c8-6 17-8 29-3V25Z" /><path fill={GOLD} d="M47 39c8-9 18-9 25 0-8 10-18 10-25 0Zm5 0 5-6v12l-5-6Z" /></>; }
 function CenturyChain() { return <><path fill="none" d="M23 39c0-10 8-18 18-18s18 8 18 18-8 18-18 18h-9m41 0c0 10-8 18-18 18s-18-8-18-18 8-18 18-18h9" /><path fill={GOLD} d="m48 42 6 6-6 6-6-6 6-6Z" /></>; }
+function RefinementSeal() { return <><path fill={TEAL} d="m48 19 23 13v27L48 76 25 59V32l23-13Z" /><path fill={SKY} d="m48 31 12 7v15l-12 9-12-9V38l12-7Z" /><path fill={GOLD} d="m48 39 5 9-5 8-5-8 5-9Z" /></>; }
+function ShapersKnot() { return <><path fill="none" d="M28 32c15-13 32 2 20 16-12 14 5 29 20 16M68 32C53 19 36 34 48 48c12 14-5 29-20 16" /><path fill={LILAC} d="m48 18 7 9-7 9-7-9 7-9Zm0 42 7 9-7 9-7-9 7-9Z" /></>; }
+function ServiceRibbon() { return <><path fill={ROSE} d="M28 26h40v28H28z" /><path fill={CORAL} d="m33 54-5 22 20-10 20 10-5-22H33Z" /><path fill={CREAM} d="m48 32 5 8 9 2-7 6 2 9-9-5-9 5 2-9-7-6 9-2 5-8Z" /></>; }
+function TeaBell() { return <><path fill={GOLD} d="M48 25c15 0 24 11 24 27v10l7 8H17l7-8V52c0-16 9-27 24-27Z" /><path fill={TEAL} d="M39 19h18v9H39z" /><path fill={ROSE} d="M42 70h12c-1 6-3 8-6 8s-5-2-6-8Z" /><circle cx="48" cy="49" r="7" fill={CREAM} /></>; }
+function TrailPin() { return <><path fill={MINT} d="m48 19 22 15-8 28-14 16-14-16-8-28 22-15Z" /><path fill={CREAM} d="M39 45c0-6 4-10 9-10s9 4 9 10c0 8-9 16-9 16s-9-8-9-16Z" /><circle cx="48" cy="45" r="3" fill={CORAL} /></>; }
+function LanternLens() { return <><circle cx="48" cy="48" r="27" fill={SKY} /><path fill={INK} d="M48 28c14 0 23 9 28 20-5 11-14 20-28 20S25 59 20 48c5-11 14-20 28-20Z" /><path fill={GOLD} d="m48 35 10 13-10 13-10-13 10-13Z" /><path fill={CREAM} d="m48 41 5 7-5 7-5-7 5-7Z" /></>; }
+function ClockShard() { return <><path fill={SKY} d="m33 18 35 13-7 42-27 7-10-31 9-31Z" /><path fill={CREAM} d="M34 35c13-8 30 1 30 16 0 10-7 18-17 20" /><path fill="none" d="M48 39v13l9 6" /><circle cx="48" cy="52" r="4" fill={GOLD} /></>; }
+function UnfracturedLoop() { return <><circle cx="48" cy="48" r="27" fill={LILAC} /><circle cx="48" cy="48" r="15" fill={CREAM} /><path fill={GOLD} d="m48 18 4 8 9 1-7 6 2 9-8-5-8 5 2-9-7-6 9-1 4-8Z" /></>; }
+function InkSprout() { return <><path fill={INK} d="M42 77c-4-18-1-32 8-43l8 4c-8 11-10 24-6 39H42Z" /><path fill={MINT} d="M48 45C31 44 24 34 25 21c14 0 24 8 23 24Z" /><path fill={TEAL} d="M52 55c17-2 24-12 22-25-14 1-23 10-22 25Z" /><path fill={ROSE} d="m52 20 5 7 8 1-6 6 2 8-9-4-8 4 2-8-7-6 9-1 4-7Z" /></>; }
+function BloomQuill() { return <><path fill={LILAC} d="M67 20C45 22 32 39 31 67c20-8 33-23 36-47Z" /><path fill={CREAM} d="M55 31C45 43 39 55 34 72" /><path fill={MINT} d="M35 51c-10-3-17 1-20 10 10 4 18 1 23-7l-3-3Z" /><path fill={ROSE} d="m66 54 5 7 9 1-7 6 2 9-9-5-8 5 2-9-7-6 9-1 4-7Z" /></>; }
+function HearthforgedSeal() { return <><path fill={CORAL} d="m48 18 23 13v30L48 77 25 61V31l23-13Z" /><path fill={GOLD} d="m48 29 13 8v17l-13 9-13-9V37l13-8Z" /><path fill={INK} d="M35 44h26v8H35z" /><path fill={CREAM} d="m48 35 5 9-5 8-5-8 5-9Z" /></>; }
+function AscendantAnvil() { return <><path fill={INK} d="M22 30h52l-8 14H54v12h10l7 19H25l7-19h10V44H30l-8-14Z" /><path fill={SKY} d="M30 30h36l-5 8H35l-5-8Z" /><path fill={GOLD} d="m48 14 5 9 10 2-8 7 2 10-9-5-9 5 2-10-8-7 10-2 5-9Z" /><path fill={LILAC} d="M35 63h26l3 8H32l3-8Z" /></>; }
+import {
+  COLLECTIBLE_ART_KINDS,
+  getApprovedCollectibleArtAsset,
+} from "./collectibleArtManifest.js";

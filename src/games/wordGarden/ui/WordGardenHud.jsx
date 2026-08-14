@@ -1,15 +1,17 @@
-import { Flower2, Sprout } from "lucide-react";
-import { calculateWordGardenScore } from "../simulation/wordGardenRules.js";
+import { Flower2, Lightbulb, Sprout } from "lucide-react";
+import { calculateWordGardenScore, getWordGardenJournal } from "../simulation/wordGardenRules.js";
 
-export default function WordGardenHud({ state, mode = "practice", onComplete }) {
+export default function WordGardenHud({ artFamily = null, state, mode = "practice", onComplete, onRevealHint }) {
   const score = calculateWordGardenScore(state);
   const fullBlooms = state.foundWords.filter((word) => word.isFullBloom).length;
+  const latestBloom = state.foundWords.at(-1);
+  const journal = getWordGardenJournal(state);
 
   return (
     <div className="word-garden-hud">
       <section className="word-garden-hud__meter" aria-labelledby="personal-bloom-title">
         <div className="word-garden-hud__title">
-          <Sprout aria-hidden="true" />
+          {artFamily ? <BloomFamilyArt src={artFamily.bloomFamily} /> : <Sprout aria-hidden="true" />}
           <div><p>Personal bloom</p><h2 id="personal-bloom-title">{score} dewlight</h2></div>
         </div>
         <div className="word-garden-hud__stats">
@@ -18,28 +20,45 @@ export default function WordGardenHud({ state, mode = "practice", onComplete }) 
         </div>
       </section>
 
-      <section className="word-garden-hud__found" aria-labelledby="found-words-title">
+      <section className="word-garden-hud__journal" aria-labelledby="featured-bloom-title">
         <div className="word-garden-hud__title">
-          <Flower2 aria-hidden="true" />
-          <div><p>Pressed flowers</p><h2 id="found-words-title">Found words</h2></div>
+          {artFamily ? <BloomFamilyArt src={artFamily.bloomFamily} /> : <Flower2 aria-hidden="true" />}
+          <div><p>{journal.foundCount} of {journal.entries.length} found</p><h2 id="featured-bloom-title">Featured bloom journal</h2></div>
         </div>
-        {state.foundWords.length ? (
-          <ol>
-            {[...state.foundWords].reverse().map((foundWord) => (
-              <li key={foundWord.word}>
-                <span>{foundWord.word}{foundWord.isFullBloom ? <small>Full Bloom</small> : null}</span>
-                <strong>+{foundWord.score}</strong>
-              </li>
-            ))}
-          </ol>
-        ) : <p className="word-garden-hud__empty">Your first discovered word will be pressed here.</p>}
+        <ol className="word-garden-hud__journal-grid" aria-label="Featured words for today">
+          {journal.entries.map((entry) => (
+            <li key={entry.word} data-found={entry.isFound} data-hinted={entry.isHinted} aria-label={entry.isFound ? `${entry.word}, found` : `${entry.word.length} letter word, not found`}>
+              <span aria-hidden="true">{entry.display}</span>
+              <small>{entry.word.length}</small>
+            </li>
+          ))}
+        </ol>
+        <div className="word-garden-hud__hint-row">
+          <p>{latestBloom ? <>Latest bloom: <strong>{latestBloom.word}</strong></> : "Other valid words still count as bonus blooms."}</p>
+          <button type="button" onClick={onRevealHint} disabled={!journal.canRevealHint}>
+            <Lightbulb aria-hidden="true" /> Reveal a letter
+          </button>
+        </div>
+        {latestBloom ? <p className="word-garden-hud__bonus">Other valid words still count as bonus blooms.</p> : null}
       </section>
 
-      <section className="word-garden-hud__community" aria-label="Community greenhouse status">
-        <p>Community greenhouse</p>
+      <details className="word-garden-hud__archive">
+        <summary>
+          <span>Pressed flower archive</span>
+          <strong>{state.foundWords.length}</strong>
+        </summary>
+        {state.foundWords.length ? (
+          <ol aria-label="All found words">
+            {[...state.foundWords].reverse().map((foundWord) => <BloomRow key={foundWord.word} foundWord={foundWord} />)}
+          </ol>
+        ) : <p className="word-garden-hud__empty">Bloom a word to begin today's archive.</p>}
+      </details>
+
+      <details className="word-garden-hud__community">
+        <summary>Community greenhouse</summary>
         <strong>Quietly tending today's bloom</strong>
         <span aria-hidden="true"><i /><i /><i /><i /><i /></span>
-      </section>
+      </details>
 
       <button className="word-garden-hud__rest" type="button" onClick={onComplete} disabled={!state.foundWords.length}>
         Rest the garden
@@ -48,5 +67,18 @@ export default function WordGardenHud({ state, mode = "practice", onComplete }) 
         {mode === "rewarded" ? "Accepted blooms and rewards are validated by the portal." : "Practice stays on this device and does not change portal balances."}
       </p>
     </div>
+  );
+}
+
+function BloomFamilyArt({ src }) {
+  return <img className="word-garden-hud__bloom-art" src={src} alt="" aria-hidden="true" draggable="false" />;
+}
+
+function BloomRow({ foundWord }) {
+  return (
+    <li>
+      <span>{foundWord.word}{foundWord.isFullBloom ? <small>Full Bloom</small> : null}</span>
+      <strong>+{foundWord.score}</strong>
+    </li>
   );
 }

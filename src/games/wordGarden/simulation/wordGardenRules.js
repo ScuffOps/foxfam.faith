@@ -14,7 +14,10 @@ export function createWordGardenState({
   letters,
   center,
   acceptedWords,
+  featuredWords,
   fullBloomWords,
+  theme,
+  themePrompt,
   now = Date.now(),
 } = {}) {
   const resolvedSeedKey = seedKey || getLocalDateKey(now);
@@ -30,11 +33,15 @@ export function createWordGardenState({
     seedKey: resolvedSeedKey,
     puzzleKey: puzzle.key,
     puzzleTitle: puzzle.title,
+    theme: theme || puzzle.theme,
+    themePrompt: themePrompt || puzzle.themePrompt,
     letters: normalizedLetters,
     center: normalizedCenter,
     petals: normalizedLetters.split("").filter((letter) => letter !== normalizedCenter),
     acceptedWords: normalizeWordList(acceptedWords || puzzle.acceptedWords),
+    featuredWords: normalizeWordList(featuredWords || puzzle.featuredWords),
     fullBloomWords: normalizeWordList(fullBloomWords || puzzle.fullBloomWords),
+    hintedWords: [],
     draftWord: "",
     foundWords: [],
     status: WORD_GARDEN_STATUS.playing,
@@ -106,6 +113,34 @@ export function completeWordGarden(state, { now = Date.now() } = {}) {
   if (!isPlaying(state)) return state;
   if (!state.foundWords.length) return { ...state, lastError: "Bloom at least one word before resting." };
   return { ...state, status: WORD_GARDEN_STATUS.complete, completedAt: new Date(now).toISOString(), draftWord: "", lastError: "" };
+}
+
+export function getWordGardenJournal(state) {
+  const foundWords = new Set((state?.foundWords || []).map((entry) => entry.word));
+  const hintedWords = new Set(state?.hintedWords || []);
+  const entries = (state?.featuredWords || []).map((word) => {
+    const isFound = foundWords.has(word);
+    const isHinted = !isFound && hintedWords.has(word);
+    return {
+      word,
+      isFound,
+      isHinted,
+      display: isFound ? word : `${isHinted ? word[0] : "_"}${"_".repeat(word.length - 1)}`,
+    };
+  });
+  return {
+    entries,
+    foundCount: entries.filter((entry) => entry.isFound).length,
+    remainingCount: entries.filter((entry) => !entry.isFound).length,
+    canRevealHint: entries.some((entry) => !entry.isFound && !entry.isHinted),
+  };
+}
+
+export function revealWordGardenHint(state) {
+  if (!isPlaying(state)) return state;
+  const nextEntry = getWordGardenJournal(state).entries.find((entry) => !entry.isFound && !entry.isHinted);
+  if (!nextEntry) return state;
+  return { ...state, hintedWords: [...(state.hintedWords || []), nextEntry.word], lastError: "" };
 }
 
 export function buildWordGardenRewardIntent({ state, durationMs = 0 }) {

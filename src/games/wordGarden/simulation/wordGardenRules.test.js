@@ -7,7 +7,9 @@ import {
   calculateWordGardenScore,
   completeWordGarden,
   createWordGardenState,
+  getWordGardenJournal,
   removePetal,
+  revealWordGardenHint,
   scoreGardenWord,
   shufflePetals,
   submitGardenWord,
@@ -71,4 +73,27 @@ test("does not create rewards for an active or empty garden", () => {
   const active = createWordGardenState({ seedKey: "test" });
   assert.equal(buildWordGardenRewardIntent({ state: active }), null);
   assert.equal(completeWordGarden(active).lastError, "Bloom at least one word before resting.");
+});
+
+test("the themed journal reveals found words and one bounded hint at a time", () => {
+  let state = createWordGardenState({
+    seedKey: "test",
+    letters: "PETALSR",
+    center: "A",
+    acceptedWords: ["PALE", "PETAL", "PLATE", "PETALERS"],
+    featuredWords: ["PALE", "PETAL", "PLATE", "PETALERS"],
+    theme: "Pressed petals and old paper",
+  });
+  state = submitGardenWord(state, "PALE").state;
+
+  let journal = getWordGardenJournal(state);
+  assert.equal(journal.entries[0].display, "PALE");
+  assert.equal(journal.entries[1].display, "_____ ".trim());
+  assert.equal(journal.remainingCount, 3);
+
+  state = revealWordGardenHint(state);
+  journal = getWordGardenJournal(state);
+  assert.equal(journal.entries[1].display, "P____");
+  assert.equal(state.hintedWords.length, 1);
+  assert.equal(state.theme, "Pressed petals and old paper");
 });

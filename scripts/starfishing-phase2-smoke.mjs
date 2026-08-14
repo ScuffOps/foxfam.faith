@@ -21,8 +21,8 @@ export const PHASE_2_FIXTURE_PATHS = Object.freeze({
   allowlist: path.join(SCRIPT_DIRECTORY, "fixtures/starfishing-phase2/allowlist.json"),
 });
 export const PHASE_2_FIXTURE_DIGESTS = Object.freeze({
-  bootstrap: "dceadfcc6e361a23fcca073977f0e87cb19cb72f6a432474b4117e432bac997d",
-  enable: "6127467045506aed9d33c2d7c332c55bdd118d0c9142da9b45a980e4394ee123",
+  bootstrap: "3573fe4b33300e97da19891f80353aca5ade93bc86dbbf3811a746f2fd2d7952",
+  enable: "0cc8f8d225362523cb04780fafcc2f164502de8653e10eb219f5ef25cb5fd1af",
 });
 
 const REQUIRED_ENV = Object.freeze([
@@ -911,6 +911,43 @@ export async function runPhase2Smoke({ env = process.env, cwd = process.cwd() } 
   const mirrorRow = await readFavorMirror(clientA, userA.id, "Starfishing");
   assert.equal(numeric(accountRow.balance, "account balance"), numeric(mirrorRow.data?.points, "mirror points"));
   assert.equal(numeric(accountRow.balance, "account balance"), numeric(firstClaim.favor.balance, "claim balance"));
+
+  const duplicateCast = (await expectPass("disposable duplicate Starfishing cast", () =>
+    clientA.rpc("start_starfishing_duplicate_test"),
+  )).data;
+  assert.equal(duplicateCast.fish_key, firstClaim.catch.fish_key);
+  const duplicateClaimId = randomUUID();
+  const duplicateWaitMs = millisecondsUntil(duplicateCast.not_before);
+  assert.ok(duplicateWaitMs <= 30000, `Duplicate cast not_before is unexpectedly far away (${duplicateWaitMs}ms)`);
+  await new Promise((resolve) => setTimeout(resolve, duplicateWaitMs));
+  const duplicateClaimParams = buildClaimParams({
+    ticketId: duplicateCast.ticket_id,
+    idempotencyKey: duplicateClaimId,
+    qteLength: duplicateCast.qte_length,
+    durationMs: duplicateWaitMs,
+  });
+  const duplicateClaim = (await expectPass("duplicate release Starfishing claim", () =>
+    clientA.rpc("claim_starfishing_catch", duplicateClaimParams),
+  )).data;
+  assert.equal(duplicateClaim.catch.duplicate, true);
+  assert.equal(duplicateClaim.catch.duplicate_policy, "release");
+  assert.ok(numeric(duplicateClaim.favor.delta, "duplicate release Favor") > 0);
+  assert.equal(duplicateClaim.materials.length, 0);
+
+  const duplicateLedgerRows = (await expectPass("read duplicate release Favor ledger", () =>
+    clientA
+      .from("currency_ledger")
+      .select("user_id,amount,balance_after,source_type,source_id,idempotency_key,metadata")
+      .eq("currency_key", "favor")
+      .eq("source_type", "starfishing_catch")
+      .eq("idempotency_key", duplicateClaimId),
+  )).data;
+  const duplicateLedger = requireSingleRow("duplicate release ledger", duplicateLedgerRows);
+  assert.equal(duplicateLedger.user_id, userA.id);
+  assert.equal(duplicateLedger.source_id, duplicateClaim.catch.id);
+  assert.equal(duplicateLedger.metadata.duplicate_policy, "release");
+  assert.equal(numeric(duplicateLedger.amount, "duplicate ledger amount"), numeric(duplicateClaim.favor.delta, "duplicate claim Favor"));
+  assert.equal(numeric(duplicateLedger.balance_after, "duplicate ledger balance"), numeric(duplicateClaim.favor.balance, "duplicate claim balance"));
 
   await verifyForge(clientA, userA.id);
   await verifyNonVacuousOwnerIsolation(clientA, clientB, userA.id);

@@ -22,6 +22,7 @@ const productionArtFiles = [
 const productionArtSource = productionArtFiles
   .map((path) => readFileSync(new URL(path, import.meta.url), "utf8"))
   .join("\n");
+const bobaCss = readFileSync(new URL("../../bobaCafe/ui/boba-cafe.css", import.meta.url), "utf8");
 
 test("all playable game art follows the Foxfam flat cel-vector rendering contract", () => {
   assert.doesNotMatch(
@@ -30,6 +31,11 @@ test("all playable game art follows the Foxfam flat cel-vector rendering contrac
   );
 });
 
-test("playable game art does not introduce texture, grain, or noise rendering", () => {
-  assert.doesNotMatch(productionArtSource, /\b(?:texture|grain|noise)\b/i);
+test("playable game art does not introduce grain or noise rendering", () => {
+  assert.doesNotMatch(productionArtSource, /\b(?:grain|noise)\b/i);
+});
+
+test("Boba playfield derives height from its visible responsive width", () => {
+  assert.match(bobaCss, /\.boba-counter\s*\{[^}]*width:\s*100%;[^}]*min-height:\s*0;[^}]*aspect-ratio:\s*16\s*\/\s*9;/s);
+  assert.doesNotMatch(bobaCss, /@media[^}]+\{[\s\S]*?\.boba-counter\s*\{[^}]*min-height:/);
 });

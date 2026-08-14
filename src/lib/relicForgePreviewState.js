@@ -1,0 +1,115 @@
+import { parseRelicForgeState } from "./relicForgeContract.js";
+import { normalizeRelic } from "./relicCharms.js";
+
+export const RELIC_FORGE_GUEST_PREVIEW = Object.freeze({
+  relic: normalizeRelic({
+    name: "Moonwater Promise",
+    base_type: "lantern",
+    theme: "celestial",
+    lore: "A patient light carried home from the constellation pond.",
+    effects: ["blue-flame"],
+    favor_spent: 57,
+  }),
+  forge: parseRelicForgeState({
+    catalog_version: 1,
+    balances: {
+      favor: 240,
+      materials: [
+        { key: "star-glass", balance: 18 },
+        { key: "clock-brass", balance: 9 },
+        { key: "blooming-ink", balance: 7 },
+        { key: "voidthread", balance: 5 },
+      ],
+    },
+    recipes: [
+      {
+        recipe_key: "common-0-1",
+        rarity: "common",
+        from_star: 0,
+        to_star: 1,
+        tier: "awakened",
+        favor_cost: 15,
+        material_costs: [{ key: "star-glass", quantity: 2 }],
+      },
+      {
+        recipe_key: "uncommon-1-2",
+        rarity: "uncommon",
+        from_star: 1,
+        to_star: 2,
+        tier: "exalted",
+        favor_cost: 35,
+        material_costs: [{ key: "clock-brass", quantity: 3 }],
+      },
+      {
+        recipe_key: "epic-2-3",
+        rarity: "epic",
+        from_star: 2,
+        to_star: 3,
+        tier: "ascendant",
+        favor_cost: 80,
+        material_costs: [{ key: "blooming-ink", quantity: 5 }],
+      },
+    ],
+    salvage_yields: [
+      {
+        salvage_key: "common-0",
+        rarity: "common",
+        star: 0,
+        favor_yield: 5,
+        material_yields: [{ key: "star-glass", quantity: 1 }],
+      },
+      {
+        salvage_key: "uncommon-1",
+        rarity: "uncommon",
+        star: 1,
+        favor_yield: 12,
+        material_yields: [{ key: "clock-brass", quantity: 1 }],
+      },
+      {
+        salvage_key: "epic-2",
+        rarity: "epic",
+        star: 2,
+        favor_yield: 40,
+        material_yields: [{ key: "blooming-ink", quantity: 2 }],
+      },
+    ],
+    charms: [
+      {
+        id: "10000000-0000-4000-8000-000000000001",
+        charm_key: "ash-thread",
+        rarity: "common",
+        star: 0,
+        tier: "dormant",
+        equipped: false,
+        source: "relic_roll",
+      },
+      {
+        id: "10000000-0000-4000-8000-000000000002",
+        charm_key: "ash-thread",
+        rarity: "common",
+        star: 0,
+        tier: "dormant",
+        equipped: false,
+        source: "relic_roll",
+      },
+      {
+        id: "10000000-0000-4000-8000-000000000003",
+        charm_key: "starlit-bobber",
+        rarity: "uncommon",
+        star: 1,
+        tier: "awakened",
+        equipped: true,
+        source: "achievement",
+      },
+      {
+        id: "10000000-0000-4000-8000-000000000004",
+        charm_key: "full-bloom-quill",
+        rarity: "epic",
+        star: 2,
+        tier: "exalted",
+        equipped: true,
+        source: "achievement",
+      },
+    ],
+  }),
+});

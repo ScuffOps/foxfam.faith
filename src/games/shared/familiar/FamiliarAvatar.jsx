@@ -18,6 +18,7 @@ export default function FamiliarAvatar({ familiar = DEFAULT_FAMILIAR, size = 112
       data-species={selection.species}
       data-coat={selection.coat}
       data-marking={selection.markings}
+      data-art-inset={species.artInset || "standard"}
       style={style}
       role="img"
       aria-label={`${species.label} familiar wearing ${selection.outfit.replaceAll("-", " ")}`}

@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" role="img" aria-labelledby="title description">
+  <title id="title">Foxfam Quarters environment plane</title>
+  <desc id="description">The darker cozy-cafe isometric room shell, floor, wall window, and shared room axes.</desc>
+<defs>
+    <clipPath id="floor-clip">
+      <path d="m70 530 530-138 530 138-530 184Z"/>
+    </clipPath>
+  </defs>
+  <!-- Room shell. Its two axes are shared by every grounded station. -->
+  <g stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M70 220 600 82v310L70 530Z" fill="#6f8794"/>
+    <path d="m600 82 530 138v310L600 392Z" fill="#8b7080"/>
+    <path d="m70 530 530-138 530 138-530 184Z" fill="#c9aa85"/>
+  </g>
+  <path d="m70 497 530-138v33L70 530Z" fill="#536b78" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m600 359 530 138v33L600 392Z" fill="#665464" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m70 530 530 184 530-184v19L600 736 70 550Z" fill="#8f6f59" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- A few quiet floor seams; the center remains open for movement. -->
+  <g clip-path="url(#floor-clip)" fill="none" stroke="#b8b5ae" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m180 568 525 145m-410-176 477 152m-362-183 433 151m177-89-525 145m410-176-477 152m362-183-433 151"/>
+  </g>
+
+  <!-- Arched moon window and loose wall sprig. -->
+  <g stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M118 245 278 203v138l-160 42Z" fill="#fff7e7"/>
+    <path d="m135 261 126-33v100l-126 33Z" fill="#455b78"/>
+    <path d="m148 271 100-26v71l-100 27Z" fill="#b9dce5"/>
+  </g>
+  <path fill="none" d="m198 258v72m-50-25 100-26" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M213 275c-19 5-24 29-8 39 10 6 21 2 28-7-4 20-22 33-40 26-23-9-25-40-6-53 8-5 17-7 26-5Z" fill="#f2cf66" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m153 277 32-8" fill="none" stroke="#fff8e8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <g fill="none" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M565 164c-12 14-18 35-13 55m7-37-18-7m15 21 18-4" fill="#78aa6c"/>
+    <path d="m542 175-12-11 17-2m26 29 13-13-18-1" fill="#78aa6c"/>
+  </g>
+<!-- Minimal architectural highlights: short, top-left-only accents. -->
+  <path d="m83 219 86-23m445-110 82 21" fill="none" stroke="#fff8e8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

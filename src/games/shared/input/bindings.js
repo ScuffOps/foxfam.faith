@@ -13,6 +13,10 @@ export const DEFAULT_KEYBOARD_BINDINGS = {
   ArrowRight: GAME_ACTIONS.moveRight,
   KeyS: GAME_ACTIONS.moveDown,
   ArrowDown: GAME_ACTIONS.moveDown,
+  Digit1: GAME_ACTIONS.choiceOne,
+  Numpad1: GAME_ACTIONS.choiceOne,
+  Digit2: GAME_ACTIONS.choiceTwo,
+  Numpad2: GAME_ACTIONS.choiceTwo,
 };
 
 export function getActionForKeyboardEvent(event) {

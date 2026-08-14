@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Moonbrew cafe workstations</title>
+  <desc id="desc">Flat cel-vector ingredient jars, a drink station, and a moonbrew serving cup aligned to the cafe room.</desc>
+  <g stroke="#203659" stroke-width="12" stroke-linejoin="round">
+    <path d="M980 494 1245 575v117L980 610Z" fill="#a9cfdd"/>
+    <path d="m1245 575 128-41v117l-128 41Z" fill="#78a8b9"/>
+    <path d="m980 494 130-41 263 81-128 41Z" fill="#e7ddd4"/>
+  </g>
+  <g stroke="#203659" stroke-width="8" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M718 426q0-18 18-18h91q18 0 18 18l-8 91q-1 16-17 21l-34 10-36-11q-16-5-18-21Z" fill="#e7ddd4"/>
+    <path d="m729 445 106-1-3 57q-1 13-15 17l-31 9-33-10q-13-4-15-17Z" fill="#c77e8d"/>
+    <ellipse cx="780" cy="424" rx="57" ry="20" fill="#e7ddd4"/>
+    <path d="M768 394h25l10 24h-45Z" fill="#c7906f"/>
+    <path d="M856 445q0-17 17-17h85q17 0 17 17l-7 84q-1 15-16 20l-32 9-34-10q-15-5-17-20Z" fill="#e7ddd4"/>
+    <path d="m867 463 97-1-3 51q-1 12-14 16l-28 8-30-9q-12-4-14-16Z" fill="#afc59d"/>
+    <ellipse cx="915" cy="443" rx="53" ry="18" fill="#e7ddd4"/>
+    <path d="M904 416h23l9 21h-41Z" fill="#c7906f"/>
+    <path d="M984 464q0-16 16-16h77q16 0 16 16l-7 75q-1 14-15 18l-29 9-31-10q-14-4-15-18Z" fill="#e7ddd4"/>
+    <path d="m994 481 89-1-3 45q-1 11-12 14l-26 8-27-9q-12-3-13-14Z" fill="#c7906f"/>
+    <ellipse cx="1038" cy="461" rx="48" ry="17" fill="#e7ddd4"/>
+    <path d="M1028 437h21l9 19h-38Z" fill="#c7906f"/>
+    <circle cx="762" cy="476" r="8" fill="#f3cf72" stroke="none"/><circle cx="791" cy="486" r="8" fill="#f3cf72" stroke="none"/><circle cx="816" cy="468" r="8" fill="#f3cf72" stroke="none"/>
+    <circle cx="898" cy="494" r="8" fill="#789461" stroke="none"/><circle cx="924" cy="503" r="8" fill="#789461" stroke="none"/><circle cx="947" cy="486" r="8" fill="#789461" stroke="none"/>
+    <circle cx="1020" cy="510" r="8" fill="#9d694f" stroke="none"/><circle cx="1044" cy="518" r="8" fill="#9d694f" stroke="none"/><circle cx="1067" cy="502" r="8" fill="#9d694f" stroke="none"/>
+  </g>
+  <g stroke="#203659" stroke-width="9" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M634 482q0-13 13-13h74q13 0 13 13l-7 74q-1 13-14 17l-27 8-29-9q-13-4-14-17Z" fill="#e7ddd4"/>
+    <ellipse cx="684" cy="481" rx="48" ry="17" fill="#e7ddd4"/>
+    <path d="m646 514 82-1-4 41q-1 10-11 13l-27 8-28-9q-10-3-11-13Z" fill="#78a8b9"/>
+    <path d="m676 465 9-33 9 35" fill="none"/>
+    <circle cx="663" cy="543" r="6" fill="#203659" stroke="none"/><circle cx="684" cy="552" r="6" fill="#203659" stroke="none"/><circle cx="705" cy="542" r="6" fill="#203659" stroke="none"/>
+    <path d="M677 505c-13 4-21 15-20 28 7-9 18-15 31-15 5 0 9 1 13 2-6-12-14-18-24-15Z" fill="#f3cf72"/>
+  </g>
+</svg>

@@ -26,14 +26,45 @@ case "$BRANCH" in
     ;;
 esac
 
+expect_target_value=0
 for argument in "$@"; do
-  case "$argument" in
-    --prod|--production|promote|rollback|alias)
+  normalized_argument="${argument:l}"
+
+  if (( expect_target_value )); then
+    if [[ "$normalized_argument" != "preview" ]]; then
+      print -u2 "Preview deploy refused: deployment target '$argument' is not preview."
+      exit 2
+    fi
+
+    expect_target_value=0
+    continue
+  fi
+
+  case "$normalized_argument" in
+    --prod|--prod=*|--production|--production=*|promote|rollback|alias)
       print -u2 "Preview deploy refused: production operation '$argument' is forbidden."
+      exit 2
+      ;;
+    --target)
+      expect_target_value=1
+      ;;
+    --target=preview)
+      ;;
+    --target=*)
+      print -u2 "Preview deploy refused: deployment target '${argument#*=}' is not preview."
+      exit 2
+      ;;
+    --build-env|--build-env=*|-b)
+      print -u2 "Preview deploy refused: staging build variables are managed by the safe wrapper."
       exit 2
       ;;
   esac
 done
+
+if (( expect_target_value )); then
+  print -u2 "Preview deploy refused: --target requires the value 'preview'."
+  exit 2
+fi
 
 if [[ "${FOXFAM_VERCEL_PREVIEW_DRY_RUN:-0}" == "1" ]]; then
   print "Preview-only Vercel deploy approved for branch: $BRANCH"
@@ -51,4 +82,8 @@ if [[ ! -x "$VERCEL_BIN" ]]; then
   exit 2
 fi
 
-exec "$VERCEL_BIN" deploy "$@"
+"$VERCEL_BIN" env run -e preview --git-branch "$BRANCH" -- \
+  node "$PROJECT_ROOT/scripts/game-hub-preview-preflight.mjs"
+
+exec "$VERCEL_BIN" env run -e preview --git-branch "$BRANCH" -- \
+  zsh "$PROJECT_ROOT/scripts/vercel-preview-deploy-inner.zsh" "$@"

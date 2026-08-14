@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import RelicPreview from "@/components/relics/RelicPreview";
 import ProfileCharmShelf from "@/components/relics/ProfileCharmShelf";
+import ProfileAvatarFrame from "@/components/relics/ProfileAvatarFrame";
+import ProfileCosmeticFrame from "@/components/relics/ProfileCosmeticFrame";
 import StarfishingProgressCard from "@/components/relics/StarfishingProgressCard";
+import { selectProfileCosmetics } from "@/components/relics/profileCosmeticPresentation";
 import {
   classifyProgressionLoadError,
   planProgressSurfaceSession,
@@ -136,12 +139,7 @@ export default function Profile() {
     : (ownerId ? "loading" : "signed-out");
   const equippedCount = visibleCharms.filter((charm) => charm.equipped).length;
   const authoritativeFavor = Math.max(0, Number(visibleProgression?.favorBalance ?? visibleLevel?.points ?? 0));
-  const equippedProfileFrame = visibleCharms.find((charm) => (
-    charm.equipped && typeof charm.effects?.profile_frame === "string"
-  ));
-  const equippedProfileParticle = visibleCharms.find((charm) => (
-    charm.equipped && typeof charm.effects?.profile_particle === "string"
-  ));
+  const profileCosmetics = useMemo(() => selectProfileCosmetics(visibleCharms), [visibleCharms]);
   const relicTeaser = useMemo(() => user ? getProfileRelicTeaser(user) : null, [user]);
   const equipProfileCharm = (...args) => setEquippedCharm(...args);
 
@@ -214,12 +212,12 @@ export default function Profile() {
 
   if (!isAuthenticated || !user) {
     return (
-      <div className="mx-auto max-w-2xl animate-fade-in rounded-xl border border-border bg-card p-6 text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-primary/15 text-primary">
+      <div className="mx-auto max-w-2xl animate-fade-in rounded-lg border-2 border-[#485365] bg-[#faf3eb] p-6 text-center text-[#364152] shadow-[0_5px_0_#b8c5c9]">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-md border-2 border-[#485365] bg-[#d9e6ec] text-[#364152]">
           <LogIn className="h-6 w-6" />
         </div>
         <h1 className="mt-4 font-heading text-2xl font-bold">Claim Your Profile Relic</h1>
-        <p className="mt-2 text-sm text-muted-foreground">{error || "Sign in to save your relic, roll charms, and attach collectibles."}</p>
+        <p className="mt-2 text-sm text-[#657080]">{error || "Sign in to save your relic, roll charms, and attach collectibles."}</p>
         <Button className="mt-5 gap-2" onClick={openLogin}>
           <LogIn className="h-4 w-4" /> Sign in
         </Button>
@@ -233,14 +231,11 @@ export default function Profile() {
   return (
     <div className="mx-auto max-w-6xl animate-fade-in space-y-6">
       <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className={`relative rounded-lg bg-[#faf3eb] p-5 text-[#364152] ${equippedProfileFrame ? "border-[3px] border-[#80adbc] shadow-[0_6px_0_#b4c6dc]" : "border-2 border-[#707989] shadow-[0_5px_0_#c7bbb0]"}`}>
-          {equippedProfileParticle ? (
-            <span className="absolute -top-3 right-4 inline-flex items-center gap-1 rounded-md border-2 border-[#485365] bg-[#dfd8ab] px-2 py-1 text-[10px] font-black uppercase" title={equippedProfileParticle.name}>
-              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> {equippedProfileParticle.name}
-            </span>
-          ) : null}
+        <ProfileCosmeticFrame frame={profileCosmetics.frame} particle={profileCosmetics.particle}>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <Avatar avatar={getPublicAvatar(user)} name={getPublicDisplayName(user, "Profile")} />
+            <ProfileAvatarFrame frame={profileCosmetics.frame}>
+              <Avatar avatar={getPublicAvatar(user)} name={getPublicDisplayName(user, "Profile")} />
+            </ProfileAvatarFrame>
             <div className="min-w-0 flex-1">
               <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-muted-foreground">Profile</p>
               <h1 className="mt-1 truncate font-heading text-2xl font-bold">{getPublicDisplayName(user, "Profile")}</h1>
@@ -283,7 +278,7 @@ export default function Profile() {
               <ProfileStat icon={Sparkles} label="Favor" value={authoritativeFavor} />
             </div>
           </div>
-        </div>
+        </ProfileCosmeticFrame>
 
         <div className="overflow-hidden rounded-lg border-2 border-[#707989] bg-[#faf3eb] text-[#364152] shadow-[0_5px_0_#c7bbb0]">
           <div className="relative min-h-44 border-b-2 border-[#707989] bg-[#d9e6ec] p-5">
@@ -362,12 +357,12 @@ function ProfileStat({ icon: Icon, label, value }) {
 
 function Avatar({ avatar, name }) {
   if (avatar) {
-    return <img src={avatar} alt="" className="h-16 w-16 shrink-0 rounded-xl border border-primary/25 object-cover" />;
+    return <img src={avatar} alt="" className="h-full w-full object-cover" />;
   }
 
   const initials = String(name || "FF").split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
   return (
-    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/15 font-heading text-lg font-bold text-primary">
+    <div className="flex h-full w-full items-center justify-center bg-primary/15 font-heading text-lg font-bold text-primary">
       {initials}
     </div>
   );

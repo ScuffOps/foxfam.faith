@@ -1,16 +1,20 @@
 import { supabase } from "../../../api/communityClient.js";
+import { DEFAULT_FAMILIAR } from "../familiar/familiarCatalog.js";
+import { familiarSelectionSchema } from "../familiar/familiarSchema.js";
 
 const PUBLIC_PROGRESSION_RPC = "load_public_game_progression";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SLUG_PATTERN = /^[a-z0-9-]{1,80}$/;
 const RARITIES = new Set(["common", "uncommon", "rare", "epic", "mythic"]);
 const TIERS = new Set(["dormant", "awakened", "exalted", "ascendant"]);
+const SOURCE_TYPES = new Set(["achievement", "relic_roll", "legacy"]);
 const ROOT_KEYS = new Set([
   "profile_user_id",
   "fishpedia",
   "equipped_charms",
   "trophies",
   "cosmetics",
+  "familiar",
 ]);
 
 function publicProgressionError(message) {
@@ -103,7 +107,7 @@ function normalizeCharm(value) {
     "source",
   ]));
   const source = requireKeys(charm.source, new Set(["type", "key"]));
-  if (!RARITIES.has(charm.rarity) || !TIERS.has(charm.tier)) {
+  if (!RARITIES.has(charm.rarity) || !TIERS.has(charm.tier) || !SOURCE_TYPES.has(source.type)) {
     throw publicProgressionError("Player collection could not be displayed.");
   }
   return {
@@ -115,7 +119,7 @@ function normalizeCharm(value) {
     star: requireInteger(charm.star, 0, 3),
     tier: charm.tier,
     source: {
-      type: requireSlug(source.type),
+      type: source.type,
       key: requireSlug(source.key, { nullable: true }),
     },
   };
@@ -144,6 +148,30 @@ function normalizeCosmetics(value) {
   };
 }
 
+function normalizeFamiliar(value) {
+  if (value === null) return { ...DEFAULT_FAMILIAR };
+  const familiar = requireKeys(value, new Set([
+    "species",
+    "coat",
+    "markings",
+    "outfit",
+    "accessory",
+    "charm_fx",
+  ]));
+  const parsed = familiarSelectionSchema.safeParse({
+    species: familiar.species,
+    coat: familiar.coat,
+    markings: familiar.markings,
+    outfit: familiar.outfit,
+    accessory: familiar.accessory,
+    charmFx: familiar.charm_fx,
+  });
+  if (!parsed.success) {
+    throw publicProgressionError("Player collection could not be displayed.");
+  }
+  return parsed.data;
+}
+
 function normalizeProjection(value) {
   const projection = requireKeys(value, ROOT_KEYS);
   if (!Array.isArray(projection.equipped_charms) || !Array.isArray(projection.trophies)) {
@@ -155,6 +183,7 @@ function normalizeProjection(value) {
     equippedCharms: projection.equipped_charms.map(normalizeCharm),
     trophies: projection.trophies.map(normalizeTrophy),
     cosmetics: normalizeCosmetics(projection.cosmetics),
+    familiar: normalizeFamiliar(projection.familiar),
   };
 }
 

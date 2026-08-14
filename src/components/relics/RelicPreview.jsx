@@ -1,5 +1,10 @@
 import { getEquippedCharms, getRelicBase, getRelicTheme, normalizeRelic, RELIC_RARITY_META } from "@/lib/relicCharms";
 import RelicCharmIcon from "@/components/relics/RelicCharmIcon";
+import { getRelicEvolutionLabel, getRelicEvolutionStage } from "@/components/relics/relicEvolutionModel";
+import {
+  COLLECTIBLE_ART_KINDS,
+  getApprovedCollectibleArtAsset,
+} from "@/components/relics/collectibleArtManifest";
 import "@/components/relics/relic-art.css";
 
 const OUTLINE = "#35404f";
@@ -14,19 +19,7 @@ const SKY = "#a4c8d5";
 const LILAC = "#b4b3cc";
 
 const EFFECT_PRIORITY = ["sigil-glow", "blue-flame", "star-orbit", "petal-drift", "snow-dots", "lore-script"];
-
-function getEvolutionStage(equipped = []) {
-  const mythicBonus = equipped.some((charm) => charm.rarity === "mythic") ? 1 : 0;
-  return Math.min(4, equipped.length + mythicBonus);
-}
-
-function getEvolutionLabel(stage) {
-  if (stage >= 4) return "Ascendant";
-  if (stage === 3) return "Crowned";
-  if (stage === 2) return "Adorned";
-  if (stage === 1) return "Awakened";
-  return "Dormant";
-}
+const MAX_VISIBLE_SOCKET_CHARMS = 2;
 
 function getThemeAccent(theme) {
   const palette = theme?.palette || [];
@@ -42,14 +35,14 @@ export default function RelicPreview({ relic, charms = [], compact = false }) {
   const base = getRelicBase(normalizedRelic.base_type);
   const theme = getRelicTheme(normalizedRelic.theme);
   const equipped = getEquippedCharms(charms);
-  const showcasedCharms = equipped.slice(0, compact ? 3 : 4);
+  const showcasedCharms = equipped.slice(0, MAX_VISIBLE_SOCKET_CHARMS);
   const overflowCharmCount = Math.max(0, equipped.length - showcasedCharms.length);
-  const stage = getEvolutionStage(equipped);
+  const stage = getRelicEvolutionStage(equipped);
 
   return (
     <section
       className={`relic-art ${compact ? "relic-art--compact" : ""}`}
-      aria-label={`${normalizedRelic.name}, ${getEvolutionLabel(stage)} ${theme.label.toLowerCase()} ${base.label.toLowerCase()}`}
+      aria-label={`${normalizedRelic.name}, ${getRelicEvolutionLabel(stage)} ${theme.label.toLowerCase()} ${base.label.toLowerCase()}`}
       style={{
         "--relic-theme": theme.palette[1],
         "--relic-highlight": theme.palette[2],
@@ -58,7 +51,7 @@ export default function RelicPreview({ relic, charms = [], compact = false }) {
     >
       <div className="relic-art__header">
         <span className="relic-art__tag">{theme.label} {base.label}</span>
-        <span className="relic-art__stage">{getEvolutionLabel(stage)}</span>
+        <span className="relic-art__stage">{getRelicEvolutionLabel(stage)}</span>
       </div>
 
       <div className="relic-art__display">
@@ -101,13 +94,113 @@ export default function RelicPreview({ relic, charms = [], compact = false }) {
 function RelicArtifactSvg({ baseId, compact, effects, stage, theme }) {
   const colors = getThemeAccent(theme);
   const [primaryEffect] = EFFECT_PRIORITY.filter((effect) => effects.includes(effect));
+  const approvedBaseAsset = getApprovedCollectibleArtAsset(COLLECTIBLE_ART_KINDS.relicBase, baseId || "lantern");
+  const approvedEffectAsset = primaryEffect
+    ? getApprovedCollectibleArtAsset(COLLECTIBLE_ART_KINDS.relicEffect, primaryEffect)
+    : null;
+
+  if (approvedBaseAsset || approvedEffectAsset) {
+    return (
+      <div
+        className={`relic-art__artifact ${compact ? "relic-art__artifact--compact" : ""}`}
+        role="img"
+        aria-label="Crafted profile relic"
+        data-relic-base={baseId || "lantern"}
+        data-relic-stage={stage}
+      >
+        {approvedBaseAsset ? (
+          <>
+            <img
+              className="relic-art__approved-layer"
+              src={approvedBaseAsset}
+              alt=""
+              aria-hidden="true"
+              draggable="false"
+              data-art-source="approved"
+              data-art-kind="relic-base"
+            />
+            <RelicApprovedOverlaySvg
+              colors={colors}
+              effect={approvedEffectAsset ? null : primaryEffect}
+              stage={stage}
+            />
+          </>
+        ) : (
+          <RelicFallbackSvg
+            baseId={baseId}
+            colors={colors}
+            effect={approvedEffectAsset ? null : primaryEffect}
+            stage={stage}
+          />
+        )}
+        {approvedEffectAsset ? (
+          <img
+            className="relic-art__approved-layer relic-art__approved-layer--effect"
+            src={approvedEffectAsset}
+            alt=""
+            aria-hidden="true"
+            draggable="false"
+            data-art-source="approved"
+            data-art-kind="relic-effect"
+          />
+        ) : null}
+      </div>
+    );
+  }
+
   return (
-    <svg className={`relic-art__artifact ${compact ? "relic-art__artifact--compact" : ""}`} viewBox="0 0 160 160" role="img" aria-label="Crafted profile relic">
+    <svg
+      className={`relic-art__artifact ${compact ? "relic-art__artifact--compact" : ""}`}
+      viewBox="0 0 160 160"
+      role="img"
+      aria-label="Crafted profile relic"
+      data-relic-base={baseId || "lantern"}
+      data-relic-stage={stage}
+      data-art-source="fallback"
+    >
+      <RelicFallbackContent baseId={baseId} colors={colors} effect={primaryEffect} stage={stage} />
+    </svg>
+  );
+}
+
+function RelicApprovedOverlaySvg({ colors, effect, stage }) {
+  return (
+    <svg
+      className="relic-art__approved-layer relic-art__approved-layer--fallback-overlay"
+      viewBox="0 0 160 160"
+      aria-hidden="true"
+      data-art-source="fallback-overlay"
+    >
+      <g className="relic-art__layer relic-art__layer--ornament">
+        <EvolutionOrnaments colors={colors} stage={stage} />
+      </g>
+      <g className="relic-art__layer relic-art__layer--theme-inlay">
+        <path d="m80 70 10 12-10 12-10-12 10-12Z" fill={colors.accent} stroke={OUTLINE} strokeLinejoin="round" strokeWidth="3" />
+        <path d="m80 75 5 7-5 7-5-7 5-7Z" fill={colors.highlight} />
+      </g>
+      <g className="relic-art__layer relic-art__layer--effect">
+        <RelicEffect effect={effect} colors={colors} />
+      </g>
+    </svg>
+  );
+}
+
+function RelicFallbackSvg({ baseId, colors, effect, stage }) {
+  return (
+    <svg className="relic-art__approved-layer" viewBox="0 0 160 160" aria-hidden="true" data-art-source="fallback">
+      <RelicFallbackContent baseId={baseId} colors={colors} effect={effect} stage={stage} />
+    </svg>
+  );
+}
+
+function RelicFallbackContent({ baseId, colors, effect, stage }) {
+  return (
+    <>
       <g className="relic-art__layer relic-art__layer--ornament">
         <EvolutionOrnaments colors={colors} stage={stage} />
       </g>
       <g className="relic-art__layer relic-art__layer--effect">
-        <RelicEffect effect={primaryEffect} colors={colors} />
+        <RelicEffect effect={effect} colors={colors} />
       </g>
       <g className="relic-art__layer">
         {baseId === "tome" ? <TomeRelic colors={colors} /> : null}
@@ -116,16 +209,24 @@ function RelicArtifactSvg({ baseId, compact, effects, stage, theme }) {
         {baseId === "instrument" ? <InstrumentRelic colors={colors} /> : null}
         {!baseId || baseId === "lantern" ? <LanternRelic colors={colors} /> : null}
       </g>
-    </svg>
+    </>
   );
 }
 
 function EvolutionOrnaments({ colors, stage }) {
   if (stage === 0) return null;
-  return <g fill="none" stroke={colors.accent} strokeLinecap="round">
-    <circle cx="80" cy="78" r={48 + Math.min(stage, 3) * 2} strokeWidth="3" />
-    {stage >= 3 ? <path d="M39 104c13 19 69 25 87-1" strokeWidth="3" /> : null}
-  </g>;
+  return (
+    <g stroke={OUTLINE} strokeLinejoin="round" strokeWidth="3">
+      {stage >= 1 ? (
+        <>
+          <path d="m31 71 19-13-3 29-18 7 2-23Z" fill={colors.accent} />
+          <path d="m129 71-19-13 3 29 18 7-2-23Z" fill={colors.accent} />
+        </>
+      ) : null}
+      {stage >= 2 ? <path d="m61 31 19-15 19 15-9 10H70l-9-10Z" fill={colors.highlight} /> : null}
+      {stage >= 3 ? <path d="m51 128 29 15 29-15-7-12H58l-7 12Z" fill={colors.shadow} /> : null}
+    </g>
+  );
 }
 
 function RelicEffect({ effect, colors }) {

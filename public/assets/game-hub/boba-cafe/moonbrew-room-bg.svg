@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Moonbrew cafe room</title>
+  <desc id="desc">A cozy isometric cafe with dark teal and plum walls, a celestial window, warm terracotta floor, and a rose sofa.</desc>
+  <path d="M120 248 800 54l680 194-680 194Z" fill="#526f76" stroke="#203659" stroke-width="12" stroke-linejoin="round"/>
+  <path d="M120 248v370l680 216V442Z" fill="#46646d" stroke="#203659" stroke-width="12" stroke-linejoin="round"/>
+  <path d="M1480 248v370L800 834V442Z" fill="#665466" stroke="#203659" stroke-width="12" stroke-linejoin="round"/>
+  <path d="M120 618 800 834l680-216-680-220Z" fill="#c7906f" stroke="#203659" stroke-width="12" stroke-linejoin="round"/>
+  <g fill="none" stroke="#9d694f" stroke-width="5">
+    <path d="m230 583 680 216M360 542l680 216M490 500l680 216M620 458l680 216M750 416l680 216"/>
+    <path d="m230 654 680-216M360 696l680-216M490 738l680-216M620 780l680-216M750 822l680-216"/>
+  </g>
+  <path d="M270 298 500 232v196l-230 68Z" fill="#f3cf72" stroke="#203659" stroke-width="12" stroke-linejoin="round"/>
+  <path d="M294 440V342c0-43 37-84 91-100 53-15 91 4 91 48v96Z" fill="#cde8eb" stroke="#203659" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M294 440 476 386v-32l-182 54Z" fill="#78a8b9"/>
+  <path d="M385 262v150M295 376l181-53" fill="none" stroke="#203659" stroke-width="8" stroke-linecap="round"/>
+  <path d="M640 180q0-18 18-18h284q18 0 18 18l40 46-40 46q0 18-18 18H658q-18 0-18-18l-40-46Z" fill="#203659" stroke="#203659" stroke-width="12" stroke-linejoin="round"/>
+  <path d="M782 198c-23 8-38 29-38 52 0 11 3 22 9 31 0-2-1-4-1-7 0-33 27-60 60-60 8 0 16 2 23 5-13-16-32-25-53-21Z" fill="#f3cf72" stroke="#203659" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M1110 306 1320 246v194l-210 62Z" fill="#c77e8d" stroke="#203659" stroke-width="12" stroke-linejoin="round"/>
+  <path d="m1110 468 210-62v34l-210 62Z" fill="#9d694f"/>
+  <path d="M1198 312c-20 7-34 27-34 49 0 9 3 18 7 26 2-28 24-51 52-54-7-17-17-26-25-21Z" fill="#f3cf72" stroke="#203659" stroke-width="8"/>
+  <g stroke="#203659" stroke-width="10" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M1090 524 1272 579v96l-182-56Z" fill="#c77e8d"/>
+    <path d="m1272 579 99-31v95l-99 32Z" fill="#9d6277"/>
+    <path d="m1090 524 98-31 183 55-99 31Z" fill="#e2a9b5"/>
+    <path d="M1108 473 1274 523v73l-166-50Z" fill="#c77e8d"/>
+    <path d="m1274 523 74-23v72l-74 24Z" fill="#9d6277"/>
+    <path d="m1108 473 74-23 166 50-74 23Z" fill="#e2a9b5"/>
+    <path d="m1187 496 1 73M1130 658v44M1329 630v43" fill="none"/>
+    <path d="M1016 583v99M1075 565v98" fill="none"/>
+    <path d="M994 575q41-27 85 0-7 24-43 27-35-3-42-27Z" fill="#f3cf72"/>
+  </g>
+  <g stroke="#203659" stroke-width="8" stroke-linejoin="round">
+    <path d="M205 470c-8-42 21-76 58-77 36 1 65 35 57 77Z" fill="#789461"/>
+    <path d="M252 445c-30-43-13-81 17-86 21 15 20 50-17 86Zm14 1c19-46 55-57 73-34-1 29-29 46-73 34Zm-12 4c-39-16-66 2-63 29 19 17 45 7 63-29Z" fill="#afc59d"/>
+    <path d="m225 466 76-24-12 75-50 15Z" fill="#c77e8d"/>
+    <path d="M1288 456c-8-40 20-72 56-73 34 1 62 33 55 73Z" fill="#789461"/>
+    <path d="M1333 432c-28-41-12-77 16-82 20 15 19 48-16 82Zm13 1c18-43 52-54 69-32-1 28-27 44-69 32Zm-11 4c-37-15-63 2-60 27 18 17 42 7 60-27Z" fill="#afc59d"/>
+    <path d="m1306 453 73-22-12 70-48 15Z" fill="#c77e8d"/>
+  </g>
+  <path d="M170 290v94" fill="none" stroke="#203659" stroke-width="10"/>
+  <path d="m136 342 34-34 34 34v64l-34 34-34-34Z" fill="#203659" stroke="#203659" stroke-width="10"/>
+  <path d="m151 354 19-19 19 19v39l-19 20-19-20Z" fill="#f3cf72" stroke="#203659" stroke-width="7"/>
+</svg>

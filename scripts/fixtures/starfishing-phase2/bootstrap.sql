@@ -176,6 +176,99 @@ $timing_test$;
 revoke all on function public.start_starfishing_timing_test()
 from public, anon, authenticated;
 
+create or replace function public.start_starfishing_duplicate_test()
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $duplicate_test$
+declare
+  caller_id uuid := (select auth.uid());
+  sentinel private.phase2_disposable_smoke_sentinel%rowtype;
+  caught_fish record;
+  cast_ticket_id uuid := pg_catalog.gen_random_uuid();
+  cast_created_at timestamptz := pg_catalog.clock_timestamp();
+  cast_not_before timestamptz;
+begin
+  if caller_id is null then
+    raise exception using errcode = '42501', message = 'Authentication required';
+  end if;
+
+  select target.*
+  into sentinel
+  from private.phase2_disposable_smoke_sentinel as target
+  where target.singleton
+    and target.disposable
+    and target.expires_at > cast_created_at
+    and caller_id in (target.user_a_id, target.user_b_id);
+
+  if sentinel.project_ref is null then
+    raise exception using errcode = '55000', message = 'Disposable sentinel missing or expired';
+  end if;
+
+  select catalog.fish_key, catalog.catalog_version, catalog.min_size, catalog.qte_length
+  into caught_fish
+  from public.user_fishpedia as fishpedia
+  join public.game_fish_catalog as catalog
+    on catalog.fish_key = fishpedia.fish_key
+    and catalog.active
+  where fishpedia.user_id = caller_id
+  order by fishpedia.first_caught_at, fishpedia.fish_key
+  limit 1;
+
+  if caught_fish.fish_key is null then
+    raise exception using errcode = '55000', message = 'Duplicate test requires one prior catch';
+  end if;
+
+  if exists (
+    select 1
+    from public.game_cast_tickets as ticket
+    where ticket.user_id = caller_id
+      and ticket.consumed_at is null
+  ) then
+    raise exception using errcode = '55000', message = 'Duplicate test requires no active cast';
+  end if;
+
+  cast_not_before := cast_created_at
+    + interval '1200 milliseconds'
+    + (caught_fish.qte_length * interval '150 milliseconds');
+
+  insert into public.game_cast_tickets (
+    id,
+    user_id,
+    fish_key,
+    catalog_version,
+    authoritative_size,
+    applied_effects,
+    not_before,
+    expires_at,
+    created_at
+  ) values (
+    cast_ticket_id,
+    caller_id,
+    caught_fish.fish_key,
+    caught_fish.catalog_version,
+    caught_fish.min_size,
+    '[]'::jsonb,
+    cast_not_before,
+    cast_created_at + interval '10 minutes',
+    cast_created_at
+  );
+
+  return pg_catalog.jsonb_build_object(
+    'ticket_id', cast_ticket_id,
+    'fish_key', caught_fish.fish_key,
+    'qte_length', caught_fish.qte_length,
+    'applied_effects', '[]'::jsonb,
+    'not_before', cast_not_before,
+    'expires_at', cast_created_at + interval '10 minutes'
+  );
+end;
+$duplicate_test$;
+
+revoke all on function public.start_starfishing_duplicate_test()
+from public, anon, authenticated;
+
 insert into public.user_trophies (
   user_id,
   trophy_key,

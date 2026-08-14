@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Flower2, LogIn, RotateCcw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/communityClient";
+import { getApprovedGameArtAsset } from "@/games/shared/art/gameArtManifest";
 import GameResultSheet from "@/games/shared/ui/GameResultSheet";
 import GameShell from "@/games/shared/ui/GameShell";
+import GameFamiliarCompanion from "@/games/shared/familiar/GameFamiliarCompanion";
 import { GAME_ACTIONS } from "@/games/shared/input/actions.js";
 import { useGameControls } from "@/games/shared/input/useGameControls.js";
 import {
@@ -11,7 +13,14 @@ import {
   progressGameRewardSession,
   startGameRewardSession,
 } from "@/games/shared/rewards/gameRewardClient";
+import {
+  clearGameRewardRecovery,
+  readGameRewardRecovery,
+  updateRewardSessionContext,
+  writeGameRewardRecovery,
+} from "@/games/shared/rewards/gameRewardRecovery";
 import { getLocalDateKey } from "@/games/wordGarden/content/wordGardenCatalog.js";
+import { resolveApprovedWordGardenArtFamily } from "@/games/wordGarden/art/wordGardenArtFamily.js";
 import WordFlower from "@/games/wordGarden/ui/WordFlower";
 import WordGardenHud from "@/games/wordGarden/ui/WordGardenHud";
 import {
@@ -25,6 +34,7 @@ import {
   createWordGardenState,
   readLocalJson,
   removePetal,
+  revealWordGardenHint,
   shufflePetals,
   submitGardenWord,
   writeLocalJson,
@@ -32,10 +42,14 @@ import {
 import {
   createRewardedWordGardenState,
   createWordGardenReceiptIntent,
+  getRecoverableWordGardenError,
   validateRewardedGardenDraft,
 } from "@/games/wordGarden/simulation/wordGardenRewardModel.js";
 import { useAuth } from "@/lib/AuthContext";
 import "@/games/wordGarden/ui/word-garden.css";
+
+const WORD_GARDEN_ENVIRONMENT_ASSET = getApprovedGameArtAsset("word-garden.conservatory");
+const WORD_GARDEN_ART_FAMILY = resolveApprovedWordGardenArtFamily();
 
 function createSavedGarden() {
   const seedKey = getLocalDateKey();
@@ -52,13 +66,14 @@ function createSavedGarden() {
     status: saved.status === WORD_GARDEN_STATUS.complete ? WORD_GARDEN_STATUS.complete : WORD_GARDEN_STATUS.playing,
     startedAt: saved.startedAt || fresh.startedAt,
     completedAt: saved.completedAt || null,
+    hintedWords: Array.isArray(saved.hintedWords) ? saved.hintedWords.filter((word) => fresh.featuredWords.includes(word)) : [],
     lastError: "",
   };
 }
 
 export default function WordGarden() {
   const navigate = useNavigate();
-  const { isAuthenticated, isLoadingAuth, openLogin } = useAuth();
+  const { isAuthenticated, isLoadingAuth, openLogin, user } = useAuth();
   const [mode, setMode] = useState("practice");
   const [practiceState, setPracticeState] = useState(createSavedGarden);
   const [rewardedState, setRewardedState] = useState(() => createWordGardenState({ seedKey: getLocalDateKey() }));
@@ -70,6 +85,8 @@ export default function WordGarden() {
   const [practiceRewardIntent, setPracticeRewardIntent] = useState(null);
   const [rewardLog, setRewardLog] = useState(() => readLocalJson(WORD_GARDEN_REWARD_LOG_KEY, []));
   const requestInFlightRef = useRef(false);
+  const requestGenerationRef = useRef(0);
+  const rewardOwnerRef = useRef("");
   const state = mode === "rewarded" ? rewardedState : practiceState;
   const isPlaying = state.status === WORD_GARDEN_STATUS.playing;
   const score = useMemo(() => calculateWordGardenScore(state), [state]);
@@ -77,23 +94,77 @@ export default function WordGarden() {
   useEffect(() => writeLocalJson(WORD_GARDEN_STORAGE_KEY, practiceState), [practiceState]);
   useEffect(() => writeLocalJson(WORD_GARDEN_REWARD_LOG_KEY, rewardLog.slice(0, 25)), [rewardLog]);
 
-  const runRequest = useCallback(async (request, operation) => {
+  const runRequest = useCallback(async (request, operation, recoverySession = null) => {
     if (requestInFlightRef.current) return null;
+    const requestGeneration = requestGenerationRef.current;
     requestInFlightRef.current = true;
     setIsBusy(true);
     setRewardError("");
     setRetryRequest(null);
     try {
-      return await operation();
+      const result = await operation();
+      if (requestGeneration !== requestGenerationRef.current) return null;
+      clearGameRewardRecovery(window.sessionStorage, {
+        gameKey: "word-garden",
+        ownerId: rewardOwnerRef.current,
+      });
+      return result;
     } catch (error) {
+      if (requestGeneration !== requestGenerationRef.current) return null;
+      const recoverableMessage = getRecoverableWordGardenError(error, request?.action);
+      if (recoverableMessage) {
+        setRewardedState((current) => ({ ...current, lastError: recoverableMessage }));
+        return null;
+      }
       setRewardError(error?.message || "The reward service could not complete that request.");
       setRetryRequest(request);
+      writeGameRewardRecovery(window.sessionStorage, {
+        gameKey: "word-garden",
+        ownerId: rewardOwnerRef.current,
+        request,
+        session: recoverySession,
+      });
       return null;
     } finally {
-      requestInFlightRef.current = false;
-      setIsBusy(false);
+      if (requestGeneration === requestGenerationRef.current) {
+        requestInFlightRef.current = false;
+        setIsBusy(false);
+      }
     }
   }, []);
+
+  useEffect(() => {
+    if (isLoadingAuth) return;
+    const ownerKey = isAuthenticated ? (user?.id || "authenticated") : "";
+    if (rewardOwnerRef.current === ownerKey) return;
+    rewardOwnerRef.current = ownerKey;
+    requestGenerationRef.current += 1;
+    requestInFlightRef.current = false;
+    setIsBusy(false);
+    setMode("practice");
+    setRewardSession(null);
+    setRewardReceipt(null);
+    setRewardError("");
+    setRetryRequest(null);
+    if (!ownerKey) return;
+    const recovery = readGameRewardRecovery(window.sessionStorage, {
+      gameKey: "word-garden",
+      ownerId: ownerKey,
+    });
+    if (recovery?.request.kind === "start") {
+      setMode("rewarded");
+      setRewardError("A garden session start is ready to retry safely.");
+      setRetryRequest(recovery.request);
+      return;
+    }
+    if (recovery?.session && recovery.request.kind !== "start") {
+      setMode("rewarded");
+      setRewardSession(recovery.session);
+      setRewardedState((current) => createRewardedWordGardenState(recovery.session, current));
+      setRewardError("A garden reward request is ready to retry safely.");
+      setRetryRequest(recovery.request);
+    }
+  }, [isAuthenticated, isLoadingAuth, user?.id]);
 
   const startRewardedGarden = useCallback(async () => {
     if (!isAuthenticated) {
@@ -119,8 +190,9 @@ export default function WordGarden() {
       sessionId: rewardSession.sessionId,
       idempotencyKey: request.idempotencyKey,
       action: request.action,
-    }));
+    }), rewardSession);
     if (!result) return;
+    setRewardSession((current) => updateRewardSessionContext(current, result.state));
     setRewardedState((current) => {
       const next = createRewardedWordGardenState({
         puzzle: rewardSession.puzzle,
@@ -137,6 +209,7 @@ export default function WordGarden() {
   const addLetter = useCallback((letter) => updateActiveState((current) => appendPetal(current, letter)), [updateActiveState]);
   const deleteLetter = useCallback(() => updateActiveState((current) => removePetal(current)), [updateActiveState]);
   const shuffle = useCallback(() => updateActiveState((current) => shufflePetals(current)), [updateActiveState]);
+  const revealHint = useCallback(() => updateActiveState((current) => revealWordGardenHint(current)), [updateActiveState]);
   const clearDraft = useCallback(() => updateActiveState((current) => ({ ...current, draftWord: "", lastError: "" })), [updateActiveState]);
 
   const submit = useCallback(() => {
@@ -163,25 +236,25 @@ export default function WordGarden() {
     if (action === GAME_ACTIONS.cancel) clearDraft();
     if (action === GAME_ACTIONS.primary) shuffle();
   }, [clearDraft, shuffle, submit]);
-  useGameControls({ enabled: isPlaying && !isBusy, onAction, preserveNativeButtonActivation: true });
+  const handleLetterKey = useCallback((event) => {
+    if (isBusy || event.metaKey || event.ctrlKey || event.altKey) return false;
+    if (event.key === "Backspace") {
+      event.preventDefault();
+      deleteLetter();
+      return true;
+    }
+    if (!/^[a-zA-Z]$/.test(event.key)) return false;
+    event.preventDefault();
+    addLetter(event.key);
+    return true;
+  }, [addLetter, deleteLetter, isBusy]);
 
-  useEffect(() => {
-    if (!isPlaying) return undefined;
-    const handleLetterKey = (event) => {
-      if (isBusy || event.metaKey || event.ctrlKey || event.altKey) return;
-      const tagName = event.target?.tagName?.toUpperCase();
-      if (event.target?.isContentEditable || ["BUTTON", "INPUT", "TEXTAREA", "SELECT"].includes(tagName)) return;
-      if (event.key === "Backspace") {
-        event.preventDefault();
-        deleteLetter();
-      } else if (/^[a-zA-Z]$/.test(event.key)) {
-        event.preventDefault();
-        addLetter(event.key);
-      }
-    };
-    window.addEventListener("keydown", handleLetterKey);
-    return () => window.removeEventListener("keydown", handleLetterKey);
-  }, [addLetter, deleteLetter, isBusy, isPlaying]);
+  useGameControls({
+    enabled: isPlaying && !isBusy,
+    onAction,
+    onKeyDown: handleLetterKey,
+    preserveNativeButtonActivation: true,
+  });
 
   const finishGarden = () => {
     if (isBusy || rewardError) return;
@@ -210,7 +283,7 @@ export default function WordGarden() {
       sessionId: rewardSession.sessionId,
       idempotencyKey: request.idempotencyKey,
       evidence: {},
-    }));
+    }), rewardSession);
     if (receipt) setRewardReceipt(receipt);
   }, [rewardSession, runRequest]);
 
@@ -243,6 +316,7 @@ export default function WordGarden() {
 
   const sidebar = (
     <div className="word-garden-sidebar">
+      <GameFamiliarCompanion label="Garden companion" />
       <ModePanel
         mode={mode}
         isAuthenticated={isAuthenticated}
@@ -266,7 +340,7 @@ export default function WordGarden() {
           onChoose={handleResultChoice}
           onReturn={() => navigate("/quarters")}
         />
-      ) : <WordGardenHud state={state} mode={mode} onComplete={finishGarden} />}
+      ) : <WordGardenHud artFamily={WORD_GARDEN_ART_FAMILY} state={state} mode={mode} onComplete={finishGarden} onRevealHint={revealHint} />}
       {rewardError ? <RewardError message={rewardError} onRetry={handleRetry} disabled={isBusy} /> : null}
     </div>
   );
@@ -284,8 +358,21 @@ export default function WordGarden() {
       ) : null}
       sidebar={sidebar}
     >
-      <div className="word-garden-scene">
-        <svg className="word-garden-scene__glasshouse" viewBox="0 0 800 320" aria-hidden="true">
+      <div
+        className="word-garden-scene"
+        tabIndex={0}
+        aria-label="Blooming Ink keyboard playfield"
+      >
+        {WORD_GARDEN_ENVIRONMENT_ASSET ? (
+          <img
+            className="word-garden-scene__illustration"
+            data-scene-layer="environment"
+            src={WORD_GARDEN_ENVIRONMENT_ASSET}
+            alt=""
+            aria-hidden="true"
+            draggable="false"
+          />
+        ) : <svg className="word-garden-scene__glasshouse" data-scene-layer="environment-fallback" viewBox="0 0 800 320" aria-hidden="true">
           <path className="word-garden-art__back" d="M93 251V129L217 43h366l124 86v122Z" />
           <path className="word-garden-art__glass" d="M114 230V140l111-76h350l111 76v90Z" />
           <path className="word-garden-art__glass-light" d="M146 205v-52l93-64h128v116Zm287 0V89h128l93 64v52Z" />
@@ -304,19 +391,19 @@ export default function WordGarden() {
             <path d="M140 204q-18-25 4-37 17 17 8 37m10 0q-4-34 23-36 8 28-15 40" />
             <path d="M630 204q-8-33 19-37 12 26-10 40m-26-3q-17-27 7-38 15 18 5 40" />
           </g>
-        </svg>
-        <div className="word-garden-scene__canopy">
-          <p>Today's heart letter</p>
-          <h2>Every bloom carries {state.center}</h2>
-        </div>
-        <div className="word-garden-scene__controls" role="group" aria-label="Keyboard controls">
-          <span><kbd>A-Z</kbd> petals</span><span><kbd>Enter</kbd> bloom</span><span><kbd>⌫</kbd> prune</span><span><kbd>Space</kbd> shuffle</span><span><kbd>Esc</kbd> clear</span>
+        </svg>}
+        <div className="word-garden-scene__progress" aria-label="Current garden progress">
+          <span><strong>{state.foundWords.length}</strong> words bloomed</span>
+          <span><strong>{score}</strong> dewlight</span>
         </div>
         {state.lastError ? <p className="word-garden-scene__error" role="alert">{state.lastError}</p> : null}
         <WordFlower
+          artFamily={WORD_GARDEN_ART_FAMILY}
           center={state.center}
           petals={state.petals}
           draftWord={state.draftWord}
+          theme={state.theme}
+          themePrompt={state.themePrompt}
           disabled={!isPlaying || isBusy || Boolean(rewardError)}
           onPetal={addLetter}
           onRemove={deleteLetter}

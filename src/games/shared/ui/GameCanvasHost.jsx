@@ -1,7 +1,15 @@
 import { useEffect, useRef } from "react";
 import { createGameInstance } from "@/games/shared/phaser/createGameInstance";
 
-export default function GameCanvasHost({ scene, bridge, className = "", backgroundColor }) {
+export default function GameCanvasHost({
+  scene,
+  bridge,
+  className = "",
+  backgroundColor,
+  width = 960,
+  height = 540,
+  scaleMode = "resize",
+}) {
   const hostRef = useRef(null);
   const gameRef = useRef(null);
 
@@ -19,13 +27,16 @@ export default function GameCanvasHost({ scene, bridge, className = "", backgrou
       parent: hostRef.current,
       scene: BoundScene,
       backgroundColor,
+      width,
+      height,
+      scaleMode,
     });
 
     return () => {
       gameRef.current?.destroy(true);
       gameRef.current = null;
     };
-  }, [backgroundColor, bridge, scene]);
+  }, [backgroundColor, bridge, height, scaleMode, scene, width]);
 
   return (
     <div

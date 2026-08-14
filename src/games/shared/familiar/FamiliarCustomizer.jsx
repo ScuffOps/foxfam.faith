@@ -37,11 +37,11 @@ function optionsFor(category, draft) {
   return Object.entries(catalogs[category]).map(([value, item]) => ({ value, label: item.label }));
 }
 
-export default function FamiliarCustomizer({ familiar, onSave, isGuest, status, error }) {
+export default function FamiliarCustomizer({ familiar, startingFamiliar = familiar, onSave, isGuest, status, error }) {
   const { retryFamiliar } = useFamiliar();
-  const [draft, setDraft] = useState(familiar);
+  const [draft, setDraft] = useState(startingFamiliar);
   const [notice, setNotice] = useState("");
-  useEffect(() => setDraft(familiar), [familiar]);
+  useEffect(() => setDraft(startingFamiliar), [startingFamiliar]);
   const hasChanges = useMemo(() => JSON.stringify(draft) !== JSON.stringify(familiar), [draft, familiar]);
   const isRemoteUnavailable = !isGuest && status === "error";
 
@@ -85,7 +85,7 @@ export default function FamiliarCustomizer({ familiar, onSave, isGuest, status, 
                     key={option.value}
                     type="button"
                     variant={draft[category.key] === option.value ? "secondary" : "outline"}
-                    className="min-h-11 justify-start whitespace-normal px-3 text-left"
+                    className="h-auto min-h-14 justify-start gap-2 whitespace-normal px-3 py-2 text-left leading-tight"
                     disabled={isRemoteUnavailable || status === "saving"}
                     aria-pressed={draft[category.key] === option.value}
                     onClick={() => selectOption(category.key, option.value)}

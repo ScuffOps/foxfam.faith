@@ -15,6 +15,7 @@ import { canManageRoles } from "@/lib/roles";
 import { getPrivateUserKey } from "@/lib/communityActor";
 import { relicForgeService } from "@/lib/relicForgeService";
 import { applyForgeReceipt, formatForgeReceipt } from "@/lib/relicForgeUiModel";
+import { RELIC_FORGE_GUEST_PREVIEW } from "@/lib/relicForgePreviewState";
 
 const BASE_ICONS = {
   lantern: Lamp,
@@ -123,9 +124,23 @@ export default function RelicForge() {
   const [busyForgeAction, setBusyForgeAction] = useState("");
   const [retryForgeRequest, setRetryForgeRequest] = useState(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const isGuestPreview = !isLoadingAuth && !isAuthenticated;
 
   useEffect(() => {
     let mounted = true;
+    if (isLoadingAuth) return () => { mounted = false; };
+    if (!isAuthenticated) {
+      setUser(null);
+      setRelic(RELIC_FORGE_GUEST_PREVIEW.relic);
+      setGate({ enabled: true, reason: "Guest preview" });
+      setLevel({ points: RELIC_FORGE_GUEST_PREVIEW.forge.balances.favor });
+      setForgeState(RELIC_FORGE_GUEST_PREVIEW.forge);
+      setForgeError("");
+      setForgeLoading(false);
+      setError("");
+      setLoading(false);
+      return () => { mounted = false; };
+    }
     const loadRelic = async () => {
       setLoading(true);
       setError("");
@@ -159,11 +174,11 @@ export default function RelicForge() {
     };
     loadRelic();
     return () => { mounted = false; };
-  }, [loadAttempt]);
+  }, [isAuthenticated, isLoadingAuth, loadAttempt]);
 
   const normalizedRelic = normalizeRelic(relic);
   const canBypassGate = canManageRoles(user);
-  const forgeOpen = Boolean(gate?.enabled) || canBypassGate;
+  const forgeOpen = isGuestPreview || Boolean(gate?.enabled) || canBypassGate;
   const selectedEffects = RELIC_EFFECTS.filter((item) => normalizedRelic.effects.includes(item.id));
   const currentFavor = Math.max(0, Number(forgeState?.balances.favor ?? level?.points ?? 0));
   const investedFavor = Math.max(0, Number(normalizedRelic.favor_spent || 0));
@@ -184,6 +199,10 @@ export default function RelicForge() {
   };
 
   const handleSave = async () => {
+    if (isGuestPreview) {
+      openLogin();
+      return;
+    }
     if (!relicReady) return;
     setSaving(true);
     try {
@@ -209,6 +228,10 @@ export default function RelicForge() {
   };
 
   const runForgeAction = async (operation, charm) => {
+    if (isGuestPreview) {
+      openLogin();
+      return;
+    }
     const requestId = retryForgeRequest?.operation === operation && retryForgeRequest?.charmId === charm.id
       ? retryForgeRequest.requestId
       : crypto.randomUUID();
@@ -234,8 +257,13 @@ export default function RelicForge() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div
+        className="flex items-center justify-center gap-3 py-24 text-[#485365]"
+        role="status"
+        aria-live="polite"
+      >
+        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
+        <span className="sr-only">Loading Relic Forge</span>
       </div>
     );
   }
@@ -277,15 +305,15 @@ export default function RelicForge() {
   }
 
   return (
-    <div className="relic-forge-page mx-auto max-w-6xl animate-fade-in text-[#364152]">
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="relic-forge-page mx-auto max-w-6xl text-[#364152]">
+      <div className="mb-5 flex flex-col gap-3 border-y-2 border-[#596575] bg-[#faf3eb] px-4 py-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="mb-2 flex items-center gap-2 text-[#657080]">
+          <div className="mb-2 flex items-center gap-2 text-[#485365]">
             <Hammer className="h-4 w-4" />
             <span className="text-[10px] font-semibold uppercase tracking-[0.28em]">Workshop Bench</span>
           </div>
           <h1 className="font-heading text-2xl font-bold md:text-3xl">Relic Forge</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+          <p className="mt-1 max-w-2xl text-sm text-[#485365]">
             Tune the single relic attached to your profile. Charms and accessories live in your profile collection.
           </p>
         </div>
@@ -293,6 +321,18 @@ export default function RelicForge() {
           <Link to="/profile"><Shield className="h-4 w-4" /> Back to Profile</Link>
         </Button>
       </div>
+
+      {isGuestPreview ? (
+        <section className="mb-5 flex flex-col gap-3 rounded-lg border-2 border-[#596575] bg-[#dfd8ab] p-4 text-[#364152] shadow-[3px_3px_0_#9b9077] sm:flex-row sm:items-center sm:justify-between" aria-label="Guest Forge preview">
+          <div>
+            <p className="font-heading text-sm font-bold">Read-only Forge specimen</p>
+            <p className="mt-1 text-xs leading-5">Explore a sample relic, rarity tiers, materials, and achievement charms. Nothing here is saved or awarded.</p>
+          </div>
+          <Button type="button" variant="outline" className="shrink-0 gap-2" onClick={openLogin}>
+            <LogIn className="h-4 w-4" /> Sign in to forge
+          </Button>
+        </section>
+      ) : null}
 
       <section className="rounded-lg border-[3px] border-[#485365] bg-[#faf3eb] p-4 shadow-[0_7px_0_#c7bbb0] lg:p-5">
         <div className="grid gap-4 md:grid-cols-[17rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)_18rem]">
@@ -303,8 +343,9 @@ export default function RelicForge() {
                   key={item}
                   type="button"
                   onClick={() => setStep(item)}
+                  aria-pressed={step === item}
                   className={`flex-1 rounded-md px-2 py-2 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${
-                    step === item ? "bg-[#dfd8ab] text-[#364152] shadow-[0_2px_0_#9b9077]" : "text-[#657080] hover:bg-[#faf3eb] hover:text-[#364152]"
+                    step === item ? "bg-[#dfd8ab] text-[#364152] shadow-[0_2px_0_#9b9077]" : "text-[#485365] hover:bg-[#faf3eb] hover:text-[#364152]"
                   }`}
                 >
                   {item}
@@ -316,7 +357,7 @@ export default function RelicForge() {
               <div className="mb-4 rounded-lg border-2 border-[#707989] bg-[#d9e6ec] p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#657080]">Favor budget</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#485365]">Favor budget</p>
                     <p className="mt-1 font-heading text-2xl font-bold">{currentFavor} Favor</p>
                   </div>
                   <Gem className="h-5 w-5 text-[#80adbc]" />
@@ -332,14 +373,14 @@ export default function RelicForge() {
                     Atomic save
                   </span>
                 </div>
-                <p className="mt-3 text-xs leading-5 text-muted-foreground">
+                <p className="mt-3 text-xs leading-5 text-[#485365]">
                   The Forge verifies the build and charges the exact canonical cost when you save.
                 </p>
               </div>
 
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="font-heading text-sm font-bold">{step}</h2>
-                <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">One relic only</span>
+                <span className="text-[10px] uppercase tracking-[0.18em] text-[#485365]">One relic only</span>
               </div>
 
               {step === "Base" && (
@@ -392,7 +433,7 @@ export default function RelicForge() {
             </div>
           </aside>
 
-          <RelicPreview relic={normalizedRelic} />
+          <RelicPreview relic={normalizedRelic} charms={forgeState?.charms || []} />
 
           <aside className="space-y-4 md:col-span-2 xl:col-span-1">
             <div className="rounded-lg border-2 border-[#707989] bg-[#eee8e8] p-4">
@@ -403,7 +444,7 @@ export default function RelicForge() {
                 <Shield className="h-5 w-5 text-[#80adbc]" />
               </div>
               <h2 className="font-heading text-xl font-bold">{normalizedRelic.name || "Unnamed Relic"}</h2>
-              <p className="mt-1 text-sm text-muted-foreground">This save updates your only relic, not a new item.</p>
+              <p className="mt-1 text-sm text-[#485365]">This save updates your only relic, not a new item.</p>
               <div className="my-4 rounded-lg border-2 border-[#9b9077] bg-[#f8f1df] p-3 text-sm leading-6 text-[#596575]">
                 {normalizedRelic.lore || "A relic waits for its first vow."}
               </div>
@@ -418,7 +459,7 @@ export default function RelicForge() {
                 </div>
                 <div className="mt-1 flex items-center justify-between gap-3">
                   <span>Available Favor</span>
-                  <strong className="text-[#718a73]">{currentFavor}</strong>
+                  <strong className="text-[#526b55]">{currentFavor}</strong>
                 </div>
               </div>
               <div className="space-y-2">
@@ -434,9 +475,9 @@ export default function RelicForge() {
             </div>
 
             <div className="grid gap-2">
-              <Button onClick={handleSave} disabled={!relicReady || saving} className="h-11 gap-2">
+              <Button onClick={handleSave} disabled={!isGuestPreview && (!relicReady || saving)} className="h-11 gap-2">
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                {saving ? "Saving..." : "Save Relic"}
+                {isGuestPreview ? "Sign in to save" : saving ? "Saving..." : "Save Relic"}
               </Button>
               <Button asChild variant="outline" className="h-10 gap-2">
                 <Link to="/profile"><Sparkles className="h-4 w-4" /> Manage Charms</Link>
@@ -457,6 +498,7 @@ export default function RelicForge() {
             state={forgeState}
             busyAction={busyForgeAction}
             error={forgeError}
+            readOnly={isGuestPreview}
             onUpgrade={(charm) => runForgeAction("awaken", charm)}
             onConvert={(charm) => runForgeAction("convert", charm)}
           />

@@ -114,6 +114,17 @@ describe("timeRunnerRules", () => {
     assert.deepEqual(fromKeyboard, fromMouse);
   });
 
+  it("maps number-key actions to either available clock landing", () => {
+    const now = 2000;
+    const running = startTimeRunner(createInitialTimeRunnerState({ seed: "choice-test", now }), now);
+    const alternateLanding = running.availableLandings[1];
+
+    const selected = applyTimeRunnerAction(running, "choice-two", now + 25);
+
+    assert.equal(selected.selectedLandingId, alternateLanding.id);
+    assert.equal(selected.routeStep, 1);
+  });
+
   it("freezes elapsed time while paused and resumes without counting the pause", () => {
     const started = startTimeRunner(createInitialTimeRunnerState({ now: 1000 }), 1000);
     const advanced = tickTimeRunner(started, 2000);

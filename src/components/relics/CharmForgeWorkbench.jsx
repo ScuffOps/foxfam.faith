@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import RelicCharmIcon from "@/components/relics/RelicCharmIcon";
+import { getCharmPresentation } from "@/components/relics/charmPresentation";
 import { MATERIAL_BY_KEY } from "@/lib/gameHubCatalog";
 import { getCharmDefinition, RELIC_RARITY_META } from "@/lib/relicCharms";
 import { countCharmCopies, getCharmForgeEligibility, getNextCharmTier } from "@/lib/relicForgeUiModel";
@@ -49,6 +50,7 @@ export default function CharmForgeWorkbench({
   error = "",
   onUpgrade,
   onConvert,
+  readOnly = false,
 }) {
   const [mode, setMode] = useState("awaken");
   const duplicateCounts = useMemo(() => countCharmCopies(state.charms), [state.charms]);
@@ -86,6 +88,12 @@ export default function CharmForgeWorkbench({
         ))}
       </div>
 
+      {readOnly ? (
+        <p className="mt-3 rounded-lg border-2 border-[#596575] bg-[#d9e6ec] p-3 text-sm font-bold text-[#485365]" role="status">
+          Guest specimen. Sign in to forge, equip, or convert your own charms.
+        </p>
+      ) : null}
+
       {error ? <p className="mt-3 rounded-lg border-2 border-[#9d6068] bg-[#f4dfe1] p-3 text-sm font-bold text-[#71434a]" role="alert">{error}</p> : null}
 
       {state.charms.length ? (
@@ -98,6 +106,7 @@ export default function CharmForgeWorkbench({
             });
             const busy = busyAction === `${mode}:${charm.id}`;
             const rarity = RELIC_RARITY_META[charm.rarity] || RELIC_RARITY_META.common;
+            const presentation = getCharmPresentation(charm);
 
             return (
               <article key={charm.id} className="rounded-lg border-2 border-[#596575] bg-[#f6f0df] p-3">
@@ -110,12 +119,30 @@ export default function CharmForgeWorkbench({
                       <h3 className="truncate font-heading text-sm font-bold">{getCharmName(charm)}</h3>
                       <span className="rounded-md border border-[#596575] bg-[#e8f0e2] px-1.5 py-0.5 text-[9px] font-bold uppercase">{rarity.label}</span>
                     </div>
-                    <p className="mt-1 text-[10px] font-bold uppercase text-[#707989]">{charm.tier} · {charm.star}/3 stars</p>
-                    <div className="mt-2 flex gap-1" aria-label={`${charm.star} of 3 stars`}>
+                    <p className="mt-1 text-[10px] font-bold uppercase text-[#707989]">{presentation.tier} · {presentation.star}/3 stars</p>
+                    <p className="mt-1 text-[11px] font-semibold text-[#657080]">{presentation.provenance}</p>
+                    <div
+                      className="mt-2 flex gap-1"
+                      role="meter"
+                      aria-label="Charm refinement"
+                      aria-valuemin={0}
+                      aria-valuemax={3}
+                      aria-valuenow={charm.star}
+                      aria-valuetext={`${charm.star} of 3 stars`}
+                    >
                       {[1, 2, 3].map((star) => (
                         <Star key={star} className={`h-4 w-4 ${charm.star >= star ? "fill-[#dfc982] text-[#596575]" : "text-[#9aa2ad]"}`} aria-hidden="true" />
                       ))}
                     </div>
+                    {presentation.effectLabels.length ? (
+                      <div className="mt-2 flex flex-wrap gap-1" aria-label="Charm effects">
+                        {presentation.effectLabels.map((effect) => (
+                          <span key={effect} className="rounded-md border border-[#596575] bg-[#e8f0e2] px-1.5 py-0.5 text-[9px] font-bold text-[#485365]">
+                            {effect}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 
@@ -127,7 +154,7 @@ export default function CharmForgeWorkbench({
                         <CostLine favor={recipe.favorCost} materials={recipe.materialCosts} />
                       </>
                     ) : <p className="text-xs font-bold text-[#657080]">Fully ascendant</p>}
-                    <Button type="button" className="mt-3 w-full" disabled={!recipe || !canAfford || Boolean(busyAction)} onClick={() => onUpgrade(charm)}>
+                    <Button type="button" className="mt-3 w-full" disabled={readOnly || !recipe || !canAfford || Boolean(busyAction)} onClick={() => onUpgrade?.(charm)}>
                       {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <Hammer className="mr-2 h-4 w-4" aria-hidden="true" />}
                       {busy ? "Forging..." : canAfford ? `Forge ${getNextCharmTier(recipe)}` : recipe ? "Materials needed" : "Ascendant"}
                     </Button>
@@ -140,7 +167,7 @@ export default function CharmForgeWorkbench({
                     </p>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button type="button" variant="outline" className="mt-2 w-full" disabled={!canConvert || Boolean(busyAction)}>
+                        <Button type="button" variant="outline" className="mt-2 w-full" disabled={readOnly || !canConvert || Boolean(busyAction)}>
                           <Recycle className="mr-2 h-4 w-4" aria-hidden="true" /> Convert duplicate
                         </Button>
                       </AlertDialogTrigger>
@@ -153,7 +180,7 @@ export default function CharmForgeWorkbench({
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Keep charm</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => onConvert(charm)}>Convert spare</AlertDialogAction>
+                          <AlertDialogAction onClick={() => onConvert?.(charm)}>Convert spare</AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>

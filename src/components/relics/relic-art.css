@@ -57,7 +57,7 @@
 .relic-art__display::before {
   position: absolute;
   content: "";
-  width: min(62%, 16rem);
+  width: min(66%, 17rem);
   aspect-ratio: 1;
   border: 3px solid color-mix(in srgb, var(--relic-shadow) 55%, #f6f0df);
   border-radius: 8px;
@@ -68,12 +68,23 @@
 .relic-art__artifact {
   position: relative;
   z-index: 2;
-  width: min(70%, 18rem);
-  height: min(70%, 18rem);
+  width: min(82%, 20rem);
+  height: min(82%, 20rem);
   overflow: visible;
 }
 
-.relic-art__artifact--compact { width: min(76%, 14rem); height: min(76%, 14rem); }
+.relic-art__artifact--compact { width: min(82%, 15rem); height: min(82%, 15rem); }
+
+.relic-art__approved-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.relic-art__approved-layer--effect { z-index: 2; pointer-events: none; }
+.relic-art__approved-layer--fallback-overlay { z-index: 1; pointer-events: none; }
 
 .relic-art__layer { transform-box: fill-box; transform-origin: center; }
 
@@ -83,14 +94,14 @@
   bottom: 0.1rem;
   left: 50%;
   display: flex;
-  min-height: 3rem;
+  min-height: 2.75rem;
   align-items: center;
   gap: 0.35rem;
   padding: 0.35rem 0.55rem;
   border: 2px solid #53606d;
-  border-radius: 999px;
+  border-radius: 6px;
   background: #f6f0df;
-  box-shadow: 0 3px 0 rgb(83 96 109 / 18%);
+  box-shadow: 0 3px 0 #c6bca8;
   transform: translateX(-50%);
 }
 
@@ -99,7 +110,8 @@
   width: 2.15rem;
   height: 2.15rem;
   place-items: center;
-  border-radius: 50%;
+  border: 2px solid #53606d;
+  border-radius: 5px;
   padding: 0.1rem;
   background: #eef3ed;
 }
@@ -121,14 +133,14 @@
 
 .relic-art__title-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.4rem; }
 .relic-art__title-row h3 { margin: 0; color: #35404f; font-size: 0.9rem; font-weight: 800; }
-.relic-art__title-row span { color: #6b747a; font-size: 0.625rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
-.relic-art__caption p { display: -webkit-box; overflow: hidden; margin: 0.3rem 0 0; color: #687178; font-size: 0.75rem; line-height: 1.35rem; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.relic-art__title-row span { color: #485365; font-size: 0.625rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.relic-art__caption p { display: -webkit-box; overflow: hidden; margin: 0.3rem 0 0; color: #485365; font-size: 0.75rem; line-height: 1.35rem; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 
 @media (max-width: 520px) {
   .relic-art { min-height: 26rem; }
   .relic-art--compact { min-height: 18rem; }
   .relic-art__display { inset: 3.25rem 0 5.5rem; }
-  .relic-art__artifact { width: min(74%, 15rem); height: min(74%, 15rem); }
+  .relic-art__artifact { width: min(82%, 16rem); height: min(82%, 16rem); }
   .relic-art__socket { width: 1.85rem; height: 1.85rem; }
 }
 

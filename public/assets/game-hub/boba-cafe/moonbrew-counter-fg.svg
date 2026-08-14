@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Moonbrew cafe foreground counter</title>
+  <desc id="desc">A warm wood and blue isometric service counter aligned as the cafe foreground occlusion layer.</desc>
+  <g stroke="#203659" stroke-width="12" stroke-linejoin="round">
+    <path d="M430 490 850 622v132L430 620Z" fill="#a9cfdd"/>
+    <path d="m850 622 214-68v132l-214 68Z" fill="#78a8b9"/>
+    <path d="m430 490 214-68 420 132-214 68Z" fill="#c7906f"/>
+  </g>
+  <path d="m474 515 171-54 370 116-168 54Z" fill="#c7906f" stroke="#203659" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M588 563 720 605v78l-132-42Z" fill="#c77e8d" stroke="#203659" stroke-width="8" stroke-linejoin="round"/>
+  <path d="m604 584 49 16v42l-49-16Zm66 21 34 11v42l-34-11Z" fill="#e7ddd4" stroke="#203659" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M736 604 824 632v72l-88-28Z" fill="#f3cf72" stroke="#203659" stroke-width="8" stroke-linejoin="round"/>
+  <path d="m755 631 23 7-12 10 13 18-24-8-13-18Z" fill="#f3cf72" stroke="#203659" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M456 594 510 611v54l-54-17Z" fill="#f3cf72" stroke="#203659" stroke-width="8" stroke-linejoin="round"/>
+</svg>

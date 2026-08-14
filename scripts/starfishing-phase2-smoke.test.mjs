@@ -209,6 +209,21 @@ test("smoke config returns explicit disposable credentials", () => {
   });
 });
 
+test("disposable fixture forces and verifies a real duplicate release conversion", () => {
+  const bootstrap = readFileSync(new URL("./fixtures/starfishing-phase2/bootstrap.sql", import.meta.url), "utf8");
+  const enable = readFileSync(new URL("./fixtures/starfishing-phase2/enable.sql", import.meta.url), "utf8");
+  const smokeSource = readFileSync(new URL("./starfishing-phase2-smoke.mjs", import.meta.url), "utf8");
+
+  assert.match(bootstrap, /create or replace function public\.start_starfishing_duplicate_test\(\)/i);
+  assert.match(bootstrap, /private\.phase2_disposable_smoke_sentinel/);
+  assert.match(bootstrap, /from public\.user_fishpedia/);
+  assert.match(bootstrap, /revoke all on function public\.start_starfishing_duplicate_test\(\)/i);
+  assert.match(enable, /grant execute on function public\.start_starfishing_duplicate_test\(\)\s+to authenticated/i);
+  assert.match(smokeSource, /duplicateClaim\.catch\.duplicate, true/);
+  assert.match(smokeSource, /duplicateClaim\.catch\.duplicate_policy, "release"/);
+  assert.match(smokeSource, /duplicate release Favor ledger/);
+});
+
 test("project allowlist must separately authorize the exact ref and remain short lived", () => {
   const allowlist = {
     contract: "starfishing-phase2-disposable-v2",

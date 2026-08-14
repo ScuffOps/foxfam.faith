@@ -20,7 +20,15 @@ test("profile exposes a shareable privacy-safe Quarters visit path", () => {
 });
 
 test("equipped cosmetic achievement charms have restrained profile hooks", () => {
-  assert.match(profile, /effects\?\.profile_frame/);
-  assert.match(profile, /effects\?\.profile_particle/);
+  assert.match(profile, /selectProfileCosmetics/);
+  assert.match(profile, /<ProfileCosmeticFrame/);
+  assert.match(profile, /<ProfileAvatarFrame frame=\{profileCosmetics\.frame\}>/);
   assert.doesNotMatch(profile, /radial-gradient|linear-gradient|drop-shadow/);
+});
+
+test("public Quarters renders only the projected cosmetic keys around its collection", () => {
+  assert.match(quarters, /resolvePublicProfileCosmetics\(publicProgression\?\.cosmetics\)/);
+  assert.match(quarters, /publicProgression\?\.familiar \|\| DEFAULT_FAMILIAR/);
+  assert.match(quarters, /<ProfileCosmeticFrame frame=\{visitorCosmetics\.frame\} particle=\{visitorCosmetics\.particle\}>/);
+  assert.match(quarters, /<ProfileAvatarFrame frame=\{visitorCosmetics\.frame\}/);
 });

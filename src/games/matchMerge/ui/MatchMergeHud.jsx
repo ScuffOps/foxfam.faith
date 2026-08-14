@@ -50,13 +50,6 @@ export default function MatchMergeHud({
             : <><LockKeyhole aria-hidden="true" /> Practice progress is local and grants no portal rewards.</>}
         </p>
 
-        <div className="reliquary-request__goals">
-          <p><Trophy aria-hidden="true" /> Bench notes</p>
-          <span data-complete={state.moves > 0 || undefined}>Complete your first merge</span>
-          <span data-complete={Math.max(state.bestChain || 0, state.mergeStreak || 0) >= 4 || undefined}>Build a four-link quiet chain</span>
-          <span data-complete={state.highestTier >= 4 || undefined}>Shape a tier four sigil</span>
-        </div>
-
         {locked && !rewardError ? (
           <p className="reliquary-alert">
             <LockKeyhole aria-hidden="true" /> No neighboring twins remain. {isRewarded ? "Claim the bench." : "Reset the bench."}
@@ -96,6 +89,13 @@ export default function MatchMergeHud({
             </button>
           ) : null}
         </div>
+
+        <details className="reliquary-request__goals">
+          <summary><Trophy aria-hidden="true" /> Bench notes</summary>
+          <span data-complete={state.moves > 0 || undefined}>Complete your first merge</span>
+          <span data-complete={Math.max(state.bestChain || 0, state.mergeStreak || 0) >= 4 || undefined}>Build a four-link quiet chain</span>
+          <span data-complete={state.highestTier >= 4 || undefined}>Shape a tier four sigil</span>
+        </details>
       </section>
 
       {isRewarded && rewardReceipt ? (

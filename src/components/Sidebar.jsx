@@ -34,6 +34,7 @@ import {
   Radio,
   Users,
   Gem,
+  PanelLeftClose,
 } from "lucide-react";
 import SidebarProfile from "./SidebarProfile";
 import { canBookCollab, canManageRoles, canUseAdminPanel } from "@/lib/roles";
@@ -117,7 +118,7 @@ const utilityNavItems = [
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 
-export default function Sidebar({ onClose }) {
+export default function Sidebar({ onClose, onCollapse }) {
   const location = useLocation();
   const [userRole, setUserRole] = useState(null);
   const [relicRollsOpen, setRelicRollsOpen] = useState(false);
@@ -205,8 +206,25 @@ export default function Sidebar({ onClose }) {
           </div>
         </div>
         {onClose && (
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground md:hidden">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Close portal navigation"
+            title="Close portal navigation"
+          >
             <X className="h-5 w-5" />
+          </button>
+        )}
+        {onCollapse && (
+          <button
+            type="button"
+            onClick={onCollapse}
+            className="hidden rounded-md p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:inline-flex"
+            aria-label="Use compact sanctuary navigation"
+            title="Use compact sanctuary navigation"
+          >
+            <PanelLeftClose className="h-5 w-5" />
           </button>
         )}
       </div>

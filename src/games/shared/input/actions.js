@@ -15,4 +15,6 @@ export const GAME_ACTIONS = {
   qteRight: "qte-right",
   qteDown: "qte-down",
   pause: "pause",
+  choiceOne: "choice-one",
+  choiceTwo: "choice-two",
 };

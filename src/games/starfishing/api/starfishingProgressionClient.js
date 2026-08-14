@@ -241,6 +241,9 @@ function normalizeAchievementRow(row) {
   return {
     achievementKey: requireNonEmptyString(row?.achievement_key),
     sourceCatchId: row?.source_catch_id ? requireUuidResponse(row.source_catch_id) : null,
+    sourceRewardEventId: row?.source_reward_event_id
+      ? requireUuidResponse(row.source_reward_event_id)
+      : null,
     unlockedAt: requireTimestamp(row?.unlocked_at),
   };
 }
@@ -261,6 +264,24 @@ function normalizeTrophyRow(row) {
   };
 }
 
+function normalizeOwnedCharmRow(row) {
+  const data = row?.data;
+  const source = data?.source;
+  if (!data || typeof data !== "object" || Array.isArray(data)
+    || !source || typeof source !== "object" || Array.isArray(source)) {
+    throw progressionError("STARFISHING_INVALID_RESPONSE");
+  }
+  return {
+    id: requireUuidResponse(row?.id),
+    charmKey: requireNonEmptyString(data.charm_key),
+    equipped: requireBoolean(data.equipped),
+    source: {
+      type: requireNonEmptyString(source.type),
+      key: requireNonEmptyString(source.key),
+    },
+  };
+}
+
 function normalizeProgression(rows) {
   const favorRows = rows.favor;
   if (favorRows.length > 1) {
@@ -276,6 +297,7 @@ function normalizeProgression(rows) {
     materials: rows.materials.map(normalizeMaterialRow),
     achievements: rows.achievements.map(normalizeAchievementRow),
     trophies: rows.trophies.map(normalizeTrophyRow),
+    charms: rows.charms.map(normalizeOwnedCharmRow),
   };
 }
 
@@ -359,7 +381,7 @@ export function createStarfishingProgressionClient(client = supabase) {
         .order("material_key", { ascending: true }));
       const achievements = await executeRead(() => database
         .from("user_achievements")
-        .select("achievement_key,source_catch_id,unlocked_at")
+        .select("achievement_key,source_catch_id,source_reward_event_id,unlocked_at")
         .eq("user_id", ownerId)
         .order("unlocked_at", { ascending: false }));
       const trophies = await executeRead(() => database
@@ -367,6 +389,15 @@ export function createStarfishingProgressionClient(client = supabase) {
         .select("id,trophy_key,source_achievement_key,data,acquired_at")
         .eq("user_id", ownerId)
         .order("acquired_at", { ascending: false }));
+      const charms = await executeRead(() => database
+        .from("user_relic_charms")
+        .select("id,data")
+        .eq("user_id", ownerId)
+        .eq("data->>charm_key", "merciful-tide")
+        .eq("data->>equipped", "true")
+        .eq("data->source->>type", "achievement")
+        .eq("data->source->>key", "gentle-return")
+        .order("created_at", { ascending: true }));
 
       return normalizeProgression({
         catalog,
@@ -376,6 +407,7 @@ export function createStarfishingProgressionClient(client = supabase) {
         materials,
         achievements,
         trophies,
+        charms,
       });
     },
   };

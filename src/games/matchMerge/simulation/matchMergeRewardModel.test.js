@@ -53,5 +53,6 @@ test("maps an authoritative receipt into the result sheet shape", () => {
   assert.deepEqual(intent, {
     favorPreview: 4,
     items: [{ key: "sigil-shards", label: "Sigil Shards", quantity: 2, type: "material" }],
+    achievements: [],
   });
 });

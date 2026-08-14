@@ -3,9 +3,14 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
+  ENABLED_GAME_KEYS,
   GAME_REWARD_FIXTURE_PATHS,
   KNOWN_LIVE_PROJECT_REF,
+  bobaRecipeActions,
+  findCanonicalMerge,
   getGameRewardSmokeConfig,
+  orderedFindVezmirTargets,
+  wordGardenSmokeWordsForPuzzle,
 } from "./game-rewards-smoke.mjs";
 
 const TOKEN_HEADER = { alg: "none", typ: "JWT" };
@@ -54,4 +59,85 @@ test("fixed fixtures leave rewards disabled until the enable step", () => {
   assert.match(enable, /grant execute on function public\.progress_game_reward_session\(uuid, uuid, jsonb\) to authenticated/i);
   assert.match(enable, /grant execute on function public\.claim_game_reward\(uuid, uuid, jsonb\) to authenticated/i);
   assert.equal(allowlist.contract, "game-rewards-disposable-v1");
+});
+
+test("smoke coverage matches every enabled shared-reward game", () => {
+  assert.deepEqual(ENABLED_GAME_KEYS, [
+    "word-garden",
+    "match-merge",
+    "boba-cafe",
+    "puzzle-cat",
+    "time-runner",
+  ]);
+
+  const smoke = readFileSync(new URL("./game-rewards-smoke.mjs", import.meta.url), "utf8");
+  assert.match(smoke, /startSession\(clientA, "word-garden"\)/);
+  assert.match(smoke, /completeTimeRunner\(clientA, await startSession\(clientA, "time-runner"\)\)/);
+  assert.match(smoke, /completeMatchMerge/);
+  assert.match(smoke, /completeBobaCafe/);
+  assert.match(smoke, /completeFindVezmir/);
+  assert.match(smoke, /completeTimeRunner/);
+  assert.match(smoke, /assertCollectibleReceipt/);
+  assert.match(smoke, /unknown game session/);
+  assert.doesNotMatch(smoke, /disabled game session/);
+});
+
+test("smoke drivers derive legal actions from canonical server state", () => {
+  assert.deepEqual(findCanonicalMerge([1, 1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), {
+    op: "merge",
+    from: 0,
+    to: 1,
+  });
+
+  const recipe = {
+    tea: "jasmine-tea",
+    milk: "cream-cloud",
+    topping: "star-jelly",
+    charm: "ribbon-seal",
+    sweetness: "soft",
+  };
+  assert.deepEqual(bobaRecipeActions({ active_order: { recipe } }), [
+    { op: "select", station: "tea", choice: "jasmine-tea" },
+    { op: "select", station: "milk", choice: "cream-cloud" },
+    { op: "select", station: "topping", choice: "star-jelly" },
+    { op: "select", station: "charm", choice: "ribbon-seal" },
+    { op: "select", station: "sweetness", choice: "soft" },
+  ]);
+
+  const targets = [
+    { key: "final", role: "final" },
+    ...Array.from({ length: 5 }, (_, index) => ({ key: `clue-${index}`, role: "clue" })),
+  ];
+  assert.deepEqual(orderedFindVezmirTargets({ targets }).map((target) => target.role), [
+    "clue", "clue", "clue", "clue", "clue", "final",
+  ]);
+
+  assert.deepEqual(wordGardenSmokeWordsForPuzzle({ key: "violet-hour-20260813" }), {
+    normal: "VOTE",
+    fullBloom: "VIOLETS",
+  });
+  assert.deepEqual(wordGardenSmokeWordsForPuzzle({ key: "petal-rite" }), {
+    normal: "PALE",
+    fullBloom: "PETALERS",
+  });
+  assert.throws(
+    () => wordGardenSmokeWordsForPuzzle({ key: "unregistered-rotation-20260813" }),
+    /No smoke words are registered/,
+  );
+});
+
+test("Word Garden smoke covers every seeded server rotation", () => {
+  const expected = new Map([
+    ["petal-rite", ["PALE", "PETALERS"]],
+    ["planter-song", ["PALE", "PLANTER"]],
+    ["garden-vow", ["DARE", "GARDENS"]],
+    ["violet-hour", ["VOTE", "VIOLETS"]],
+    ["thorned-path", ["HORN", "THORNED"]],
+    ["pollen-drift", ["FLOW", "FLOWERS"]],
+    ["meadow-rest", ["DAME", "MEADOWS"]],
+  ]);
+
+  for (const [key, [normal, fullBloom]] of expected) {
+    assert.deepEqual(wordGardenSmokeWordsForPuzzle({ key: `${key}-20300101` }), { normal, fullBloom });
+  }
 });

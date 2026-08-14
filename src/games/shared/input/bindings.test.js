@@ -13,6 +13,8 @@ test("maps shared movement and interaction keys", () => {
   assert.equal(getActionForKeyboardEvent({ code: "Enter" }), GAME_ACTIONS.confirm);
   assert.equal(getActionForKeyboardEvent({ code: "Space" }), GAME_ACTIONS.primary);
   assert.equal(getActionForKeyboardEvent({ code: "Escape" }), GAME_ACTIONS.cancel);
+  assert.equal(getActionForKeyboardEvent({ code: "Digit1" }), GAME_ACTIONS.choiceOne);
+  assert.equal(getActionForKeyboardEvent({ code: "Numpad2" }), GAME_ACTIONS.choiceTwo);
 });
 
 test("ignores modified shortcuts and editable fields", () => {
@@ -27,4 +29,14 @@ test("shared keyboard controls require activation within a game surface", () => 
   assert.match(controlsSource, /activeSurfaceRef\.current/);
   assert.match(controlsSource, /closest\?\.\(GAME_CONTROL_SURFACE_SELECTOR\)/);
   assert.match(controlsSource, /if \(event\.defaultPrevented\) return/);
+  assert.match(controlsSource, /NATIVE_CONTROL_SELECTOR/);
+  assert.match(controlsSource, /if \(!nativeControl && onKeyDown\?\.\(event\) === true\) return/);
+});
+
+test("shared keyboard controls preserve native button, link, and disclosure activation", () => {
+  assert.match(controlsSource, /preserveNativeButtonActivation/);
+  assert.match(controlsSource, /button, a\[href\], summary, input, textarea, select/);
+  assert.match(controlsSource, /event\.code === "Enter"/);
+  assert.match(controlsSource, /\["BUTTON", "SUMMARY"\]\.includes\(nativeActivationControl\.tagName\)/);
+  assert.match(controlsSource, /if \(isNativeControlActivation\) return/);
 });

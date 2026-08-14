@@ -5,6 +5,10 @@ import AxeBuilder from "@axe-core/playwright";
 import { chromium } from "playwright";
 import { BOBA_ORDER_LIMIT } from "../src/games/bobaCafe/simulation/bobaCafeRules.js";
 import { FIND_VEZMIR_OBJECTS } from "../src/games/findVezmir/content/hiddenObjects.js";
+import {
+  getDailyWordGardenPuzzle,
+  getLocalDateKey,
+} from "../src/games/wordGarden/content/wordGardenCatalog.js";
 
 const baseUrl = process.env.E2E_BASE_URL || "http://127.0.0.1:5190";
 const outputDir = process.env.E2E_OUTPUT_DIR || "/private/tmp/foxfam-game-hub-playtest";
@@ -17,21 +21,73 @@ const routes = [
     heading: /Visiting Quarters/i,
   },
   { slug: "forge", path: "/relic-forge", heading: /Relic Forge/i },
-  { slug: "starfishing", path: "/starfishing", heading: /Starfishing/i, canvas: true },
-  { slug: "match-merge", path: "/match-merge", heading: /Match & Merge/i },
-  { slug: "boba-cafe", path: "/boba-cafe", heading: /Boba Shrine Cafe/i },
-  { slug: "find-vezmir", path: "/find-vezmir", heading: /Find Vezmir/i },
-  { slug: "time-runner", path: "/time-runner", heading: /Time Runner/i, canvas: true },
-  { slug: "word-garden", path: "/word-garden", heading: /Blooming Ink/i },
+  {
+    slug: "starfishing",
+    path: "/starfishing",
+    heading: /Starfishing/i,
+    canvas: true,
+    desktopTaskControls: [".starfishing-world", ".starfishing-control-deck"],
+  },
+  {
+    slug: "match-merge",
+    path: "/match-merge",
+    heading: /Match & Merge/i,
+    desktopTaskControls: [".reliquary-board"],
+  },
+  {
+    slug: "boba-cafe",
+    path: "/boba-cafe",
+    heading: /Boba Shrine Cafe/i,
+    visualBounds: {
+      container: ".boba-counter",
+      subjects: [".boba-counter__customer", ".boba-counter__familiar"],
+    },
+    desktopTaskControls: [".boba-cafe__stage-row", ".boba-stations__actions"],
+  },
+  {
+    slug: "find-vezmir",
+    path: "/find-vezmir",
+    heading: /Find Vezmir/i,
+    desktopTaskControls: [".vezmir-diorama__viewport", ".vezmir-diorama__control-rail"],
+  },
+  {
+    slug: "time-runner",
+    path: "/time-runner",
+    heading: /Time Runner/i,
+    canvas: true,
+    desktopTaskControls: [".time-runner-stage__canvas-wrap", ".time-runner-stage__controls"],
+  },
+  {
+    slug: "word-garden",
+    path: "/word-garden",
+    heading: /Blooming Ink/i,
+    desktopTaskControls: [".word-flower__bed", ".word-flower__tools"],
+  },
   { slug: "collections", path: "/collections", heading: /Collections/i },
   { slug: "profile", path: "/profile", heading: /Profile/i },
   { slug: "familiar-wardrobe", path: "/profile/familiar", heading: /Familiar Wardrobe/i },
 ];
 
+const SANCTUARY_ROUTE_PATHS = new Set(
+  routes.filter(({ slug }) => slug !== "profile").map(({ path: routePath }) => routePath),
+);
+
 const viewports = [
-  { key: "desktop", width: 1280, height: 900, isMobile: false },
-  { key: "mobile", width: 390, height: 844, isMobile: true },
+  { key: "desktop-keyboard", width: 1280, height: 900, isMobile: false, inputMode: "keyboard" },
+  { key: "compact-desktop", width: 1200, height: 817, isMobile: false, inputMode: "keyboard" },
+  { key: "short-desktop", width: 1280, height: 720, isMobile: false, inputMode: "keyboard" },
+  { key: "desktop-pointer", width: 1280, height: 900, isMobile: false, inputMode: "pointer" },
+  { key: "mobile", width: 390, height: 844, isMobile: true, inputMode: "touch" },
 ];
+
+const COURTYARD_JOURNEY = Object.freeze([
+  ["Starfishing", "/starfishing"],
+  ["Match & Merge", "/match-merge"],
+  ["Boba Shop Cafe", "/boba-cafe"],
+  ["Find Vezmir", "/find-vezmir"],
+  ["Clocktower Side-Scroller", "/time-runner"],
+  ["Word Garden", "/word-garden"],
+]);
 
 function formatFailure(viewport, route, message) {
   return `[${viewport.key}] ${route.path}: ${message}`;
@@ -41,6 +97,7 @@ async function seedGuestPreview(page) {
   await page.addInitScript(() => {
     sessionStorage.setItem("splash_seen", "1");
     localStorage.setItem("commhub_guest_onboarding_seen", "1");
+    localStorage.setItem("foxfam_sanctuary_nav_mode", "expanded");
   });
 }
 
@@ -84,8 +141,84 @@ async function sampleCanvas(page, canvas) {
   }, dataUrl);
 }
 
+async function sampleSvgAtSizes(page, selector) {
+  return page.locator(selector).first().evaluate(async (svg) => {
+    const source = new XMLSerializer().serializeToString(svg);
+    const encoded = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(source)}`;
+    const declaredFills = new Set(
+      Array.from(svg.querySelectorAll("[fill]"), (node) => node.getAttribute("fill")?.toLowerCase())
+        .filter((fill) => fill && fill !== "none" && fill !== "transparent"),
+    ).size;
+    const sizes = [48, 64, 128];
+    const results = [];
+
+    for (const size of sizes) {
+      const image = new Image();
+      image.src = encoded;
+      await new Promise((resolve, reject) => {
+        image.onload = resolve;
+        image.onerror = () => reject(new Error(`Could not rasterize ${selector} at ${size}px`));
+      });
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      context.drawImage(image, 0, 0, size, size);
+      const pixels = context.getImageData(0, 0, size, size).data;
+      let opaquePixels = 0;
+      let minX = size;
+      let minY = size;
+      let maxX = -1;
+      let maxY = -1;
+      const colorBins = new Set();
+      for (let index = 0; index < pixels.length; index += 4) {
+        if (pixels[index + 3] < 32) continue;
+        opaquePixels += 1;
+        const pixelIndex = index / 4;
+        const x = pixelIndex % size;
+        const y = Math.floor(pixelIndex / size);
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+        colorBins.add(`${pixels[index] >> 5},${pixels[index + 1] >> 5},${pixels[index + 2] >> 5}`);
+      }
+      results.push({
+        size,
+        opaqueRatio: opaquePixels / (size * size),
+        widthCoverage: maxX >= minX ? (maxX - minX + 1) / size : 0,
+        heightCoverage: maxY >= minY ? (maxY - minY + 1) / size : 0,
+        colorBins: colorBins.size,
+        declaredFills,
+      });
+    }
+    return results;
+  });
+}
+
+function assertCollectibleReadability(samples, label) {
+  for (const sample of samples) {
+    if (sample.opaqueRatio < 0.14 || sample.widthCoverage < 0.55 || sample.heightCoverage < 0.55) {
+      throw new Error(`${label} is too sparse at ${sample.size}px`);
+    }
+    if (sample.colorBins < 3) {
+      throw new Error(`${label} is visually uniform at ${sample.size}px`);
+    }
+    if (sample.declaredFills > 16) {
+      throw new Error(`${label} declares ${sample.declaredFills} flat fills; expected a limited collectible palette`);
+    }
+  }
+}
+
 async function activateControl(page, locator, viewport) {
-  if (viewport.isMobile) {
+  if (viewport.inputMode === "touch") {
+    await locator.scrollIntoViewIfNeeded();
+    const bounds = await locator.boundingBox();
+    if (!bounds) throw new Error("Touch target is not visible.");
+    await page.touchscreen.tap(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    return;
+  }
+  if (viewport.inputMode === "pointer") {
     await locator.click();
     return;
   }
@@ -94,11 +227,42 @@ async function activateControl(page, locator, viewport) {
 }
 
 async function exerciseRoute(page, route, viewport) {
+  if (route.slug === "quarters") {
+    for (const [label, pathName] of COURTYARD_JOURNEY) {
+      const courtyard = page.getByRole("button", { name: "Priory Courtyard" }).first();
+      await activateControl(page, courtyard, viewport);
+      await page.locator(".courtyard-scene").waitFor({ state: "visible" });
+      await activateControl(page, page.getByRole("button", { name: new RegExp(`^Enter ${escapeRegExp(label)}\\.`) }), viewport);
+      await page.waitForFunction((expectedPath) => window.location.pathname === expectedPath, pathName);
+      await activateControl(page, page.getByRole("link", { name: "Return to Quarters" }), viewport);
+      await page.waitForFunction(() => window.location.pathname === "/quarters");
+      await page.locator(".quarters-scene").waitFor({ state: "visible" });
+    }
+    return `visit all six Courtyard worlds and return by ${viewport.inputMode}`;
+  }
+
+  if (route.slug === "forge") {
+    const themeStep = page.getByRole("button", { name: "Theme", exact: true });
+    await activateControl(page, themeStep, viewport);
+    const themeOptions = page.locator('button[aria-pressed="false"]').filter({ has: page.locator("span.font-medium") });
+    const option = themeOptions.first();
+    if (!(await option.count())) throw new Error("No alternate relic theme is available in the guest Forge preview.");
+    const themeLabel = await option.locator("span.font-medium").innerText();
+    await activateControl(page, option, viewport);
+    await page.waitForFunction((label) => Array.from(document.querySelectorAll('button[aria-pressed="true"]'))
+      .some((button) => button.textContent?.trim().startsWith(label)), themeLabel);
+    const relicSamples = await sampleSvgAtSizes(page, ".relic-art__artifact");
+    const charmSamples = await sampleSvgAtSizes(page, ".relic-art__socket [data-charm-art]");
+    assertCollectibleReadability(relicSamples, "Relic collectible");
+    assertCollectibleReadability(charmSamples, "Charm collectible");
+    return `change a guest relic theme by ${viewport.inputMode} and verify collectible readability at 48, 64, and 128 pixels`;
+  }
+
   if (route.slug === "starfishing") {
     const castButton = page.getByRole("button", { name: /Cast line/i });
-    if (viewport.isMobile) await castButton.click();
+    if (viewport.inputMode !== "keyboard") await activateControl(page, castButton, viewport);
     else {
-      await page.locator(".starfishing-world").click({ position: { x: 12, y: 12 } });
+      await castButton.focus();
       await page.keyboard.press("Space");
     }
     for (let step = 0; step < 16; step += 1) {
@@ -113,7 +277,7 @@ async function exerciseRoute(page, route, viewport) {
       if (outcome === "escaped") throw new Error("The QTE escaped before the automated input could advance.");
       const activePull = page.locator('.reel-qte button[data-active="true"]');
       if (!(await activePull.count())) break;
-      if (viewport.isMobile) await activePull.click();
+      if (viewport.inputMode !== "keyboard") await activateControl(page, activePull, viewport);
       else {
         const direction = (await activePull.getAttribute("aria-label"))?.replace("Reel ", "");
         const key = { Left: "ArrowLeft", Up: "ArrowUp", Right: "ArrowRight", Down: "ArrowDown" }[direction];
@@ -122,7 +286,7 @@ async function exerciseRoute(page, route, viewport) {
       }
     }
     await page.locator(".game-result-sheet").waitFor({ state: "visible" });
-    return `complete one cast and directional QTE by ${viewport.isMobile ? "touch" : "keyboard"}`;
+    return `complete one cast and directional QTE by ${viewport.inputMode}`;
   }
 
   if (route.slug === "match-merge") {
@@ -130,7 +294,7 @@ async function exerciseRoute(page, route, viewport) {
     await activateControl(page, cells.nth(0), viewport);
     await activateControl(page, cells.nth(1), viewport);
     await page.waitForFunction(() => document.body.innerText.includes("Refined into"));
-    return `merge matching offerings by ${viewport.isMobile ? "touch" : "keyboard"}`;
+    return `merge matching offerings by ${viewport.inputMode}`;
   }
 
   if (route.slug === "boba-cafe") {
@@ -142,14 +306,14 @@ async function exerciseRoute(page, route, viewport) {
       ["sweetness", "Sweet"],
     ];
     for (let ticket = 0; ticket < BOBA_ORDER_LIMIT; ticket += 1) {
-      const recipe = await page.locator(".game-shell__sidebar .boba-ticket__recipe > div").evaluateAll((rows) => Object.fromEntries(rows.map((row) => [
+      const recipe = await page.locator(".boba-cafe__live-ticket .boba-ticket__recipe > div").evaluateAll((rows) => Object.fromEntries(rows.map((row) => [
         row.querySelector("dt")?.textContent?.trim(),
         row.querySelector("dd")?.textContent?.trim(),
       ])));
       for (const [station, label] of stationRows) {
-        await page.locator(`#boba-tab-${station}`).click();
+        await activateControl(page, page.locator(`#boba-tab-${station}`), viewport);
         const option = page.getByRole("button", { name: new RegExp(`^${escapeRegExp(recipe[label])}(?:,|$)`, "i") }).last();
-        if (viewport.isMobile) await option.click();
+        if (viewport.inputMode !== "keyboard") await activateControl(page, option, viewport);
         else {
           const options = page.locator(".boba-stations__options > button");
           const optionCount = await options.count();
@@ -165,35 +329,39 @@ async function exerciseRoute(page, route, viewport) {
           await page.keyboard.press(String(ordinal));
         }
       }
-      if (viewport.isMobile) {
-        await page.getByRole("button", { name: /^Serve\b/i }).click();
-        await page.getByRole("button", { name: /Next ticket/i }).first().click();
+      if (viewport.inputMode !== "keyboard") {
+        await activateControl(page, page.getByRole("button", { name: /^Serve\b/i }), viewport);
+        await activateControl(page, page.getByRole("button", { name: /Next ticket/i }).first(), viewport);
       } else {
         await activateControl(page, page.getByRole("button", { name: /^Serve\b/i }), viewport);
         await activateControl(page, page.getByRole("button", { name: /Next ticket/i }).first(), viewport);
       }
     }
     await page.getByText("Moonbrew shift complete", { exact: true }).waitFor();
-    return `fulfill all three cafe tickets by ${viewport.isMobile ? "touch" : "keyboard shortcuts"}`;
+    return `fulfill all ${BOBA_ORDER_LIMIT} cafe tickets by ${viewport.inputMode}`;
   }
 
   if (route.slug === "find-vezmir") {
     const layerOrder = ["room", "background", "foreground", "room", "background"];
+    const depthLabels = {
+      foreground: "Near",
+      room: "Cloister",
+      background: "Far",
+    };
     const labelsByLayer = {
       room: ["Ribbon Bell", "Seed Pouch"],
       background: ["Star Note"],
       foreground: ["Moon Mug", "Fox Pin"],
     };
-    let activeLayer = "room";
     const searchedLayers = new Set();
     for (const nextLayer of layerOrder) {
-      while (activeLayer !== nextLayer) {
-        await page.getByRole("button", { name: "Show farther depth layer" }).click();
-        const currentIndex = ["foreground", "room", "background"].indexOf(activeLayer);
-        activeLayer = ["foreground", "room", "background"][(currentIndex + 1) % 3];
-      }
       if (searchedLayers.has(nextLayer)) continue;
       searchedLayers.add(nextLayer);
+      await activateControl(
+        page,
+        page.getByRole("button", { name: depthLabels[nextLayer], exact: true }),
+        viewport,
+      );
       for (const label of labelsByLayer[nextLayer] || []) {
         const object = FIND_VEZMIR_OBJECTS.find((candidate) => candidate.label === label);
         await activateControl(
@@ -206,51 +374,77 @@ async function exerciseRoute(page, route, viewport) {
     const vezmir = FIND_VEZMIR_OBJECTS.find((object) => object.label === "Vezmir");
     await activateControl(
       page,
+      page.getByRole("button", { name: depthLabels[vezmir.layer], exact: true }),
+      viewport,
+    );
+    await activateControl(
+      page,
       page.getByRole("button", { name: `Search ${vezmir.region} for ${vezmir.label}` }),
       viewport,
     );
     await page.getByText("Vezmir found", { exact: true }).first().waitFor();
-    return `find all five clues and Vezmir by ${viewport.isMobile ? "touch" : "keyboard activation"}`;
+    return `find all five clues and Vezmir by ${viewport.inputMode}`;
   }
 
   if (route.slug === "time-runner") {
     await activateControl(page, page.getByRole("button", { name: /^Start (the )?traverse$/i }).first(), viewport);
     await page.waitForFunction(() => Boolean(document.querySelector('[aria-label="Pause Time Runner"]')));
     const leap = page.getByRole("button", { name: /^Leap/i }).last();
-    if (viewport.isMobile) await leap.click();
-    else {
-      await page.locator(".time-runner-stage").click({ position: { x: 12, y: 12 } });
+    const duck = page.getByRole("button", { name: /^Duck/i }).last();
+    if (viewport.inputMode !== "keyboard") {
+      await activateControl(page, leap, viewport);
+      await page.waitForFunction(() => Array.from(document.querySelectorAll("button.is-active")).some((button) => /Leap/i.test(button.textContent)));
+      await activateControl(page, duck, viewport);
+      await page.waitForFunction(() => Array.from(document.querySelectorAll("button.is-active")).some((button) => /Duck/i.test(button.textContent)));
+    } else {
+      await page.locator(".time-runner-stage").focus();
       await page.keyboard.press("ArrowUp");
+      await page.waitForFunction(() => Array.from(document.querySelectorAll("button.is-active")).some((button) => /Leap/i.test(button.textContent)));
+      await page.keyboard.press("ArrowDown");
+      await page.waitForFunction(() => Array.from(document.querySelectorAll("button.is-active")).some((button) => /Duck/i.test(button.textContent)));
+      await page.keyboard.press("Digit2");
+      await page.waitForFunction(() => Array.from(document.querySelectorAll("button.is-active")).some((button) => /Leap/i.test(button.textContent)));
     }
-    await page.waitForFunction(() => Array.from(document.querySelectorAll("button.is-active")).some((button) => /Leap/i.test(button.textContent)));
-    return `start and leap in the clocktower by ${viewport.isMobile ? "touch" : "keyboard"}`;
+    return viewport.inputMode !== "keyboard"
+      ? `start, leap, and duck in the clocktower by ${viewport.inputMode}`
+      : "start, leap, duck, and choose the alternate clock landing by keyboard only";
   }
 
   if (route.slug === "word-garden") {
-    const center = await page.locator(".word-flower__center span").innerText();
-    const petals = (await page.locator(".word-flower__petal span").allInnerTexts()).join("");
-    const letterSet = new Set(`${center}${petals}`.toUpperCase());
-    const word = ["P", "A", "L", "E"].every((letter) => letterSet.has(letter))
-      ? "PALE"
-      : ["L", "O", "V", "E"].every((letter) => letterSet.has(letter))
-        ? "LOVE"
-        : "ACHE";
-    if (viewport.isMobile) {
+    const word = getDailyWordGardenPuzzle(getLocalDateKey()).featuredWords[0];
+    if (viewport.inputMode !== "keyboard") {
       for (const letter of word) {
         const petal = page.getByRole("button", { name: new RegExp(`^Add (?:required center letter )?${letter}$`) });
-        await petal.click();
+        await activateControl(page, petal, viewport);
       }
-      await page.getByRole("button", { name: "Bloom word" }).click();
+      await activateControl(page, page.getByRole("button", { name: "Bloom word" }), viewport);
     } else {
-      await page.locator(".word-garden-scene").click({ position: { x: 12, y: 12 } });
-      await page.evaluate(() => document.activeElement?.blur());
+      await page.locator(".word-garden-scene").focus();
       await page.keyboard.type(word);
       await page.keyboard.press("Enter");
     }
-    await page.locator(".word-garden-hud__found li", { hasText: word }).waitFor();
-    await page.getByRole("button", { name: /Rest the garden/i }).click();
+    await page.getByRole("listitem", { name: `${word}, found`, exact: true }).waitFor();
+    await activateControl(page, page.getByRole("button", { name: /Rest the garden/i }), viewport);
     await page.getByText("Garden resting", { exact: true }).waitFor();
-    return `bloom a valid word by ${viewport.isMobile ? "touch" : "keyboard"} and complete the garden`;
+    return `bloom a valid word by ${viewport.inputMode} and complete the garden`;
+  }
+
+  if (route.slug === "familiar-wardrobe") {
+    const speciesChoices = page.getByRole("group", { name: "Species choices" }).getByRole("button");
+    const choiceCount = await speciesChoices.count();
+    let alternate = null;
+    for (let index = 0; index < choiceCount; index += 1) {
+      const choice = speciesChoices.nth(index);
+      if ((await choice.getAttribute("aria-pressed")) === "false") {
+        alternate = choice;
+        break;
+      }
+    }
+    if (!alternate) throw new Error("No alternate familiar species is available.");
+    await activateControl(page, alternate, viewport);
+    await activateControl(page, page.getByRole("button", { name: "Save", exact: true }), viewport);
+    await page.getByText("Guest preview saved on this device.", { exact: true }).waitFor();
+    return `customize and save a guest familiar by ${viewport.inputMode}`;
   }
 
   return null;
@@ -324,6 +518,15 @@ async function inspectRoute(page, viewport, route, failures, results) {
         const ids = Array.from(document.querySelectorAll("[id]"), (element) => element.id);
         return ids.length - new Set(ids).size;
       })(),
+      sanctuaryRail: (() => {
+        const element = document.querySelector(".sanctuary-rail-slot");
+        const bounds = element?.getBoundingClientRect();
+        return {
+          found: Boolean(element),
+          visible: Boolean(bounds && bounds.width > 0 && bounds.height > 0),
+          width: bounds?.width ?? 0,
+        };
+      })(),
     }));
 
     if (!route.heading.test(metrics.bodyText)) failures.push(formatFailure(viewport, route, "expected page title is missing"));
@@ -339,6 +542,62 @@ async function inspectRoute(page, viewport, route, failures, results) {
     if (metrics.imageWithoutAltCount) failures.push(formatFailure(viewport, route, `${metrics.imageWithoutAltCount} image(s) are missing alt text`));
     if (metrics.positiveTabIndexCount) failures.push(formatFailure(viewport, route, `${metrics.positiveTabIndexCount} control(s) use a positive tabindex`));
     if (metrics.duplicateIdCount) failures.push(formatFailure(viewport, route, `${metrics.duplicateIdCount} duplicate DOM id(s) found`));
+
+    const expectsSanctuaryRail = SANCTUARY_ROUTE_PATHS.has(route.path) && !viewport.isMobile;
+    if (expectsSanctuaryRail && !metrics.sanctuaryRail.visible) {
+      failures.push(formatFailure(viewport, route, "compact Sanctuary navigation rail is not visible"));
+    }
+    if (expectsSanctuaryRail && metrics.sanctuaryRail.width > 73) {
+      failures.push(formatFailure(viewport, route, `Sanctuary navigation reserves ${metrics.sanctuaryRail.width}px instead of the compact rail`));
+    }
+    if (!expectsSanctuaryRail && metrics.sanctuaryRail.visible) {
+      failures.push(formatFailure(viewport, route, "Sanctuary navigation rail is visible outside its desktop route boundary"));
+    }
+
+    let taskFit = null;
+    if (!viewport.isMobile && route.desktopTaskControls) {
+      taskFit = await page.evaluate((selectors) => ({
+        viewportHeight: window.innerHeight,
+        controls: selectors.map((selector) => {
+          const element = document.querySelector(selector);
+          const rect = element?.getBoundingClientRect();
+          return {
+            selector,
+            found: Boolean(rect),
+            top: rect?.top ?? null,
+            bottom: rect?.bottom ?? null,
+            visibleWithoutScroll: Boolean(rect && rect.top >= -1 && rect.bottom <= window.innerHeight + 1),
+          };
+        }),
+      }), route.desktopTaskControls);
+      const hiddenControls = taskFit.controls.filter((control) => !control.visibleWithoutScroll);
+      if (hiddenControls.length) {
+        failures.push(formatFailure(viewport, route, `task controls require page scrolling: ${hiddenControls.map(({ selector }) => selector).join(", ")}`));
+      }
+    }
+
+    let visualBounds = null;
+    if (route.visualBounds) {
+      visualBounds = await page.evaluate(({ container, subjects }) => {
+        const frame = document.querySelector(container)?.getBoundingClientRect();
+        if (!frame) return { frameFound: false, clippedSubjects: subjects };
+
+        const clippedSubjects = subjects.filter((selector) => {
+          const subject = document.querySelector(selector)?.getBoundingClientRect();
+          if (!subject || subject.width < 1 || subject.height < 1) return true;
+          return subject.left < frame.left - 1
+            || subject.top < frame.top - 1
+            || subject.right > frame.right + 1
+            || subject.bottom > frame.bottom + 1;
+        });
+        return { frameFound: true, clippedSubjects };
+      }, route.visualBounds);
+      if (!visualBounds.frameFound) {
+        failures.push(formatFailure(viewport, route, `visual-bounds container ${route.visualBounds.container} is missing`));
+      } else if (visualBounds.clippedSubjects.length) {
+        failures.push(formatFailure(viewport, route, `visual subjects clipped by playfield: ${visualBounds.clippedSubjects.join(", ")}`));
+      }
+    }
 
     await page.keyboard.press("Tab");
     const focusState = await page.evaluate(() => {
@@ -370,6 +629,28 @@ async function inspectRoute(page, viewport, route, failures, results) {
       }
     }
 
+    let portalNavigationOverlay = null;
+    if (route.slug === "match-merge" && viewport.key === "compact-desktop") {
+      const shell = page.locator(".clockyboii-shell");
+      const before = await shell.boundingBox();
+      const openPortalNavigation = page.getByRole("button", { name: "Open full portal navigation" });
+      await openPortalNavigation.focus();
+      await page.keyboard.press("Enter");
+      await page.getByRole("dialog", { name: "Portal navigation" }).waitFor({ state: "visible" });
+      const during = await shell.boundingBox();
+      await page.keyboard.press("Escape");
+      await page.getByRole("dialog", { name: "Portal navigation" }).waitFor({ state: "hidden" });
+      const after = await shell.boundingBox();
+      portalNavigationOverlay = {
+        shellLeftBefore: before?.x ?? null,
+        shellLeftDuring: during?.x ?? null,
+        shellLeftAfter: after?.x ?? null,
+      };
+      if (!before || !during || !after || Math.abs(before.x - during.x) > 1 || Math.abs(before.x - after.x) > 1) {
+        failures.push(formatFailure(viewport, route, "opening the full portal menu resized or shifted the game canvas"));
+      }
+    }
+
     if (pageErrors.length) failures.push(formatFailure(viewport, route, `page errors: ${pageErrors.join(" | ")}`));
     if (badAssets.length) failures.push(formatFailure(viewport, route, `same-origin failures: ${badAssets.join(" | ")}`));
 
@@ -388,6 +669,9 @@ async function inspectRoute(page, viewport, route, failures, results) {
       metrics: reportMetrics,
       accessibility,
       canvasState,
+      portalNavigationOverlay,
+      visualBounds,
+      taskFit,
       interaction,
       screenshotPath,
     });

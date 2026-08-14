@@ -1,5 +1,9 @@
+.game-shell[data-world="time-runner"] .game-shell__layout { grid-template-columns: minmax(0, 1fr); }
+.game-shell[data-world="time-runner"] .game-shell__playfield { order: 1; }
+.game-shell[data-world="time-runner"] .game-shell__sidebar { order: 2; width: 100%; }
 .time-runner-hud { display: grid; gap: 0.85rem; color: #364152; letter-spacing: 0; }
-.time-runner-mode, .time-runner-error { display: grid; gap: 0.55rem; margin-bottom: 0.85rem; padding: 0.7rem; border: 2px solid #485365; border-radius: 6px; color: #364152; }
+.time-runner-secondary { display: grid; grid-template-columns: minmax(15rem, 0.8fr) minmax(18rem, 1fr) minmax(18rem, 1.2fr); gap: 1rem; align-items: start; }
+.time-runner-mode, .time-runner-error { display: grid; gap: 0.55rem; padding: 0.7rem; border: 2px solid #485365; border-radius: 6px; color: #364152; }
 .time-runner-mode { background: #eaeee0; }
 .time-runner-error { background: #f8e6e6; }
 .time-runner-mode strong, .time-runner-mode span { display: block; }
@@ -10,7 +14,7 @@
 .time-runner-hud__familiar small, .time-runner-hud__familiar strong { display: block; }
 .time-runner-hud__familiar small { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; color: #485365; }
 .time-runner-hud__familiar strong { margin-top: 0.15rem; }
-.time-runner-hud__stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; margin: 0; }
+.time-runner-hud__stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.5rem; margin: 0; }
 .time-runner-hud__stats > div { padding: 0.6rem; border: 2px solid #485365; border-radius: 6px; background: #d9e6ec; }
 .time-runner-hud__stats dt { display: flex; align-items: center; gap: 0.3rem; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; }
 .time-runner-hud__stats dt svg { width: 15px; }
@@ -18,13 +22,8 @@
 .time-runner-hud__meter { height: 12px; overflow: hidden; border: 2px solid #485365; border-radius: 4px; background: #faf3eb; }
 .time-runner-hud__meter span { display: block; height: 100%; background: #80adbc; transition: width 150ms linear; }
 .time-runner-hud__moment, .time-runner-hud__finished > p { margin: 0; padding: 0.65rem; border-left: 4px solid #cab08b; background: #eaeee0; font-size: 0.82rem; font-weight: 700; }
-.time-runner-hud__actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.4rem; }
-.time-runner-hud__actions button, .time-runner-button { min-height: 44px; border: 2px solid #485365; border-radius: 6px; background: #faf3eb; color: #364152; font-weight: 800; box-shadow: 0 3px 0 rgb(72 83 101 / 20%); }
-.time-runner-hud__actions button { padding: 0.4rem 0.25rem; }
-.time-runner-hud__actions strong, .time-runner-hud__actions small { display: block; }
-.time-runner-hud__actions small { margin-top: 0.1rem; font-size: 0.63rem; }
-.time-runner-hud__actions button.is-active { background: #dfd8ab; transform: translateY(2px); box-shadow: 0 1px 0 rgb(72 83 101 / 20%); }
-.time-runner-hud__actions button:disabled, .time-runner-button:disabled { opacity: 0.45; cursor: not-allowed; }
+.time-runner-button { min-height: 44px; border: 2px solid #485365; border-radius: 6px; background: #faf3eb; color: #364152; font-weight: 800; box-shadow: 0 3px 0 rgb(72 83 101 / 20%); }
+.time-runner-button:disabled { opacity: 0.45; cursor: not-allowed; }
 .time-runner-button { display: inline-flex; width: 100%; align-items: center; justify-content: center; gap: 0.45rem; padding: 0.55rem 0.7rem; }
 .time-runner-button svg { width: 17px; }
 .time-runner-button--primary { background: #b4c6dc; }
@@ -32,9 +31,25 @@
 .time-runner-hud__controls > span { display: flex; min-height: 36px; align-items: center; gap: 0.5rem; padding: 0.35rem 0.65rem; border: 2px solid #485365; border-radius: 6px; background: #f8e6e6; font-size: 0.75rem; font-weight: 800; }
 .time-runner-hud__controls svg { width: 17px; }
 .time-runner-hud__finished { display: grid; gap: 0.5rem; }
-.time-runner-stage { position: relative; min-height: 33rem; overflow: hidden; background: #d9e6ec; }
-.time-runner-stage > div:first-child { height: 33rem; min-height: 0; border: 0; border-radius: 0; background: #d9e6ec; }
-.time-runner-stage__controls { display: none; }
+.time-runner-stage { position: relative; display: grid; overflow: hidden; background: #d9e6ec; }
+.time-runner-live-hud { display: grid; grid-template-columns: minmax(22rem, 1fr) minmax(9rem, 0.42fr); gap: 0.5rem 0.75rem; align-items: center; padding: 0.55rem 0.65rem; border-bottom: 3px solid #485365; background: #faf3eb; }
+.time-runner-live-hud .time-runner-hud__stats > div { padding: 0.35rem 0.5rem; }
+.time-runner-live-hud .time-runner-hud__stats dd { font-size: 1rem; }
+.time-runner-live-hud .time-runner-hud__meter { grid-column: 1; }
+.time-runner-live-hud__moment { grid-column: 2; grid-row: 1 / 3; margin: 0; padding: 0.45rem 0.55rem; border-left: 4px solid #cab08b; background: #eaeee0; font-size: 0.76rem; font-weight: 800; }
+.time-runner-stage__canvas-wrap { position: relative; overflow: hidden; background: #d9e6ec; }
+.time-runner-canvas { width: 100%; height: auto !important; max-height: calc(100dvh - 23rem); min-height: 0 !important; aspect-ratio: 16 / 9; border: 0; border-radius: 0; background: #d9e6ec; }
+.time-runner-canvas canvas { display: block; width: 100% !important; height: 100% !important; }
+.time-runner-stage__pause { position: absolute; z-index: 30; inset: 0; display: grid; place-items: center; background: rgb(250 243 235 / 80%); }
+.time-runner-stage__pause strong { padding: 0.7rem 1rem; border: 2px solid #485365; border-radius: 6px; background: #d9e6ec; }
+.time-runner-stage__controls { position: relative; z-index: 2; display: block; min-height: 0; padding: 0.5rem; border-top: 3px solid #485365; background: #f8e6e6; }
+.time-runner-control-dock { display: grid; gap: 0.45rem; }
+.time-runner-landing-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4rem; }
+.time-runner-landing-choices button { display: flex; min-width: 0; min-height: 42px; align-items: center; gap: 0.45rem; padding: 0.35rem 0.5rem; border: 2px solid #485365; border-radius: 6px; background: #dfd8ab; color: #364152; font-weight: 800; }
+.time-runner-landing-choices button:nth-child(2) { background: #f8e6e6; }
+.time-runner-landing-choices kbd { display: grid; width: 1.55rem; height: 1.55rem; flex: 0 0 1.55rem; place-items: center; border: 2px solid #485365; border-radius: 4px; background: #faf3eb; font: inherit; }
+.time-runner-landing-choices span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.time-runner-landing-choices button:focus-visible { outline: 3px solid #80adbc; outline-offset: 2px; }
 .time-runner-mobile-dock { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.38rem; }
 .time-runner-mobile-dock--ready { grid-template-columns: minmax(0, 1fr); }
 .time-runner-mobile-dock button {
@@ -50,36 +65,42 @@
 }
 .time-runner-mobile-dock button.is-active { background: #dfd8ab; transform: translateY(2px); box-shadow: 0 1px 0 #485365; }
 .time-runner-mobile-dock button:disabled { opacity: 0.48; }
+.time-runner-mobile-dock button:focus-visible, .time-runner-button:focus-visible, .time-runner-mode button:focus-visible, .time-runner-error button:focus-visible { outline: 3px solid #dfd8ab; outline-offset: 2px; }
 .time-runner-mobile-dock strong, .time-runner-mobile-dock small { display: block; overflow-wrap: anywhere; }
 .time-runner-mobile-dock strong { font-size: 0.78rem; }
 .time-runner-mobile-dock small { margin-top: 0.08rem; font-size: 0.6rem; }
-.time-runner-stage__legend { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 3px solid #485365; background: #faf3eb; }
+.time-runner-action-art { position: relative; display: block; width: 1.7rem; height: 1.7rem; flex: 0 0 1.7rem; overflow: hidden; pointer-events: none; }
+.time-runner-action-art img { position: absolute; top: 0; left: 0; width: 200%; max-width: none; height: 200%; user-select: none; }
+.time-runner-shard-art { position: relative; display: block; width: 15px; height: 15px; flex: 0 0 15px; overflow: hidden; pointer-events: none; }
+.time-runner-shard-art img { position: absolute; top: 0; left: 0; width: 200%; max-width: none; height: 200%; user-select: none; }
+.time-runner-stage__legend { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 2px solid #485365; border-radius: 6px; background: #faf3eb; overflow: hidden; }
+.time-runner-stage__legend h2 { grid-column: 1 / -1; margin: 0; padding: 0.6rem 0.7rem; border-bottom: 2px solid #485365; background: #d9e6ec; font-size: 0.9rem; }
 .time-runner-stage__legend div { min-width: 0; padding: 0.65rem; border-right: 2px dashed rgb(72 83 101 / 30%); }
 .time-runner-stage__legend div:last-child { border-right: 0; }
 .time-runner-stage__legend strong, .time-runner-stage__legend span { display: block; overflow-wrap: anywhere; }
 .time-runner-stage__legend span { margin-top: 0.15rem; font-size: 0.72rem; }
-@media (max-width: 560px) {
-  .time-runner-hud__actions--sidebar { display: none; }
-  .time-runner-stage__controls {
-    position: absolute;
-    z-index: 35;
-    right: 0.55rem;
-    bottom: 4.1rem;
-    left: 0.55rem;
-    display: block;
-    min-height: 0;
-    padding: 0.42rem;
-    border: 2px solid #485365;
-    border-radius: 7px;
-    background: #f8e6e6;
-    box-shadow: 0 4px 0 #485365;
-  }
+@media (max-width: 760px) {
+  .time-runner-secondary { grid-template-columns: minmax(0, 1fr); }
+  .time-runner-live-hud { grid-template-columns: minmax(0, 1fr); }
+  .time-runner-live-hud .time-runner-hud__meter, .time-runner-live-hud__moment { grid-column: 1; grid-row: auto; }
+  .time-runner-live-hud__moment { display: none; }
+  .time-runner-canvas { min-height: 13rem !important; max-height: none; }
+  .time-runner-stage__controls { position: relative; padding: 0.45rem; }
   .time-runner-stage__legend { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .time-runner-stage__legend div { padding: 0.45rem 0.35rem; border-right: 1px solid rgb(72 83 101 / 35%); }
   .time-runner-stage__legend strong { font-size: 0.68rem; }
   .time-runner-stage__legend span { display: none; }
-  .time-runner-stage { min-height: 28rem; }
-  .time-runner-stage > div:first-child { height: 28rem; min-height: 0; }
+}
+@media (max-width: 420px) {
+  .time-runner-live-hud { padding: 0.4rem; }
+  .time-runner-live-hud .time-runner-hud__stats { gap: 0.3rem; }
+  .time-runner-live-hud .time-runner-hud__stats > div { padding: 0.3rem; }
+  .time-runner-live-hud .time-runner-hud__stats dt { gap: 0.15rem; font-size: 0.58rem; }
+  .time-runner-live-hud .time-runner-hud__stats dt svg { display: none; }
+  .time-runner-live-hud .time-runner-hud__stats dd { font-size: 0.88rem; }
+  .time-runner-mobile-dock strong { font-size: 0.72rem; }
+  .time-runner-mobile-dock small { font-size: 0.56rem; }
+  .time-runner-canvas { min-height: 11.5rem !important; }
 }
 @media (prefers-reduced-motion: reduce) {
   .time-runner-hud__meter span { transition: none; }

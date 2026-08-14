@@ -267,6 +267,7 @@ const progressSchema = z.discriminatedUnion("game_key", [
   z.object({
     session_id: uuidSchema,
     game_key: z.literal("word-garden"),
+    display_name: z.literal("Blooming Ink").optional(),
     action_index: safeIntegerSchema.positive(),
     state: z.object({
       display_name: z.literal("Blooming Ink"),
@@ -325,12 +326,26 @@ const materialSchema = z.object({
 const achievementSchema = z.object({
   key: keySchema,
   title: z.string().min(1).max(100),
+  collectible: z.object({
+    kind: z.literal("charm").optional(),
+    charm_key: keySchema.optional(),
+    label: z.string().min(1).max(100).optional(),
+    description: z.string().min(1).max(500).optional(),
+    rarity: keySchema.optional(),
+    slot: keySchema.optional(),
+    effects: z.record(z.string(), z.union([
+      z.string(),
+      z.number().int().min(0).max(2500),
+    ])).optional(),
+    trophy_key: keySchema.optional(),
+  }).strict().optional(),
 }).strict();
 
 const claimSchema = z.object({
   reward_event_id: uuidSchema,
   session_id: uuidSchema,
   game_key: keySchema,
+  display_name: z.literal("Blooming Ink").optional(),
   score: safeIntegerSchema,
   favor: favorSchema,
   materials: z.array(materialSchema).max(20),
@@ -372,7 +387,22 @@ export function normalizeGameRewardClaim(value) {
     score: parsed.score,
     favor: parsed.favor,
     materials: parsed.materials,
-    achievements: parsed.achievements,
+    achievements: parsed.achievements.map((achievement) => ({
+      key: achievement.key,
+      title: achievement.title,
+      ...(achievement.collectible ? {
+        collectible: {
+          kind: achievement.collectible.kind,
+          charmKey: achievement.collectible.charm_key,
+          label: achievement.collectible.label,
+          description: achievement.collectible.description,
+          rarity: achievement.collectible.rarity,
+          slot: achievement.collectible.slot,
+          effects: achievement.collectible.effects || {},
+          trophyKey: achievement.collectible.trophy_key,
+        },
+      } : {}),
+    })),
     replayed: parsed.replayed,
   };
 }

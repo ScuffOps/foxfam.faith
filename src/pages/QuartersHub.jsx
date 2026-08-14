@@ -3,10 +3,16 @@ import { AlertTriangle, Gem, LibraryBig, Loader2, Trophy } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import IsometricRoom from "@/components/quarters/IsometricRoom";
 import PrioryCourtyard from "@/components/quarters/PrioryCourtyard";
+import QuartersDecorPanel from "@/components/quarters/QuartersDecorPanel";
 import QuartersHud from "@/components/quarters/QuartersHud";
 import StationPanel from "@/components/quarters/StationPanel";
-import { moveSceneCursor } from "@/components/quarters/quartersSceneModel";
+import { DEFAULT_QUARTERS_DECOR } from "@/components/quarters/quartersDecorCatalog";
+import { loadQuartersDecor, saveQuartersDecor } from "@/components/quarters/quartersDecorService";
+import { findNearbyQuartersStation, moveSceneCursor } from "@/components/quarters/quartersSceneModel";
 import StarfishingProgressCard from "@/components/relics/StarfishingProgressCard";
+import ProfileAvatarFrame from "@/components/relics/ProfileAvatarFrame";
+import ProfileCosmeticFrame from "@/components/relics/ProfileCosmeticFrame";
+import { resolvePublicProfileCosmetics } from "@/components/relics/profileCosmeticPresentation";
 import {
   classifyProgressionLoadError,
   planProgressSurfaceSession,
@@ -60,6 +66,11 @@ export default function QuartersHub() {
   const [scene, setScene] = useState("quarters");
   const [cursor, setCursor] = useState({ x: 50, y: 65 });
   const [selectedStation, setSelectedStation] = useState("");
+  const [decorLayout, setDecorLayout] = useState({ ...DEFAULT_QUARTERS_DECOR });
+  const [savedDecorLayout, setSavedDecorLayout] = useState({ ...DEFAULT_QUARTERS_DECOR });
+  const [decorSaving, setDecorSaving] = useState(false);
+  const [decorError, setDecorError] = useState("");
+  const [decorStatus, setDecorStatus] = useState("preview");
   const loadEpochRef = useRef(0);
   const previousOwnerRef = useRef("");
   const activeOwnerRef = useRef("");
@@ -81,6 +92,10 @@ export default function QuartersHub() {
       setStarfishingStatus(isAuthenticated ? "loading" : "signed-out");
       setGate(null);
       setPublicProgression(null);
+      setDecorLayout({ ...DEFAULT_QUARTERS_DECOR });
+      setSavedDecorLayout({ ...DEFAULT_QUARTERS_DECOR });
+      setDecorStatus(isAuthenticated ? "loading" : "unavailable");
+      setDecorError("");
       setNotice(isLoadingAuth || isAuthenticated
         ? ""
         : "Sign in to visit another member's public Quarters collection.");
@@ -90,15 +105,27 @@ export default function QuartersHub() {
         return () => { cancelled = true; };
       }
 
-      loadPublicGameProgression(profileUserId)
-        .then((progression) => {
+      Promise.allSettled([
+        loadPublicGameProgression(profileUserId),
+        loadQuartersDecor(profileUserId),
+      ])
+        .then(([progressionResult, decorResult]) => {
           if (cancelled || loadEpochRef.current !== loadEpoch) return;
-          setPublicProgression(progression);
-          setLoading(false);
-        })
-        .catch((loadError) => {
-          if (cancelled || loadEpochRef.current !== loadEpoch) return;
-          setNotice(loadError?.message || "This public collection is resting for a moment.");
+          if (progressionResult.status === "fulfilled") {
+            setPublicProgression(progressionResult.value);
+          }
+          if (decorResult.status === "fulfilled") {
+            setDecorLayout(decorResult.value);
+            setSavedDecorLayout(decorResult.value);
+            setDecorStatus("visitor");
+          } else {
+            setDecorStatus("error");
+          }
+          if (progressionResult.status === "rejected") {
+            setNotice(progressionResult.reason?.message || "This public collection is resting for a moment.");
+          } else if (decorResult.status === "rejected") {
+            setNotice("This member's room arrangement is resting, but their collection is still available.");
+          }
           setLoading(false);
         });
 
@@ -123,6 +150,10 @@ export default function QuartersHub() {
       setRelicInventory({ relic: DEFAULT_RELIC, charms: [] });
       setStarfishingProgression(null);
       setGate(null);
+      setDecorLayout({ ...DEFAULT_QUARTERS_DECOR });
+      setSavedDecorLayout({ ...DEFAULT_QUARTERS_DECOR });
+      setDecorStatus(plan.status === "signed-out" ? "preview" : "loading");
+      setDecorError("");
     }
     setPublicProgression(null);
     setNotice(plan.status === "signed-out"
@@ -136,7 +167,7 @@ export default function QuartersHub() {
     }
 
     async function loadQuartersOwner() {
-      const [inventoryResult, gateResult, levelsResult, starfishingResult] = await Promise.all([
+      const [inventoryResult, gateResult, levelsResult, starfishingResult, decorResult] = await Promise.all([
         loadUserRelicInventory()
           .then((inventory) => ({ data: inventory, error: null }))
           .catch((loadError) => ({ data: null, error: loadError })),
@@ -149,6 +180,9 @@ export default function QuartersHub() {
           .catch((loadError) => ({ data: [], error: loadError })),
         loadStarfishingProgression()
           .then((progression) => ({ data: progression, error: null }))
+          .catch((loadError) => ({ data: null, error: loadError })),
+        loadQuartersDecor()
+          .then((loadedDecor) => ({ data: loadedDecor, error: null }))
           .catch((loadError) => ({ data: null, error: loadError })),
       ]);
 
@@ -163,12 +197,21 @@ export default function QuartersHub() {
       setGate(gateResult.data);
       setLevel(levelsResult.data[0] || null);
       setStarfishingProgression(starfishingResult.data);
+      if (decorResult.data) {
+        setDecorLayout(decorResult.data);
+        setSavedDecorLayout(decorResult.data);
+        setDecorStatus("ready");
+        setDecorError("");
+      } else {
+        setDecorStatus("error");
+        setDecorError("Your saved room could not be loaded. Saving is paused to protect it.");
+      }
       setStarfishingStatus(
         starfishingResult.error
           ? classifyProgressionLoadError(starfishingResult.error)
           : "ready",
       );
-      if (inventoryResult.error || gateResult.error || levelsResult.error) {
+      if (inventoryResult.error || gateResult.error || levelsResult.error || decorResult.error) {
         setNotice("Some Quarters records are resting. Your saved data has not been replaced.");
       }
       setLoading(false);
@@ -189,6 +232,14 @@ export default function QuartersHub() {
     ? starfishingStatus
     : (ownerId ? "loading" : "signed-out");
   const favor = Math.max(0, Number(visibleProgression?.favorBalance ?? visibleLevel?.points ?? 0));
+  const visitorCosmetics = useMemo(
+    () => resolvePublicProfileCosmetics(publicProgression?.cosmetics),
+    [publicProgression?.cosmetics],
+  );
+  const visibleFamiliar = isVisitorMode
+    ? (publicProgression?.familiar || DEFAULT_FAMILIAR)
+    : familiar;
+  const nearbyStation = useMemo(() => findNearbyQuartersStation(cursor), [cursor]);
 
   const openStation = useCallback((stationKey) => {
     if (isVisitorMode) {
@@ -202,10 +253,6 @@ export default function QuartersHub() {
         setSelectedStation("");
         return;
       }
-    }
-    if (stationKey === "decorate") {
-      setNotice("Decoration placement is staged for the next persistence pass.");
-      return;
     }
     const route = STATION_ROUTES[stationKey];
     if (route) navigate(route);
@@ -242,6 +289,37 @@ export default function QuartersHub() {
     }
   }, [isVisitorMode, navigate, openStation]);
 
+  const handleSaveDecor = useCallback(async (nextLayout) => {
+    if (isVisitorMode || decorSaving) return;
+    if (!isAuthenticated) {
+      openLogin();
+      return;
+    }
+    if (decorStatus !== "ready") {
+      setDecorError("Your saved room is not ready. Reload before saving changes.");
+      return;
+    }
+    setDecorSaving(true);
+    setDecorError("");
+    try {
+      const saved = await saveQuartersDecor(nextLayout);
+      setDecorLayout(saved);
+      setSavedDecorLayout(saved);
+      setNotice("Your Quarters arrangement is saved.");
+      setSelectedStation("");
+    } catch (saveError) {
+      setDecorError(saveError?.message || "Your arrangement could not be saved.");
+    } finally {
+      setDecorSaving(false);
+    }
+  }, [decorSaving, decorStatus, isAuthenticated, isVisitorMode, openLogin]);
+
+  const handleCloseDecor = useCallback(() => {
+    setDecorLayout(savedDecorLayout);
+    setDecorError(decorStatus === "error" ? "Your saved room could not be loaded. Saving is paused to protect it." : "");
+    setSelectedStation("");
+  }, [decorStatus, savedDecorLayout]);
+
   const handleControl = useCallback((action) => {
     if (scene !== "quarters") {
       if (action === GAME_ACTIONS.cancel) setScene("quarters");
@@ -259,14 +337,14 @@ export default function QuartersHub() {
       return;
     }
 
-    if ([GAME_ACTIONS.interact, GAME_ACTIONS.confirm].includes(action) && selectedStation) {
-      openStation(selectedStation);
+    if ([GAME_ACTIONS.interact, GAME_ACTIONS.confirm].includes(action) && nearbyStation) {
+      activateStation(nearbyStation);
     }
     if (action === GAME_ACTIONS.cancel) setSelectedStation("");
-  }, [openStation, scene, selectedStation]);
+  }, [activateStation, nearbyStation, scene]);
 
   useGameControls({
-    enabled: !loading,
+    enabled: !loading && !selectedStation,
     onAction: handleControl,
     preserveNativeButtonActivation: true,
   });
@@ -315,14 +393,16 @@ export default function QuartersHub() {
           <IsometricRoom
             cursor={cursor}
             selectedStation={selectedStation}
-            familiar={isVisitorMode ? DEFAULT_FAMILIAR : familiar}
+            nearbyStation={nearbyStation}
+            familiar={visibleFamiliar}
+            decor={decorLayout}
             onMove={(position) => setCursor(moveSceneCursor(position, { x: 0, y: 0 }))}
             onActivate={activateStation}
           />
         ) : (
           <PrioryCourtyard
             worlds={worlds}
-            familiar={isVisitorMode ? DEFAULT_FAMILIAR : familiar}
+            familiar={visibleFamiliar}
             onBack={() => setScene("quarters")}
             onEnterWorld={navigate}
           />
@@ -336,7 +416,18 @@ export default function QuartersHub() {
           onAction={handleShortcut}
         />
 
-        {scene === "quarters" && selectedStation ? (
+        {scene === "quarters" && selectedStation === "decorate" ? (
+          <QuartersDecorPanel
+            layout={savedDecorLayout}
+            saving={decorSaving}
+            error={decorError}
+            onPreview={setDecorLayout}
+            onSave={handleSaveDecor}
+            onClose={handleCloseDecor}
+          />
+        ) : null}
+
+        {scene === "quarters" && selectedStation && selectedStation !== "decorate" ? (
           <StationPanel
             stationKey={selectedStation}
             onClose={() => setSelectedStation("")}
@@ -346,11 +437,20 @@ export default function QuartersHub() {
       </div>
 
       {isVisitorMode ? (
-        <section className="mt-4 max-w-3xl rounded-lg border-2 border-[#586577] bg-[#faf3eb] p-4 text-[#364152] shadow-[4px_4px_0_#c7bbb0]" aria-labelledby="visitor-collection-title">
+        <div className="mt-4 max-w-3xl">
+        <ProfileCosmeticFrame frame={visitorCosmetics.frame} particle={visitorCosmetics.particle}>
+        <section aria-labelledby="visitor-collection-title">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
+            <div className="flex items-center gap-3">
+              <ProfileAvatarFrame frame={visitorCosmetics.frame} className="h-16 w-16">
+                <span className="flex h-full w-full items-center justify-center bg-[#d9e6ec] text-[#364152]" aria-hidden="true">
+                  <Gem className="h-6 w-6" />
+                </span>
+              </ProfileAvatarFrame>
+              <div>
               <p className="text-[10px] font-bold uppercase text-[#62575a]">Public collection</p>
               <h2 id="visitor-collection-title" className="font-heading text-lg font-bold">A glimpse of their journey</h2>
+              </div>
             </div>
             <span className="inline-flex items-center gap-2 rounded-md border border-[#7da3ad] bg-[#d9e6ec] px-3 py-2 text-sm font-bold">
               <LibraryBig className="h-4 w-4" aria-hidden="true" />
@@ -382,6 +482,8 @@ export default function QuartersHub() {
             </p>
           )}
         </section>
+        </ProfileCosmeticFrame>
+        </div>
       ) : (
         <div className="mt-4 max-w-xl">
           <StarfishingProgressCard

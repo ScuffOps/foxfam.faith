@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { FAMILIAR_SPECIES } from "./familiarCatalog.js";
+import { assertCollectiblePngTransparency } from "../../../../scripts/validate-game-art-assets.mjs";
 
 const migration = readFileSync(
   new URL("../../../../supabase/migrations/20260725143000_expand_familiar_species.sql", import.meta.url),
@@ -21,4 +22,16 @@ test("the persistence allowlist expands without changing familiar ownership poli
     assert.match(migration, new RegExp(`'${species}'`));
   }
   assert.doesNotMatch(migration, /policy|row level security|grant|revoke/i);
+});
+
+test("wide familiar masters retain transparent breathing room around their noses", () => {
+  for (const key of ["shrine-cat", "moon-seal"]) {
+    const species = FAMILIAR_SPECIES[key];
+    assert.equal(species.artInset, "wide-safe", `${species.label} needs the wide-safe presentation contract`);
+    const assetUrl = new URL(`../../../../public${species.asset}`, import.meta.url);
+    assertCollectiblePngTransparency(
+      { id: `familiar-${key}` },
+      readFileSync(fileURLToPath(assetUrl)),
+    );
+  }
 });

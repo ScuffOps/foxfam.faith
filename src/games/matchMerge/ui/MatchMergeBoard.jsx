@@ -6,8 +6,17 @@ import {
   Sparkles,
   Undo2,
 } from "lucide-react";
+import { getApprovedGameArtAsset } from "@/games/shared/art/gameArtManifest";
 import InteractionPrompt from "@/games/shared/ui/InteractionPrompt";
+import {
+  getApprovedMatchMergeProductionArt,
+  getMatchMergeOfferingAtlasTransform,
+} from "../art/matchMergeProductionArt";
+import { getMatchMergeGuidance } from "./matchMergeGuidance";
 import "./match-merge.css";
+
+const RELIQUARY_ENVIRONMENT_ASSET = getApprovedGameArtAsset("match-merge.reliquary");
+const MATCH_MERGE_PRODUCTION_ART = getApprovedMatchMergeProductionArt();
 
 const OFFERING_ART = {
   "moon-spark": MoonSpark,
@@ -27,12 +36,14 @@ export default function MatchMergeBoard({
   onDragSwap,
   onUndo,
   onShuffle,
+  compactAction = null,
 }) {
   const [draggedIndex, setDraggedIndex] = useState(null);
   const tileRefs = useRef([]);
   const didMountRef = useRef(false);
   const cursor = state.cursor || { row: 0, column: 0 };
   const cursorIndex = cursor.row * 4 + cursor.column;
+  const guidance = getMatchMergeGuidance(state.grid, state.selectedIndex);
 
   useEffect(() => {
     if (!didMountRef.current) {
@@ -55,16 +66,29 @@ export default function MatchMergeBoard({
       className="reliquary-scene"
       aria-busy={isBusy}
       aria-labelledby="match-merge-board-heading"
+      data-has-approved-environment={RELIQUARY_ENVIRONMENT_ASSET ? "true" : undefined}
+      data-active-art-family={MATCH_MERGE_PRODUCTION_ART ? "approved" : "fallback"}
     >
-      <div className="reliquary-scene__wall" aria-hidden="true">
-        <span className="reliquary-scene__window"><i /><i /><i /><b /></span>
-        <span className="reliquary-scene__cabinet">
-          <i className="reliquary-scene__bottle reliquary-scene__bottle--blue" />
-          <i className="reliquary-scene__bottle reliquary-scene__bottle--rose" />
-          <i className="reliquary-scene__bottle reliquary-scene__bottle--gold" />
-        </span>
-        <span className="reliquary-scene__hanging-tools"><i /><i /><i /></span>
-      </div>
+      {RELIQUARY_ENVIRONMENT_ASSET ? (
+        <img
+          className="reliquary-scene__illustration"
+          data-scene-layer="environment"
+          src={RELIQUARY_ENVIRONMENT_ASSET}
+          alt=""
+          aria-hidden="true"
+          draggable="false"
+        />
+      ) : (
+        <div className="reliquary-scene__wall" data-scene-layer="environment-fallback" aria-hidden="true">
+          <span className="reliquary-scene__window"><i /><i /><i /><b /></span>
+          <span className="reliquary-scene__cabinet">
+            <i className="reliquary-scene__bottle reliquary-scene__bottle--blue" />
+            <i className="reliquary-scene__bottle reliquary-scene__bottle--rose" />
+            <i className="reliquary-scene__bottle reliquary-scene__bottle--gold" />
+          </span>
+          <span className="reliquary-scene__hanging-tools"><i /><i /><i /></span>
+        </div>
+      )}
 
       <div className="reliquary-scene__heading">
         <div>
@@ -73,6 +97,33 @@ export default function MatchMergeBoard({
         </div>
         <span className="reliquary-scene__tier"><Sparkles aria-hidden="true" /> Tier {state.highestTier}</span>
       </div>
+
+      <div
+        className="reliquary-next-move"
+        id="match-merge-next-move"
+        data-state={guidance.state}
+        aria-live="polite"
+      >
+        <span className="reliquary-next-move__step" aria-hidden="true">
+          {guidance.state === "target" ? "2 / 2" : guidance.state === "locked" ? "Done" : "1 / 2"}
+        </span>
+        <div>
+          <p>{guidance.eyebrow}</p>
+          <strong>{guidance.title}</strong>
+          <small>{guidance.detail}</small>
+        </div>
+      </div>
+
+      {compactAction ? (
+        <div className="reliquary-compact-action" data-tone={compactAction.tone || "quiet"}>
+          <span><strong>{compactAction.label}</strong><small>{compactAction.detail}</small></span>
+          {compactAction.onAction ? (
+            <button type="button" onClick={compactAction.onAction} disabled={compactAction.disabled}>
+              <Sparkles aria-hidden="true" /> {compactAction.actionLabel}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="reliquary-tools" role="group" aria-label="Bench tools">
         {allowPracticeTools ? (
@@ -85,7 +136,7 @@ export default function MatchMergeBoard({
             </button>
           </>
         ) : null}
-        <span><Grip aria-hidden="true" /> Drag matching neighbors together</span>
+        <span><Grip aria-hidden="true" /> Drag or select matching neighbors</span>
       </div>
 
       <div className="reliquary-table">
@@ -94,10 +145,31 @@ export default function MatchMergeBoard({
           <span className="reliquary-table__wax"><i /><i /><i /></span>
           <span className="reliquary-table__mallet"><i /><b /></span>
         </div>
-        <div className="reliquary-board" role="group" aria-busy={isBusy} aria-label="Four by four reliquary merge board">
+        <div
+          className="reliquary-board"
+          role="group"
+          aria-busy={isBusy}
+          aria-describedby="match-merge-next-move"
+          aria-label="Four by four reliquary merge board"
+        >
+          {feedback?.tone === "success" ? (
+            <span className="reliquary-merge-feedback" aria-hidden="true">
+              {MATCH_MERGE_PRODUCTION_ART ? (
+                <img
+                  src={MATCH_MERGE_PRODUCTION_ART.mergeFx}
+                  alt=""
+                  draggable="false"
+                />
+              ) : (
+                <Sparkles />
+              )}
+            </span>
+          ) : null}
           {state.grid.map((tile, index) => {
             const selected = state.selectedIndex === index;
             const focused = cursorIndex === index;
+            const suggestedSource = guidance.sourceIndex === index;
+            const suggestedTarget = guidance.targetIndexes.includes(index);
             const OfferingArt = OFFERING_ART[tile?.key] || MoonSpark;
             return (
               <button
@@ -111,6 +183,8 @@ export default function MatchMergeBoard({
                 data-offering={tile?.key || undefined}
                 data-selected={selected || undefined}
                 data-dragging={draggedIndex === index || undefined}
+                data-action-source={suggestedSource || undefined}
+                data-action-target={suggestedTarget || undefined}
                 aria-pressed={selected}
                 aria-label={tile ? `${tile.label}, tier ${tile.tier}, row ${Math.floor(index / 4) + 1}, column ${(index % 4) + 1}` : `Empty space, row ${Math.floor(index / 4) + 1}, column ${(index % 4) + 1}`}
                 onClick={() => {
@@ -137,9 +211,24 @@ export default function MatchMergeBoard({
               >
                 {tile ? (
                   <span className="reliquary-tile__offering">
-                    <span className="reliquary-tile__icon"><OfferingArt /></span>
-                    <strong>{tile.label}</strong>
-                    <small>Tier {tile.tier}</small>
+                    <span
+                      className="reliquary-tile__icon"
+                      data-approved-atlas={MATCH_MERGE_PRODUCTION_ART ? "true" : undefined}
+                    >
+                      {MATCH_MERGE_PRODUCTION_ART ? (
+                        <img
+                          src={MATCH_MERGE_PRODUCTION_ART.offerings}
+                          alt=""
+                          aria-hidden="true"
+                          draggable="false"
+                          style={{ transform: getMatchMergeOfferingAtlasTransform(tile.key) }}
+                        />
+                      ) : (
+                        <OfferingArt />
+                      )}
+                    </span>
+                    <strong className="reliquary-tile__label">{tile.label}</strong>
+                    <small className="reliquary-tile__tier" aria-hidden="true">T{tile.tier}</small>
                   </span>
                 ) : (
                   <span className="reliquary-tile__empty" aria-hidden="true"><CircleDot /></span>

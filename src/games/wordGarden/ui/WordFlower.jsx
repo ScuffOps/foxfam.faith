@@ -1,16 +1,49 @@
 import { Delete, Shuffle } from "lucide-react";
 
-export default function WordFlower({ center, petals, draftWord, disabled, onPetal, onRemove, onShuffle, onSubmit }) {
+export default function WordFlower({ artFamily = null, center, petals, draftWord, theme, themePrompt, disabled, onPetal, onRemove, onShuffle, onSubmit }) {
+  const draftLength = draftWord.length;
+  const hasCenter = draftWord.includes(center);
+
   return (
-    <section className="word-flower" aria-label="Word Garden flower">
-      <div className="word-flower__draft" aria-live="polite" aria-label={draftWord ? `Current word: ${draftWord}` : "Current word is empty"}>
-        {draftWord || <span>Gather a word</span>}
+    <section className="word-flower" aria-labelledby="word-flower-task-title">
+      <header className="word-flower__task">
+        <p>Today&apos;s theme · {theme}</p>
+        <h2 id="word-flower-task-title">{themePrompt}</h2>
+        <div className="word-flower__rules" aria-label="Word rules">
+          <span>Build a word around <strong>{center}</strong></span>
+          <span data-ready={draftLength >= 4}>4+ letters</span>
+          <span data-ready={hasCenter}>Include heart letter {center}</span>
+        </div>
+      </header>
+
+      <div className="word-flower__draft-wrap">
+        <p>Current bloom</p>
+        <div
+          className="word-flower__draft"
+          aria-live="polite"
+          aria-atomic="true"
+          aria-label={draftWord ? `Current word: ${draftWord}` : "Current word is empty"}
+        >
+          {draftWord || <span>Choose a petal</span>}
+        </div>
       </div>
 
-      <div className="word-flower__bed">
-        <div className="word-flower__soil" aria-hidden="true"><i /><i /><i /></div>
-        <div className="word-flower__stem" aria-hidden="true" />
-        <div className="word-flower__leaves" aria-hidden="true"><i /><i /></div>
+      <div className="word-flower__bed" data-art-family={artFamily ? "authored" : "fallback"}>
+        {artFamily ? (
+          <img
+            className="word-flower__authored-art"
+            src={artFamily.flower}
+            alt=""
+            aria-hidden="true"
+            draggable="false"
+          />
+        ) : (
+          <div className="word-flower__fallback-art" aria-hidden="true">
+            <div className="word-flower__soil"><i /><i /><i /></div>
+            <div className="word-flower__stem" />
+            <div className="word-flower__leaves"><i /><i /></div>
+          </div>
+        )}
         <div className="word-flower__petals">
           {petals.map((letter, index) => (
             <button
@@ -48,6 +81,12 @@ export default function WordFlower({ center, petals, draftWord, disabled, onPeta
           Bloom word
         </button>
       </div>
+
+      <p className="word-flower__key-hint">
+        <span><kbd>Enter</kbd> bloom</span>
+        <span><kbd>Backspace</kbd> prune</span>
+        <span><kbd>Space</kbd> shuffle</span>
+      </p>
     </section>
   );
 }

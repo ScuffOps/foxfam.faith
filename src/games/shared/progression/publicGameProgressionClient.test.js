@@ -38,6 +38,14 @@ const validProjection = {
     profile_frame: "fishpedia-frame",
     profile_particle: null,
   },
+  familiar: {
+    species: "moss-turtle",
+    coat: "taupe",
+    markings: "brow-star",
+    outfit: "stargazer-cape",
+    accessory: "petal-crown",
+    charm_fx: "floating-sigils",
+  },
 };
 
 function createClient(handler, user = { id: viewerId }) {
@@ -67,11 +75,41 @@ test("loads only the public projection through one target-scoped RPC", async () 
   assert.equal(projection.profileUserId, profileUserId);
   assert.equal(projection.fishpedia.completionPercent, 67);
   assert.equal(projection.equippedCharms[0].tier, "ascendant");
+  assert.equal(projection.equippedCharms[0].source.type, "achievement");
   assert.equal(projection.trophies[0].title, "Celestial Archivist");
   assert.equal(projection.cosmetics.profileFrame, "fishpedia-frame");
+  assert.equal(projection.familiar.species, "moss-turtle");
+  assert.equal(projection.familiar.charmFx, "floating-sigils");
   assert.equal("favor" in projection, false);
   assert.equal("materials" in projection, false);
   assert.equal("recentCatches" in projection, false);
+});
+
+test("uses the canonical default only when the owner has no saved familiar", async () => {
+  const client = createPublicGameProgressionClient(createClient(async () => ({
+    data: { ...validProjection, familiar: null },
+    error: null,
+  })));
+
+  const projection = await client.loadPublicGameProgression(profileUserId);
+  assert.equal(projection.familiar.species, "fox-cat");
+  assert.equal(projection.familiar.coat, "cream");
+});
+
+test("preserves the canonical relic_roll source token", async () => {
+  const client = createPublicGameProgressionClient(createClient(async () => ({
+    data: {
+      ...validProjection,
+      equipped_charms: [{
+        ...validProjection.equipped_charms[0],
+        source: { type: "relic_roll", key: null },
+      }],
+    },
+    error: null,
+  })));
+
+  const projection = await client.loadPublicGameProgression(profileUserId);
+  assert.equal(projection.equippedCharms[0].source.type, "relic_roll");
 });
 
 test("rejects signed-out access and invalid target identifiers before RPC", async () => {
@@ -98,6 +136,21 @@ test("fails closed on malformed or privacy-expanding responses", async () => {
       ...validProjection,
       fishpedia: { ...validProjection.fishpedia, completion_percent: 150 },
       favor: { balance: 999 },
+    },
+    error: null,
+  })));
+
+  await assert.rejects(
+    () => malformed.loadPublicGameProgression(profileUserId),
+    /Player collection could not be displayed/,
+  );
+});
+
+test("fails closed when a familiar selection is not in the approved catalog", async () => {
+  const malformed = createPublicGameProgressionClient(createClient(async () => ({
+    data: {
+      ...validProjection,
+      familiar: { ...validProjection.familiar, species: "unreleased-dragon" },
     },
     error: null,
   })));

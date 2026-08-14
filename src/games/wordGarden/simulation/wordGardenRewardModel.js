@@ -1,12 +1,18 @@
 import { createWordGardenState, scoreGardenWord, WORD_GARDEN_STATUS } from "./wordGardenRules.js";
+import { presentClaimAchievements } from "../../shared/rewards/gameRewardReceiptPresentation.js";
+import { resolveWordGardenPuzzleGuide } from "../content/wordGardenCatalog.js";
 
 export function createRewardedWordGardenState({ puzzle, context }, previousState = null) {
+  const guide = resolveWordGardenPuzzleGuide(puzzle.key);
   const baseState = createWordGardenState({
     seedKey: puzzle.date,
     letters: puzzle.letters,
     center: puzzle.center,
     acceptedWords: [],
+    featuredWords: guide.featuredWords,
     fullBloomWords: [],
+    theme: guide.theme,
+    themePrompt: guide.themePrompt,
     now: context?.started_at ? Date.parse(context.started_at) : Date.now(),
   });
   const foundWords = (context?.found_words || []).map((word) => {
@@ -25,9 +31,13 @@ export function createRewardedWordGardenState({ puzzle, context }, previousState
       draftWord: previousState.draftWord,
       petals: previousState.petals,
       shuffleCount: previousState.shuffleCount,
+      hintedWords: previousState.hintedWords,
     } : {}),
     puzzleKey: puzzle.key,
     puzzleTitle: puzzle.title,
+    theme: guide.theme,
+    themePrompt: guide.themePrompt,
+    featuredWords: [...guide.featuredWords],
     foundWords,
     status: context?.phase === "complete" ? WORD_GARDEN_STATUS.complete : WORD_GARDEN_STATUS.playing,
     completedAt: context?.completed_at || null,
@@ -45,6 +55,11 @@ export function validateRewardedGardenDraft(state) {
   return "";
 }
 
+export function getRecoverableWordGardenError(error, action) {
+  if (action?.op !== "submit" || error?.code !== "GAME_REWARD_REQUEST_REJECTED") return "";
+  return "That word is not in today's garden. Try another bloom.";
+}
+
 export function createWordGardenReceiptIntent(receipt) {
   if (!receipt) return null;
   return {
@@ -55,10 +70,7 @@ export function createWordGardenReceiptIntent(receipt) {
       quantity: material.delta,
       type: "material",
     })),
-    achievements: (receipt.achievements || []).map((achievement) => ({
-      key: achievement.key,
-      title: achievement.title,
-    })),
+    achievements: presentClaimAchievements(receipt),
   };
 }
 

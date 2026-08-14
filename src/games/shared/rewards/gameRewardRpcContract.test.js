@@ -101,6 +101,28 @@ test("normalizes Blooming Ink canonical context and submit-only word intents", (
   assert.throws(() => normalizeWordGardenAction({ op: "submit", word: "PALE", score: 999 }));
 });
 
+test("normalizes the deployed Blooming Ink progress payload", () => {
+  const progress = normalizeGameRewardProgress({
+    session_id: SESSION_ID,
+    game_key: "word-garden",
+    display_name: "Blooming Ink",
+    action_index: 1,
+    state: {
+      display_name: "Blooming Ink",
+      puzzle_key: "petal-rite",
+      phase: "playing",
+      found_words: ["PALE"],
+      score: 4,
+      full_bloom_count: 0,
+      action_index: 1,
+      completed_at: null,
+    },
+    replayed: false,
+  });
+
+  assert.deepEqual(progress.state.found_words, ["PALE"]);
+});
+
 test("normalizes a server-owned Match and Merge session and progress snapshot", () => {
   const context = {
     grid: [1, 1, 1, 1, 2, 2, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -302,16 +324,40 @@ test("normalizes an authoritative claim snapshot", () => {
     reward_event_id: EVENT_ID,
     session_id: SESSION_ID,
     game_key: "word-garden",
+    display_name: "Blooming Ink",
     score: 19,
     favor: { delta: 4, balance: 104, cap_remaining: 76 },
     materials: [{ key: "blooming-ink", delta: 3, balance: 8 }],
-    achievements: [{ key: "word-garden-first-sprout", title: "First Sprout" }],
+    achievements: [{
+      key: "word-garden-first-sprout",
+      title: "First Sprout",
+      collectible: {
+        kind: "charm",
+        charm_key: "blooming-ink-sprout",
+        label: "Blooming Ink Sprout",
+        description: "A first word preserved as a small living sprout.",
+        rarity: "uncommon",
+        slot: "root",
+        effects: { profile_particle: "ink-petals" },
+        trophy_key: "first-sprout",
+      },
+    }],
     replayed: false,
   });
 
   assert.equal(result.rewardEventId, EVENT_ID);
   assert.equal(result.favor.delta, 4);
   assert.deepEqual(result.materials[0], { key: "blooming-ink", delta: 3, balance: 8 });
+  assert.deepEqual(result.achievements[0].collectible, {
+    kind: "charm",
+    charmKey: "blooming-ink-sprout",
+    label: "Blooming Ink Sprout",
+    description: "A first word preserved as a small living sprout.",
+    rarity: "uncommon",
+    slot: "root",
+    effects: { profile_particle: "ink-petals" },
+    trophyKey: "first-sprout",
+  });
 });
 
 test("rejects malformed or client-shaped claim snapshots", () => {

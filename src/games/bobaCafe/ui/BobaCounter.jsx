@@ -1,5 +1,53 @@
 import FamiliarAvatar from "@/games/shared/familiar/FamiliarAvatar";
+import { getApprovedGameArtFamily } from "@/games/shared/art/gameArtManifest";
+import {
+  BOBA_CAFE_CUSTOMER_ATLAS,
+  BOBA_CAFE_DRINK_ATLAS,
+  getBobaCafeAtlasCell,
+  getBobaCafeDrinkState,
+  resolveApprovedBobaCafeAuthoredArt,
+} from "../art/bobaCafeAuthoredArt";
 import { BOBA_INGREDIENTS_BY_KEY, SWEETNESS_BY_KEY } from "../content/bobaCatalog";
+import BobaAtlasSprite from "./BobaAtlasSprite";
+
+const BOBA_APPROVED_ART = getApprovedGameArtFamily([
+  "boba-cafe.room-bg",
+  "boba-cafe.workstations",
+  "boba-cafe.counter-fg",
+]);
+const BOBA_ENVIRONMENT_ASSET = BOBA_APPROVED_ART?.["boba-cafe.room-bg"] || null;
+const BOBA_WORKSTATIONS_ASSET = BOBA_APPROVED_ART?.["boba-cafe.workstations"] || null;
+const BOBA_COUNTER_FOREGROUND_ASSET = BOBA_APPROVED_ART?.["boba-cafe.counter-fg"] || null;
+const BOBA_APPROVED_ART_READY = Boolean(BOBA_APPROVED_ART);
+const BOBA_AUTHORED_ART = resolveApprovedBobaCafeAuthoredArt();
+
+const CUSTOMER_FAMILIARS = Object.freeze({
+  "choir-helper": { species: "cloud-poodle", coat: "lily", markings: "petal-cheeks", outfit: "priory-apron", accessory: "hymn-charm", charmFx: "none" },
+  "library-visitor": { species: "moon-rabbit", coat: "lavender", markings: "moon-brow", outfit: "stargazer-cape", accessory: "moon-ribbon", charmFx: "none" },
+  "courtyard-runner": { species: "fox-cat", coat: "rose", markings: "soft-mask", outfit: "teal-tunic", accessory: "none", charmFx: "none" },
+  "relic-polisher": { species: "moss-turtle", coat: "taupe", markings: "temple-mask", outfit: "priory-apron", accessory: "forge-goggles", charmFx: "none" },
+  "vesper-guest": { species: "shrine-cat", coat: "cream", markings: "brow-star", outfit: "rose-cardigan", accessory: "petal-crown", charmFx: "none" },
+});
+
+function CafeCustomer({ customer }) {
+  const familiar = CUSTOMER_FAMILIARS[customer?.key] || CUSTOMER_FAMILIARS["choir-helper"];
+  const customerCell = getBobaCafeAtlasCell(BOBA_CAFE_CUSTOMER_ATLAS, customer?.key);
+
+  return (
+    <div className="boba-counter__customer">
+      {BOBA_AUTHORED_ART ? (
+        <BobaAtlasSprite
+          atlas={BOBA_CAFE_CUSTOMER_ATLAS}
+          cell={customerCell}
+          src={BOBA_AUTHORED_ART.customers}
+          className="boba-counter__customer-art"
+        />
+      ) : (
+        <FamiliarAvatar familiar={familiar} size="clamp(108px, 13vw, 164px)" pose="idle" />
+      )}
+    </div>
+  );
+}
 
 export default function BobaCounter({ familiar, order, tray, phase, result }) {
   const tea = BOBA_INGREDIENTS_BY_KEY[tray?.tea];
@@ -7,15 +55,33 @@ export default function BobaCounter({ familiar, order, tray, phase, result }) {
   const topping = BOBA_INGREDIENTS_BY_KEY[tray?.topping];
   const charm = BOBA_INGREDIENTS_BY_KEY[tray?.charm];
   const sweetness = SWEETNESS_BY_KEY[tray?.sweetness];
+  const drinkState = getBobaCafeDrinkState(tray);
+  const drinkCell = getBobaCafeAtlasCell(BOBA_CAFE_DRINK_ATLAS, drinkState);
 
   return (
-    <section className="boba-counter" aria-label="Moonbrew shrine cafe counter">
-      <svg
-        className="boba-counter__diorama"
-        viewBox="0 0 960 610"
+    <section
+      className="boba-counter"
+      aria-label="Moonbrew shrine cafe counter"
+      data-scene-coordinate-space="1920x1080"
+    >
+      {BOBA_APPROVED_ART_READY ? (
+        <img
+          className="boba-counter__layer boba-counter__layer--environment"
+          data-scene-layer="environment"
+          src={BOBA_ENVIRONMENT_ASSET}
+          alt=""
+          aria-hidden="true"
+          draggable="false"
+        />
+      ) : <svg
+        className="boba-counter__layer boba-counter__layer--environment"
+        data-scene-layer="environment"
+        viewBox="0 0 1920 1080"
+        preserveAspectRatio="xMidYMid meet"
         role="img"
         aria-label="A cozy isometric tea counter with a kettle, pearl jars, sealing machine, and garden window"
       >
+        <g transform="translate(110 0) scale(1.77)">
         <path className="boba-art__wall" d="M0 0h960v344L480 500 0 344Z" />
         <path className="boba-art__floor" d="M0 344 480 500l480-156v266H0Z" />
         <g className="boba-art__floor-lines">
@@ -37,7 +103,26 @@ export default function BobaCounter({ familiar, order, tray, phase, result }) {
           <text x="719" y="113">MOONBREW</text>
           <text x="698" y="149">TEA AND CHARMS</text>
         </g>
+        </g>
+      </svg>}
 
+      {BOBA_APPROVED_ART_READY ? (
+        <img
+          className="boba-counter__layer boba-counter__layer--workstations"
+          data-scene-layer="workstations"
+          src={BOBA_WORKSTATIONS_ASSET}
+          alt=""
+          aria-hidden="true"
+          draggable="false"
+        />
+      ) : <svg
+        className="boba-counter__layer boba-counter__layer--workstations"
+        data-scene-layer="workstations"
+        viewBox="0 0 1920 1080"
+        preserveAspectRatio="xMidYMid meet"
+        aria-hidden="true"
+      >
+        <g transform="translate(110 0) scale(1.77)">
         <g className="boba-art__shelf">
           <path className="boba-art__wood-top" d="m601 260 257 23-25 22-257-24Z" />
           <path className="boba-art__wood-front" d="m576 281 257 24v18l-257-24Z" />
@@ -56,16 +141,6 @@ export default function BobaCounter({ familiar, order, tray, phase, result }) {
             <path className="boba-art__jar-fill boba-art__jar-fill--teal" d="m7 38 49 5-3 24-21 10-22-10Z" />
             <path className="boba-art__lid" d="m0 10 23-10 30 3 10 14-26 10-32-3Z" />
           </g>
-        </g>
-
-        <g className="boba-art__customer" transform="translate(93 273)">
-          <path className="boba-art__tail" style={{ "--guest-coat": order?.customer?.palette?.[0] || "#d5a1a3" }} d="M51 170c-38 10-43-45-8-45 22 0 20 24 8 27 15 1 26-9 31-25 14 28 4 58-31 43Z" />
-          <path className="boba-art__body" style={{ "--guest-apron": order?.customer?.palette?.[1] || "#b4c6dc" }} d="M62 105c49-2 75 35 69 94H13c-4-56 15-92 49-94Z" />
-          <path className="boba-art__head" style={{ "--guest-coat": order?.customer?.palette?.[0] || "#d5a1a3" }} d="m18 42 18-31 25 20c12-5 25-5 37 0l25-20 17 33-7 26c-6 34-28 52-60 52S18 103 12 70Z" />
-          <path className="boba-art__ear" d="m34 35 4-10 11 10ZM104 35l11-10 3 12Z" />
-          <path className="boba-art__face" d="M48 68h2M96 68h2M67 82c5 5 10 5 15 0" />
-          <path className="boba-art__apron" d="M45 111h55l14 88H30Z" />
-          <path className="boba-art__apron-mark" d="M63 145c7-13 24-9 25 3 10 0 14 14 5 19-12 7-25-2-30-22Z" />
         </g>
 
         <g className="boba-art__counter">
@@ -89,26 +164,55 @@ export default function BobaCounter({ familiar, order, tray, phase, result }) {
           <path className="boba-art__screen" d="m79 48 31 10v22L79 70Z" />
           <path className="boba-art__slot" d="m21 78 43-15 39 13-43 17Z" />
         </g>
-      </svg>
+        </g>
+      </svg>}
 
-      <div className="boba-counter__speech" aria-live="polite">
-        <span>{order?.customer?.label || "Cafe guest"}</span>
-        <p>{result?.message || order?.label || "Shift complete"}</p>
+      <div className="boba-counter__characters" data-scene-layer="characters">
+        <CafeCustomer customer={order?.customer} />
+
+        <div className="boba-counter__familiar" aria-label="Your familiar helps behind the counter">
+          <FamiliarAvatar size="clamp(104px, 12vw, 156px)" pose="idle" familiar={familiar} />
+        </div>
       </div>
 
-      <div className="boba-counter__familiar" aria-label="Your familiar helps behind the counter">
-        <FamiliarAvatar size={88} pose="idle" familiar={familiar} />
-      </div>
+      {BOBA_APPROVED_ART_READY ? (
+        <img
+          className="boba-counter__layer boba-counter__layer--counter-foreground"
+          data-scene-layer="counter-foreground"
+          src={BOBA_COUNTER_FOREGROUND_ASSET}
+          alt=""
+          aria-hidden="true"
+          draggable="false"
+        />
+      ) : null}
 
-      <div className="boba-cup" data-phase={phase} aria-label="Drink being prepared">
-        <span className="boba-cup__straw" />
-        <span className="boba-cup__lid" style={{ "--cup-charm": charm?.accent || "#f8e6e6" }} />
-        <span className="boba-cup__glass">
-          <i className="boba-cup__milk" style={{ "--cup-milk": milk?.accent || tea?.accent || "#d9e6ec" }} />
-          <i className="boba-cup__tea" style={{ "--cup-tea": tea?.accent || "#80adbc" }} />
-          {topping ? Array.from({ length: 8 }, (_, index) => <b key={index} style={{ "--pearl": topping.accent }} />) : null}
-        </span>
-        <em>{sweetness ? `${sweetness.value}%` : "ready"}</em>
+      <div className="boba-counter__interface" data-scene-layer="interface">
+        <div className="boba-counter__speech" aria-live="polite">
+          <span>{order?.customer?.label || "Cafe guest"}</span>
+          <p>{result?.message || order?.label || "Shift complete"}</p>
+        </div>
+
+        <div className="boba-cup" data-phase={phase} aria-label="Drink being prepared">
+          {BOBA_AUTHORED_ART ? (
+            <BobaAtlasSprite
+              atlas={BOBA_CAFE_DRINK_ATLAS}
+              cell={drinkCell}
+              src={BOBA_AUTHORED_ART.drinkStates}
+              className="boba-cup__authored-art"
+            />
+          ) : (
+            <>
+              <span className="boba-cup__straw" />
+              <span className="boba-cup__lid" style={{ "--cup-charm": charm?.accent || "#f8e6e6" }} />
+              <span className="boba-cup__glass">
+                <i className="boba-cup__milk" style={{ "--cup-milk": milk?.accent || tea?.accent || "#d9e6ec" }} />
+                <i className="boba-cup__tea" style={{ "--cup-tea": tea?.accent || "#80adbc" }} />
+                {topping ? Array.from({ length: 8 }, (_, index) => <b key={index} style={{ "--pearl": topping.accent }} />) : null}
+              </span>
+            </>
+          )}
+          <em>{sweetness ? `${sweetness.value}%` : "ready"}</em>
+        </div>
       </div>
     </section>
   );

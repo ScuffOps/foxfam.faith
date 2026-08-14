@@ -19,6 +19,12 @@
   user-select: none;
 }
 
+.familiar-avatar[data-art-inset="wide-safe"] .familiar-avatar__art {
+  inset: 4%;
+  width: 92%;
+  height: 92%;
+}
+
 .familiar-avatar__marking,
 .familiar-avatar__outfit,
 .familiar-avatar__accessory,

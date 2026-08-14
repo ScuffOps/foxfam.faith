@@ -1,4 +1,5 @@
 import { createInitialMatchMergeState, createMatchMergeTile } from "./matchMergeRules.js";
+import { presentClaimAchievements } from "../../shared/rewards/gameRewardReceiptPresentation.js";
 
 export function createRewardedMatchMergeState(context, previousState = null) {
   const baseState = previousState || createInitialMatchMergeState();
@@ -45,6 +46,7 @@ export function createMatchMergeReceiptIntent(receipt) {
       quantity: material.delta,
       type: "material",
     })),
+    achievements: presentClaimAchievements(receipt),
   };
 }
 

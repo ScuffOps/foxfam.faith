@@ -1,7 +1,9 @@
 import { Archive, Armchair, BookOpen, DoorOpen, Hammer, Shirt } from "lucide-react";
 import FamiliarAvatar from "@/games/shared/familiar/FamiliarAvatar";
 import InteractionPrompt from "@/games/shared/ui/InteractionPrompt";
-import { QUARTERS_STATIONS } from "./quartersSceneModel";
+import { getApprovedGameArtAsset } from "@/games/shared/art/gameArtManifest";
+import { normalizeQuartersDecor } from "./quartersDecorCatalog.js";
+import { QUARTERS_SCENE_PLANE, QUARTERS_STATIONS, scenePercentToPoint } from "./quartersSceneModel";
 
 const STATION_ICONS = {
   forge: Hammer,
@@ -12,12 +14,21 @@ const STATION_ICONS = {
   courtyard: DoorOpen,
 };
 
+const QUARTERS_ROOM_ASSET = getApprovedGameArtAsset("quarters.room");
+const QUARTERS_FIXTURES_ASSET = getApprovedGameArtAsset("quarters.room-fixtures");
+const QUARTERS_FOREGROUND_ASSET = getApprovedGameArtAsset("quarters.room-foreground");
+const QUARTERS_COMPOSITE_ART_READY = Boolean(QUARTERS_ROOM_ASSET?.endsWith(".png"));
+const QUARTERS_APPROVED_ART_READY = Boolean(
+  QUARTERS_ROOM_ASSET
+  && (QUARTERS_COMPOSITE_ART_READY || (QUARTERS_FIXTURES_ASSET && QUARTERS_FOREGROUND_ASSET)),
+);
+
 function RoomArtwork() {
   return (
     <svg
       className="quarters-scene__art"
       viewBox="0 0 1200 760"
-      preserveAspectRatio="xMidYMid slice"
+      preserveAspectRatio="xMidYMid meet"
       role="img"
       aria-label="A cozy isometric room with a relic forge, wardrobe, trophy shelf, collection cabinet, and familiar nook"
     >
@@ -152,7 +163,48 @@ function RoomArtwork() {
   );
 }
 
-export default function IsometricRoom({ cursor, selectedStation, familiar, onMove, onActivate }) {
+function RoomDecor({ layout }) {
+  const decor = normalizeQuartersDecor(layout);
+
+  return (
+    <svg className="quarters-scene__decor" viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <g className="quarters-decor-art">
+        <g data-decor-slot="rug" data-decor-key={decor.rug}>
+          {decor.rug === "moonweave-rug" ? (
+            <><path className="decor-rug decor-rug--blue" d="m420 579 180-47 180 47-180 48Z" /><path className="decor-symbol" d="M588 566q25 5 15 31-23 10-36-10 20 5 21-21Z" /></>
+          ) : null}
+          {decor.rug === "petal-rug" ? (
+            <><path className="decor-rug decor-rug--rose" d="m420 579 180-47 180 47-180 48Z" /><path className="decor-symbol" d="m600 554 13 18 23-3-13 19 11 21-25-5-17 17-2-24-22-10 23-10Z" /></>
+          ) : null}
+          {decor.rug === "moss-rug" ? (
+            <><path className="decor-rug decor-rug--sage" d="m420 579 180-47 180 47-180 48Z" /><path className="decor-symbol" d="M566 593q13-34 40-38-1 29-20 42 17-20 45-16-10 29-44 28Z" /></>
+          ) : null}
+        </g>
+
+        <g data-decor-slot="wall" data-decor-key={decor.wall}>
+          <path className={`decor-banner decor-banner--${decor.wall}`} d="m712 157 112-29v119l-56 34-56-5Z" />
+          {decor.wall === "crescent-banner" ? <path className="decor-symbol" d="M767 174q31 5 18 40-30 15-47-13 26 7 29-27Z" /> : null}
+          {decor.wall === "bloom-banner" ? <path className="decor-symbol" d="M768 170c25-29 43 5 22 21 31 17 3 44-20 23-18 29-46 3-24-21-30-17-3-43 22-23Z" /> : null}
+          {decor.wall === "clock-banner" ? <><circle className="decor-symbol" cx="767" cy="198" r="31" /><path className="decor-line" d="m767 178v21l17 10" /></> : null}
+        </g>
+
+        <g data-decor-slot="shelf" data-decor-key={decor.shelf}>
+          {decor.shelf === "star-lantern" ? <><path className="decor-prop decor-prop--gold" d="m485 228 27 7 9 43-34-9Z" /><path className="decor-line" d="m489 228 8-15 16 4 6 18m-17 6v25" /></> : null}
+          {decor.shelf === "fish-keepsake" ? <path className="decor-prop decor-prop--blue" d="M470 250q28-30 58-1-25 32-56 9l-18 10 5-17-8-15Z" /> : null}
+          {decor.shelf === "bloom-vase" ? <><path className="decor-prop decor-prop--rose" d="m484 243 31 8-6 32-22-6Z" /><path className="decor-line" d="m499 246-8-23m8 13 17-13m-21 7-12-8" /></> : null}
+        </g>
+
+        <g data-decor-slot="nook" data-decor-key={decor.nook}>
+          {decor.nook === "moon-cushion" ? <><path className="decor-cushion decor-cushion--blue" d="m213 492 74-19 49 13-74 20Z" /><path className="decor-symbol" d="M267 480q17 4 10 20-15 7-24-7 13 3 14-13Z" /></> : null}
+          {decor.nook === "petal-cushion" ? <><path className="decor-cushion decor-cushion--rose" d="m213 492 74-19 49 13-74 20Z" /><path className="decor-symbol" d="M270 477c12-14 22 3 11 10 15 9 1 21-10 11-9 14-22 2-11-10-15-8-1-21 10-11Z" /></> : null}
+          {decor.nook === "moss-basket" ? <><path className="decor-cushion decor-cushion--sage" d="m213 489 74-19 49 13-74 20Z" /><path className="decor-line" d="m231 484 31 19m-3-25 31 18m-2-25 31 18" /></> : null}
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+export default function IsometricRoom({ cursor, selectedStation, nearbyStation, familiar, decor, onMove, onActivate }) {
   const handleFloorClick = (event) => {
     if (event.target.closest("button")) return;
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -163,19 +215,48 @@ export default function IsometricRoom({ cursor, selectedStation, familiar, onMov
   };
 
   return (
-    <section className="quarters-scene" aria-label="Personal Quarters">
+    <section
+      className="quarters-scene"
+      aria-label="Personal Quarters"
+      data-scene-coordinate-space={`${QUARTERS_SCENE_PLANE.width}x${QUARTERS_SCENE_PLANE.height}`}
+    >
       <div className="quarters-scene__world" onClick={handleFloorClick}>
-        <RoomArtwork />
+        {QUARTERS_APPROVED_ART_READY ? (
+          <>
+            <img
+              className="quarters-scene__illustration quarters-scene__illustration--room"
+              data-scene-layer="environment"
+              src={QUARTERS_ROOM_ASSET}
+              alt=""
+              aria-hidden="true"
+              draggable="false"
+            />
+            {!QUARTERS_COMPOSITE_ART_READY ? (
+              <img
+                className="quarters-scene__illustration quarters-scene__illustration--fixtures"
+                data-scene-layer="fixtures"
+                src={QUARTERS_FIXTURES_ASSET}
+                alt=""
+                aria-hidden="true"
+                draggable="false"
+              />
+            ) : null}
+          </>
+        ) : <RoomArtwork />}
+        {!QUARTERS_COMPOSITE_ART_READY ? <RoomDecor layout={decor} /> : null}
 
         {QUARTERS_STATIONS.map((station) => {
           const Icon = STATION_ICONS[station.key];
+          const point = scenePercentToPoint(station);
           return (
             <button
               key={station.key}
               type="button"
               data-station-key={station.key}
-              className={`quarters-hotspot quarters-hotspot--${station.key} ${selectedStation === station.key ? "is-selected" : ""}`}
+              className={`quarters-hotspot quarters-hotspot--${station.key} ${selectedStation === station.key ? "is-selected" : ""} ${nearbyStation === station.key ? "is-nearby" : ""}`}
               style={{ left: `${station.x}%`, top: `${station.y}%` }}
+              data-scene-x={point.x}
+              data-scene-y={point.y}
               onClick={(event) => { event.stopPropagation(); onActivate(station.key); }}
               aria-label={station.label}
               aria-pressed={selectedStation === station.key}
@@ -191,8 +272,23 @@ export default function IsometricRoom({ cursor, selectedStation, familiar, onMov
           <span className="quarters-scene__familiar-shadow" aria-hidden="true" />
           <FamiliarAvatar familiar={familiar} size="clamp(72px, 10vw, 118px)" pose="walk" />
         </div>
+
+        {QUARTERS_APPROVED_ART_READY && !QUARTERS_COMPOSITE_ART_READY ? (
+          <img
+            className="quarters-scene__illustration quarters-scene__illustration--foreground"
+            data-scene-layer="foreground"
+            src={QUARTERS_FOREGROUND_ASSET}
+            alt=""
+            aria-hidden="true"
+            draggable="false"
+          />
+        ) : null}
       </div>
-      <InteractionPrompt keys={["E"]} label="Interact" className="quarters-scene__prompt" />
+      <InteractionPrompt
+        keys={["E"]}
+        label={nearbyStation ? `Interact with ${QUARTERS_STATIONS.find((station) => station.key === nearbyStation)?.label}` : "Walk near a station"}
+        className="quarters-scene__prompt"
+      />
     </section>
   );
 }

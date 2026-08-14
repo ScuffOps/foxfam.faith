@@ -59,15 +59,33 @@ test("the production-art pass uses authored silhouettes without texture effects"
   ]) {
     assert.match(fishpediaSource, new RegExp(fishKey));
   }
-  assert.match(sceneSource, /drawObservatoryProps\(\)/);
-  assert.match(sceneSource, /drawCelestialFish\(\)/);
+  assert.match(sceneSource, /starfishing-environment/);
+  assert.match(sceneSource, /getApprovedGameArtAsset\(\s*STARFISHING_ART_ASSETS\.environment\.slotId/);
+  assert.match(sceneSource, /FAMILIAR_SPECIES/);
+  assert.match(sceneSource, /species\.asset/);
   assert.doesNotMatch(`${sceneSource}\n${fishpediaSource}\n${cssSource}`, /filter:|drop-shadow|linear-gradient|radial-gradient|feTurbulence|noise/i);
 });
 
+test("Starfishing keeps the pond, current line state, and reel controls in one task-first stage", () => {
+  assert.match(pageSource, /className="starfishing-stage"/);
+  assert.match(pageSource, /className="starfishing-control-deck"/);
+  assert.match(pageSource, /Current catch/);
+  assert.match(pageSource, /Line tension/);
+  assert.match(cssSource, /\.starfishing-stage \{ display: grid;/);
+  assert.match(cssSource, /\.starfishing-control-deck \{[^}]*border-left: 3px solid/);
+});
+
 test("mobile Starfishing presents controls before the playfield with large QTE targets", () => {
-  assert.match(cssSource, /data-world="starfishing"\] \.game-shell__sidebar \{ order: 1/);
+  assert.match(cssSource, /\.starfishing-control-deck \{ order: 1/);
+  assert.match(cssSource, /\.starfishing-world \{ order: 2/);
   assert.match(cssSource, /\.reel-qte__buttons button \{ min-height: 58px/);
   assert.match(cssSource, /\.reel-qte__buttons \{ grid-template-columns: repeat\(2/);
+});
+
+test("Fishpedia is secondary to the active fishing task", () => {
+  assert.match(pageSource, /<details className="starfishing-journal">/);
+  assert.match(pageSource, /<summary>[\s\S]*Review catches and constellation silhouettes/);
+  assert.match(cssSource, /\.starfishing-journal > summary/);
 });
 
 test("Fishpedia tabs provide roving focus, keyboard navigation, and an associated panel", () => {

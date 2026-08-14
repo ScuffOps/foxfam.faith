@@ -1,5 +1,6 @@
 import { FIND_VEZMIR_OBJECT_BY_KEY } from "../content/hiddenObjects.js";
 import { createInitialFindVezmirState, FIND_VEZMIR_PHASES } from "./findVezmirRules.js";
+import { presentClaimAchievements } from "../../shared/rewards/gameRewardReceiptPresentation.js";
 
 export function createRewardedFindVezmirState(context, previousState = null) {
   const baseState = { ...createInitialFindVezmirState(), ...(previousState || {}) };
@@ -53,10 +54,7 @@ export function createFindVezmirReceiptIntent(receipt) {
       quantity: material.delta,
       type: "material",
     })),
-    achievements: (receipt.achievements || []).map((achievement) => ({
-      key: achievement.key,
-      title: achievement.title,
-    })),
+    achievements: presentClaimAchievements(receipt),
   };
 }
 

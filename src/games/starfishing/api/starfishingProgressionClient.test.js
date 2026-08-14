@@ -285,6 +285,7 @@ test("loadStarfishingProgression scopes every private read to the authenticated 
     user_achievements: [{
       achievement_key: "first-light",
       source_catch_id: catchId,
+      source_reward_event_id: null,
       unlocked_at: caughtAt,
     }],
     user_trophies: [{
@@ -293,6 +294,14 @@ test("loadStarfishingProgression scopes every private read to the authenticated 
       source_achievement_key: "first-light",
       data: { label: "First Light" },
       acquired_at: caughtAt,
+    }],
+    user_relic_charms: [{
+      id: "623e4567-e89b-42d3-a456-426614174000",
+      data: {
+        charm_key: "merciful-tide",
+        equipped: true,
+        source: { type: "achievement", key: "gentle-return" },
+      },
     }],
   });
   const client = createStarfishingProgressionClient(rawClient);
@@ -305,7 +314,10 @@ test("loadStarfishingProgression scopes every private read to the authenticated 
   assert.equal(progression.recentCatches[0].duplicatePolicy, "keep");
   assert.equal(progression.materials[0].materialKey, "star-glass");
   assert.equal(progression.achievements[0].achievementKey, "first-light");
+  assert.equal(progression.achievements[0].sourceCatchId, catchId);
+  assert.equal(progression.achievements[0].sourceRewardEventId, null);
   assert.equal(progression.trophies[0].trophyKey, "first-light");
+  assert.equal(progression.charms[0].charmKey, "merciful-tide");
   assert.deepEqual(calls.map(({ table }) => table), [
     "game_fish_catalog",
     "user_fishpedia",
@@ -314,6 +326,7 @@ test("loadStarfishingProgression scopes every private read to the authenticated 
     "user_material_balances",
     "user_achievements",
     "user_trophies",
+    "user_relic_charms",
   ]);
   for (const call of calls.filter(({ table }) => table !== "game_fish_catalog")) {
     assert.deepEqual(call.filters[0], ["user_id", userId]);
@@ -322,6 +335,19 @@ test("loadStarfishingProgression scopes every private read to the authenticated 
   assert.deepEqual(catalogCall.filters, [["active", true]]);
   const accountCall = calls.find(({ table }) => table === "currency_accounts");
   assert.deepEqual(accountCall.filters[1], ["currency_key", "favor"]);
+  const charmCall = calls.find(({ table }) => table === "user_relic_charms");
+  assert.deepEqual(charmCall.filters, [
+    ["user_id", userId],
+    ["data->>charm_key", "merciful-tide"],
+    ["data->>equipped", "true"],
+    ["data->source->>type", "achievement"],
+    ["data->source->>key", "gentle-return"],
+  ]);
+  const achievementCall = calls.find(({ table }) => table === "user_achievements");
+  assert.equal(
+    achievementCall.select,
+    "achievement_key,source_catch_id,source_reward_event_id,unlocked_at",
+  );
 });
 
 test("loadStarfishingProgression rejects signed-out access before any table read", async () => {

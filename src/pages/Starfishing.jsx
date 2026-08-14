@@ -10,6 +10,8 @@ import { useFamiliar } from "@/games/shared/familiar/useFamiliar";
 import StarfishingScene from "@/games/starfishing/phaser/StarfishingScene";
 import FishpediaPanel from "@/games/starfishing/ui/FishpediaPanel";
 import StarfishingHud from "@/games/starfishing/ui/StarfishingHud";
+import StarfishingCatchEffect from "@/games/starfishing/ui/StarfishingCatchEffect";
+import { selectAuthoritativeCatchEffect } from "@/games/starfishing/ui/starfishingCatchEffectModel";
 import {
   communityClient,
   isSupabaseConfigured,
@@ -126,6 +128,7 @@ function mergeClaimProgression(current, claim) {
     materials: [],
     achievements: [],
     trophies: [],
+    charms: [],
   };
   const fishpedia = baseline.fishpedia.filter((row) => row.fishKey !== claim.fishpedia.fishKey);
   const materials = new Map(baseline.materials.map((material) => [material.materialKey, material]));
@@ -608,6 +611,19 @@ export default function Starfishing() {
   const localChoices = state.lastCatch?.duplicate
     ? DUPLICATE_CHOICES
     : [{ key: DUPLICATE_POLICIES.none, label: "Add to Fishpedia", description: "Record this new local constellation catch." }];
+  const currentCatchLabel = isCatchReveal
+    ? state.lastCatch.label
+    : [STARFISHING_PHASES.waiting, STARFISHING_PHASES.qte].includes(state.phase)
+      ? "Constellation on the line"
+      : "Pond clear";
+  const tensionLabel = state.phase === STARFISHING_PHASES.qte
+    ? `Taut · pull ${state.qteIndex + 1} of ${state.qtePattern.length}`
+    : state.phase === STARFISHING_PHASES.waiting
+      ? "Gentle · watching the bobber"
+      : isCatchReveal
+        ? "Settled · catch landed"
+        : "Resting";
+  const catchEffect = selectAuthoritativeCatchEffect(progression?.charms, state.lastClaim);
 
   return (
     <GameShell
@@ -627,71 +643,91 @@ export default function Starfishing() {
               : authMode === AUTH_MODES.signedIn ? "Portal rewards" : "Local preview"}
         </span>
       )}
-      sidebar={(
-        <div className="starfishing-sidebar">
-          {isCatchReveal && authMode === AUTH_MODES.signedIn ? (
-            <section className="starfishing-preclaim" aria-labelledby="starfishing-preclaim-title">
-              <Sparkles aria-hidden="true" />
-              <p>Constellation on the line</p>
-              <h2 id="starfishing-preclaim-title">{state.lastCatch.label}</h2>
-              <span>The line is holding. Size, duplicate status, and rewards remain unverified.</span>
-              <button
-                type="button"
-                onClick={() => handleCatchChoice()}
-              >
-                <Fish aria-hidden="true" />
-                <span>
-                  <strong>{SIGNED_IN_CLAIM_CHOICE.label}</strong>
-                  <small>{SIGNED_IN_CLAIM_CHOICE.description}</small>
-                </span>
-              </button>
-            </section>
-          ) : isCatchReveal ? (
-            <GameResultSheet
-              title={`${state.lastCatch.label} caught`}
-              record={{ label: state.lastCatch.rarity, value: `${state.lastCatch.size}\" starspan` }}
-              choices={localChoices}
-              onChoose={handleCatchChoice}
-            />
-          ) : (
-            <StarfishingHud
-              state={state}
-              rewardIntent={latestRewardIntent}
-              authMode={authMode}
-              authError={sessionError}
-              isProgressionLoading={isProgressionLoading}
-              isProgressionUnavailable={authMode === AUTH_MODES.signedIn && !isProgressionLoading && !progression}
-              progression={progression}
-              duplicatePolicy={state.selectedDuplicatePolicy}
-              onDuplicatePolicyChange={(policy) => {
-                commitState(selectSignedInDuplicatePolicy(stateRef.current, policy));
-              }}
-              onRetryAuth={retrySessionCheck}
-              onCast={() => dispatchAction(GAME_ACTIONS.primary)}
-              onQteAction={dispatchAction}
-              onReset={handleReset}
-              onRetryClaim={handleRetryClaim}
-              onReturnWithoutReward={handleReturnWithoutReward}
-            />
-          )}
-        </div>
-      )}
     >
-      <div className="starfishing-world">
-        <GameCanvasHost
-          scene={StarfishingScene}
-          bridge={bridge}
-          backgroundColor="#d9e6ec"
-          className="starfishing-canvas"
-        />
-        <div className="starfishing-scene-label" aria-hidden="true">
-          <Fish /> Constellation Pond
+      <div className="starfishing-stage">
+        <div className="starfishing-world">
+          <GameCanvasHost
+            scene={StarfishingScene}
+            bridge={bridge}
+            backgroundColor="#d9e6ec"
+            className="starfishing-canvas"
+            width={960}
+            height={640}
+            scaleMode="fit"
+          />
+          <StarfishingCatchEffect effect={catchEffect} />
+          <div className="starfishing-scene-label" aria-hidden="true">
+            <Fish /> Constellation Pond
+          </div>
         </div>
+
+        <aside className="starfishing-control-deck" aria-label="Starfishing reel controls">
+          <div className="starfishing-line-readout" aria-live="polite">
+            <span><small>Current catch</small><strong>{currentCatchLabel}</strong></span>
+            <span><small>Line tension</small><strong>{tensionLabel}</strong></span>
+          </div>
+
+          <div className="starfishing-sidebar">
+            {isCatchReveal && authMode === AUTH_MODES.signedIn ? (
+              <section className="starfishing-preclaim" aria-labelledby="starfishing-preclaim-title">
+                <Sparkles aria-hidden="true" />
+                <p>Constellation on the line</p>
+                <h2 id="starfishing-preclaim-title">{state.lastCatch.label}</h2>
+                <span>The line is holding. Size, duplicate status, and rewards remain unverified.</span>
+                <button
+                  type="button"
+                  onClick={() => handleCatchChoice()}
+                >
+                  <Fish aria-hidden="true" />
+                  <span>
+                    <strong>{SIGNED_IN_CLAIM_CHOICE.label}</strong>
+                    <small>{SIGNED_IN_CLAIM_CHOICE.description}</small>
+                  </span>
+                </button>
+              </section>
+            ) : isCatchReveal ? (
+              <GameResultSheet
+                title={`${state.lastCatch.label} caught`}
+                record={{ label: state.lastCatch.rarity, value: `${state.lastCatch.size}\" starspan` }}
+                choices={localChoices}
+                onChoose={handleCatchChoice}
+              />
+            ) : (
+              <StarfishingHud
+                state={state}
+                rewardIntent={latestRewardIntent}
+                authMode={authMode}
+                authError={sessionError}
+                isProgressionLoading={isProgressionLoading}
+                isProgressionUnavailable={authMode === AUTH_MODES.signedIn && !isProgressionLoading && !progression}
+                progression={progression}
+                duplicatePolicy={state.selectedDuplicatePolicy}
+                onDuplicatePolicyChange={(policy) => {
+                  commitState(selectSignedInDuplicatePolicy(stateRef.current, policy));
+                }}
+                onRetryAuth={retrySessionCheck}
+                onCast={() => dispatchAction(GAME_ACTIONS.primary)}
+                onQteAction={dispatchAction}
+                onReset={handleReset}
+                onRetryClaim={handleRetryClaim}
+                onReturnWithoutReward={handleReturnWithoutReward}
+              />
+            )}
+          </div>
+        </aside>
       </div>
-      <FishpediaPanel
-        fishpedia={localFishpedia}
-        authoritativeRows={authMode === AUTH_MODES.guest ? null : progression?.fishpedia || []}
-      />
+
+      <details className="starfishing-journal">
+        <summary>
+          <BookOpen aria-hidden="true" />
+          <span><strong>Fishpedia</strong><small>Review catches and constellation silhouettes</small></span>
+        </summary>
+        <FishpediaPanel
+          fishpedia={localFishpedia}
+          authoritativeRows={authMode === AUTH_MODES.guest ? null : progression?.fishpedia || []}
+        />
+      </details>
+
       <p className="starfishing-safety-note">
         <BookOpen aria-hidden="true" />
         {authMode === AUTH_MODES.unavailable

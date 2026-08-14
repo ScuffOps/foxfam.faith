@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, Loader2, Search, Sparkles } from "lucide-react";
+import { ChevronDown, Loader2, Search, Sparkles, Star, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import RelicCharmIcon from "@/components/relics/RelicCharmIcon";
+import { getCharmPresentation, matchesCharmShelfFilters } from "@/components/relics/charmPresentation";
 import { groupCharmsByRarity, RELIC_RARITY_META } from "@/lib/relicCharms";
 import { setEquippedCharm } from "@/lib/relicService";
 
@@ -22,29 +23,24 @@ export default function ProfileCharmShelf({
 }) {
   const [query, setQuery] = useState("");
   const [rarityFilter, setRarityFilter] = useState("all");
+  const [viewFilter, setViewFilter] = useState("all");
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [equippingId, setEquippingId] = useState("");
   const [actionError, setActionError] = useState("");
   const groupedCharms = useMemo(() => groupCharmsByRarity(charms), [charms]);
   const filteredGroupedCharms = useMemo(() => {
-    const needle = query.trim().toLowerCase();
     return RARITY_ORDER.reduce((groups, rarity) => {
       if (rarityFilter !== "all" && rarityFilter !== rarity) {
         groups[rarity] = [];
         return groups;
       }
-      const items = (groupedCharms[rarity] || []).filter((charm) => {
-        if (!needle) return true;
-        return [charm.name, charm.slot, charm.rarity, charm.description, charm.flavor_text]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase()
-          .includes(needle);
-      });
+      const items = (groupedCharms[rarity] || []).filter((charm) => (
+        matchesCharmShelfFilters(charm, { query, view: viewFilter })
+      ));
       groups[rarity] = items;
       return groups;
     }, {});
-  }, [groupedCharms, query, rarityFilter]);
+  }, [groupedCharms, query, rarityFilter, viewFilter]);
   const filteredCount = Object.values(filteredGroupedCharms).reduce((sum, items) => sum + items.length, 0);
 
   const handleToggleCharm = async (charm) => {
@@ -88,7 +84,7 @@ export default function ProfileCharmShelf({
         </div>
       ) : (
         <>
-          <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
+          <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_12rem_auto]">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input className="pl-9" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter charms..." />
@@ -102,6 +98,24 @@ export default function ProfileCharmShelf({
               <option value="all">All rarities</option>
               {RARITY_ORDER.map((rarity) => <option key={rarity} value={rarity}>{RELIC_RARITY_META[rarity].label}</option>)}
             </select>
+            <fieldset className="grid grid-cols-3 rounded-lg border border-border bg-background/35 p-1" aria-label="Charm shelf view">
+              <legend className="sr-only">Charm shelf view</legend>
+              {[
+                ["all", "All"],
+                ["equipped", "Equipped"],
+                ["trophies", "Trophies"],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setViewFilter(value)}
+                  aria-pressed={viewFilter === value}
+                  className={`min-h-8 px-2 text-[11px] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${viewFilter === value ? "rounded-md bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </fieldset>
           </div>
 
           <div className="mt-3 text-xs text-muted-foreground">{filteredCount} charm{filteredCount === 1 ? "" : "s"} shown</div>
@@ -148,6 +162,7 @@ export default function ProfileCharmShelf({
 
 function CharmShelfCard({ charm, busy, equipmentBusy, onToggle }) {
   const rarity = RELIC_RARITY_META[charm.rarity] || RELIC_RARITY_META.common;
+  const presentation = getCharmPresentation(charm);
 
   return (
     <article className={`min-h-56 rounded-lg border p-3 ${rarity.className}`}>
@@ -169,8 +184,34 @@ function CharmShelfCard({ charm, busy, equipmentBusy, onToggle }) {
               {rarity.label}
             </span>
           </div>
-          <p className="mt-1 text-[10px] uppercase tracking-[0.16em] opacity-75">{charm.slot} slot</p>
-          <p className="mt-2 line-clamp-3 text-xs leading-5 opacity-80">{charm.description}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] opacity-80">
+            <span>{charm.slot} slot</span>
+            <span aria-hidden="true">·</span>
+            <span>{presentation.tier}</span>
+          </div>
+          <div className="mt-2 flex items-center gap-1" aria-label={`${presentation.star} of 3 forge stars`}>
+            {[1, 2, 3].map((star) => (
+              <Star
+                key={star}
+                className={`h-3.5 w-3.5 ${star <= presentation.star ? "fill-current" : "opacity-25"}`}
+                aria-hidden="true"
+              />
+            ))}
+          </div>
+          <p className="mt-2 line-clamp-2 text-xs leading-5 opacity-80">{charm.description}</p>
+          <p className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-semibold opacity-75">
+            <Trophy className="h-3.5 w-3.5" aria-hidden="true" />
+            {presentation.provenance}
+          </p>
+          {presentation.effectLabels.length ? (
+            <div className="mt-2 flex flex-wrap gap-1" aria-label="Charm effects">
+              {presentation.effectLabels.map((effect) => (
+                <span key={effect} className="rounded-md border border-current/20 bg-background/35 px-1.5 py-0.5 text-[10px] font-bold">
+                  {effect}
+                </span>
+              ))}
+            </div>
+          ) : null}
           <p className="mt-3 text-[11px] opacity-70">Acquired {formatAcquiredDate(charm.acquired_at)}</p>
           <Button
             type="button"

@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { Check, Clock3 } from "lucide-react";
 import { getIngredientLabel } from "../content/bobaCatalog";
 
@@ -10,15 +11,16 @@ const RECIPE_FIELDS = [
 ];
 
 export default function BobaOrderTicket({ order, tray, patiencePercent = 0, ticketNumber, ticketTotal, compact = false }) {
+  const titleId = useId();
   const filledSegments = Math.ceil(Math.max(0, patiencePercent) / 10);
   const matchedCount = RECIPE_FIELDS.filter(([key]) => order && tray?.[key] === order.recipe[key]).length;
 
   return (
-    <article className={`boba-ticket${compact ? " boba-ticket--compact" : ""}`} aria-labelledby={compact ? "boba-mobile-ticket-title" : "boba-ticket-title"}>
+    <article className={`boba-ticket${compact ? " boba-ticket--compact" : ""}`} aria-labelledby={titleId}>
       <header className="boba-ticket__header">
         <div>
           <p>Order {ticketNumber} of {ticketTotal}</p>
-          <h2 id={compact ? "boba-mobile-ticket-title" : "boba-ticket-title"}>{order?.label || "Counter closed"}</h2>
+          <h2 id={titleId}>{order?.label || "Counter closed"}</h2>
         </div>
         <span className="boba-ticket__progress-copy">{matchedCount}/{RECIPE_FIELDS.length}</span>
         <Clock3 aria-hidden="true" />

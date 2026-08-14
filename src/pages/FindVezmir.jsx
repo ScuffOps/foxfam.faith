@@ -26,11 +26,18 @@ import {
 } from "@/games/findVezmir/simulation/findVezmirRewardModel";
 import { GAME_ACTIONS } from "@/games/shared/input/actions";
 import { useGameControls } from "@/games/shared/input/useGameControls";
+import GameFamiliarCompanion from "@/games/shared/familiar/GameFamiliarCompanion";
 import {
   claimGameReward,
   progressGameRewardSession,
   startGameRewardSession,
 } from "@/games/shared/rewards/gameRewardClient";
+import {
+  clearGameRewardRecovery,
+  readGameRewardRecovery,
+  updateRewardSessionContext,
+  writeGameRewardRecovery,
+} from "@/games/shared/rewards/gameRewardRecovery";
 import GameResultSheet from "@/games/shared/ui/GameResultSheet";
 import GameShell from "@/games/shared/ui/GameShell";
 import { useAuth } from "@/lib/AuthContext";
@@ -39,7 +46,7 @@ const PAN_STEP = 2.5;
 
 export default function FindVezmir() {
   const navigate = useNavigate();
-  const { isAuthenticated, isLoadingAuth, openLogin } = useAuth();
+  const { isAuthenticated, isLoadingAuth, openLogin, user } = useAuth();
   const [mode, setMode] = useState("practice");
   const [practiceState, setPracticeState] = useState(() => createInitialFindVezmirState());
   const [rewardedState, setRewardedState] = useState(() => createInitialFindVezmirState());
@@ -50,6 +57,8 @@ export default function FindVezmir() {
   const [isBusy, setIsBusy] = useState(false);
   const [rewardLog, setRewardLog] = useState(() => readLocalJson(FIND_VEZMIR_REWARD_LOG_KEY, []));
   const requestInFlightRef = useRef(false);
+  const requestGenerationRef = useRef(0);
+  const rewardOwnerRef = useRef("");
   const state = mode === "rewarded" ? rewardedState : practiceState;
   const targets = useMemo(() => getFindVezmirTargetRows(state), [state]);
   const complete = state.phase === FIND_VEZMIR_PHASES.complete;
@@ -59,23 +68,72 @@ export default function FindVezmir() {
     writeLocalJson(FIND_VEZMIR_REWARD_LOG_KEY, rewardLog.slice(0, 20));
   }, [rewardLog]);
 
-  const runRequest = useCallback(async (request, operation) => {
+  const runRequest = useCallback(async (request, operation, recoverySession = null) => {
     if (requestInFlightRef.current) return null;
+    const requestGeneration = requestGenerationRef.current;
     requestInFlightRef.current = true;
     setIsBusy(true);
     setRewardError("");
     setRetryRequest(null);
     try {
-      return await operation();
+      const result = await operation();
+      if (requestGeneration !== requestGenerationRef.current) return null;
+      clearGameRewardRecovery(window.sessionStorage, {
+        gameKey: "puzzle-cat",
+        ownerId: rewardOwnerRef.current,
+      });
+      return result;
     } catch (error) {
+      if (requestGeneration !== requestGenerationRef.current) return null;
       setRewardError(error?.message || "The reward service could not complete that request.");
       setRetryRequest(request);
+      writeGameRewardRecovery(window.sessionStorage, {
+        gameKey: "puzzle-cat",
+        ownerId: rewardOwnerRef.current,
+        request,
+        session: recoverySession,
+      });
       return null;
     } finally {
-      requestInFlightRef.current = false;
-      setIsBusy(false);
+      if (requestGeneration === requestGenerationRef.current) {
+        requestInFlightRef.current = false;
+        setIsBusy(false);
+      }
     }
   }, []);
+
+  useEffect(() => {
+    if (isLoadingAuth) return;
+    const ownerKey = isAuthenticated ? (user?.id || "authenticated") : "";
+    if (rewardOwnerRef.current === ownerKey) return;
+    rewardOwnerRef.current = ownerKey;
+    requestGenerationRef.current += 1;
+    requestInFlightRef.current = false;
+    setIsBusy(false);
+    setMode("practice");
+    setRewardSession(null);
+    setRewardReceipt(null);
+    setRewardError("");
+    setRetryRequest(null);
+    if (!ownerKey) return;
+    const recovery = readGameRewardRecovery(window.sessionStorage, {
+      gameKey: "puzzle-cat",
+      ownerId: ownerKey,
+    });
+    if (recovery?.request.kind === "start") {
+      setMode("rewarded");
+      setRewardError("A cloister session start is ready to retry safely.");
+      setRetryRequest(recovery.request);
+      return;
+    }
+    if (recovery?.session && recovery.request.kind !== "start") {
+      setMode("rewarded");
+      setRewardSession(recovery.session);
+      setRewardedState((current) => createRewardedFindVezmirState(recovery.session.context, current));
+      setRewardError("A cloister reward request is ready to retry safely.");
+      setRetryRequest(recovery.request);
+    }
+  }, [isAuthenticated, isLoadingAuth, user?.id]);
 
   const startRewardedCase = useCallback(async () => {
     if (!isAuthenticated) {
@@ -104,8 +162,9 @@ export default function FindVezmir() {
       sessionId: rewardSession.sessionId,
       idempotencyKey: request.idempotencyKey,
       action: request.action,
-    }));
+    }), rewardSession);
     if (!result) return;
+    setRewardSession((current) => updateRewardSessionContext(current, result.state));
     setRewardedState((current) => createRewardedFindVezmirState(result.state, current));
   }, [rewardSession, runRequest]);
 
@@ -115,8 +174,23 @@ export default function FindVezmir() {
     else setPracticeState(update);
   }, [mode]);
 
+  const selectLayer = useCallback((layer) => {
+    const update = (current) => {
+      const activeLayer = current.layers.indexOf(layer);
+      return activeLayer === -1 ? current : { ...current, activeLayer };
+    };
+    if (mode === "rewarded") setRewardedState(update);
+    else setPracticeState(update);
+  }, [mode]);
+
   const moveScene = useCallback((delta) => {
     const update = (current) => panDiorama(current, delta);
+    if (mode === "rewarded") setRewardedState(update);
+    else setPracticeState(update);
+  }, [mode]);
+
+  const recenterScene = useCallback(() => {
+    const update = (current) => ({ ...current, pan: { x: 0, y: 0 } });
     if (mode === "rewarded") setRewardedState(update);
     else setPracticeState(update);
   }, [mode]);
@@ -135,20 +209,19 @@ export default function FindVezmir() {
     if (action === GAME_ACTIONS.cancel && mode === "practice") navigate("/quarters");
   }, [complete, cycleLayer, isBusy, mode, moveScene, navigate]);
 
-  useGameControls({ enabled: !complete, onAction: handleAction, preserveNativeButtonActivation: true });
+  const handleDepthShortcut = useCallback((event) => {
+    if (event.code !== "KeyQ" || event.metaKey || event.ctrlKey || event.altKey) return false;
+    event.preventDefault();
+    cycleLayer(-1);
+    return true;
+  }, [cycleLayer]);
 
-  useEffect(() => {
-    if (complete) return undefined;
-    const handleDepthShortcut = (event) => {
-      if (event.code !== "KeyQ" || event.metaKey || event.ctrlKey || event.altKey) return;
-      const tagName = event.target?.tagName?.toUpperCase();
-      if (event.target?.isContentEditable || ["BUTTON", "INPUT", "TEXTAREA", "SELECT"].includes(tagName)) return;
-      event.preventDefault();
-      cycleLayer(-1);
-    };
-    window.addEventListener("keydown", handleDepthShortcut);
-    return () => window.removeEventListener("keydown", handleDepthShortcut);
-  }, [complete, cycleLayer]);
+  useGameControls({
+    enabled: !complete,
+    onAction: handleAction,
+    onKeyDown: handleDepthShortcut,
+    preserveNativeButtonActivation: true,
+  });
 
   const searchScene = (tap) => {
     if (isBusy || complete) return;
@@ -181,7 +254,7 @@ export default function FindVezmir() {
       durationMs,
       eventId: intent.eventId,
       createdAt: intent.createdAt,
-    }));
+    }), rewardSession);
   };
 
   const submitClaim = useCallback(async (request) => {
@@ -190,7 +263,7 @@ export default function FindVezmir() {
       sessionId: rewardSession.sessionId,
       idempotencyKey: request.idempotencyKey,
       evidence: {},
-    }));
+    }), rewardSession);
     if (receipt) setRewardReceipt(receipt);
   }, [rewardSession, runRequest]);
 
@@ -218,6 +291,9 @@ export default function FindVezmir() {
 
   const reset = () => setPracticeState(createInitialFindVezmirState());
   const foundCount = state.foundKeys.length;
+  const currentTarget = targets.find((target) => !target.found && !target.locked)
+    || targets.find((target) => !target.found)
+    || null;
   const displayedIntent = mode === "rewarded"
     ? createFindVezmirReceiptIntent(rewardReceipt)
     : (state.lastRewardIntent || buildFindVezmirRewardIntent({ state }));
@@ -233,6 +309,7 @@ export default function FindVezmir() {
 
   const sidebar = complete ? (
     <div>
+      <GameFamiliarCompanion label="Clue keeper" />
       <ModePanel
         mode={mode}
         isAuthenticated={isAuthenticated}
@@ -258,26 +335,33 @@ export default function FindVezmir() {
       {rewardError ? <RewardError message={rewardError} onRetry={handleRetry} disabled={isBusy} /> : null}
     </div>
   ) : (
-    <div>
-      <ModePanel
-        mode={mode}
-        isAuthenticated={isAuthenticated}
-        isLoadingAuth={isLoadingAuth}
-        isBusy={isBusy}
-        onPractice={choosePractice}
-        onRewarded={startRewardedCase}
-      />
-      <ClueTray targets={targets} activeHintRegion={state.activeHintRegion} />
-      <div className="vezmir-actions">
-        <button type="button" onClick={requestHint} disabled={isBusy || Boolean(rewardError)}>
-          <Lightbulb aria-hidden="true" /> Hint
-        </button>
-        <button type="button" onClick={reset} disabled={mode === "rewarded" || isBusy}>
-          <RotateCcw aria-hidden="true" /> Reset
-        </button>
+    <div className="vezmir-sidebar">
+      <GameFamiliarCompanion label="Clue keeper" />
+      <div className="vezmir-sidebar__quick-actions">
+        <ModePanel
+          mode={mode}
+          isAuthenticated={isAuthenticated}
+          isLoadingAuth={isLoadingAuth}
+          isBusy={isBusy}
+          onPractice={choosePractice}
+          onRewarded={startRewardedCase}
+        />
+        <div className="vezmir-actions">
+          <button type="button" onClick={requestHint} disabled={isBusy || Boolean(rewardError)}>
+            <Lightbulb aria-hidden="true" /> Hint
+          </button>
+          <button type="button" onClick={reset} disabled={mode === "rewarded" || isBusy}>
+            <RotateCcw aria-hidden="true" /> Reset
+          </button>
+        </div>
       </div>
+      <ClueTray
+        targets={targets}
+        activeHintRegion={state.activeHintRegion}
+        currentTargetKey={currentTarget?.key}
+        foundCount={foundCount}
+      />
       {rewardError ? <RewardError message={rewardError} onRetry={handleRetry} disabled={isBusy} /> : null}
-      <p className="vezmir-case-note" role="status">{state.message}</p>
     </div>
   );
 
@@ -292,9 +376,12 @@ export default function FindVezmir() {
       <CloisterDiorama
         state={state}
         targets={targets}
+        currentTarget={currentTarget}
+        message={state.message}
         onSearch={searchScene}
         onPan={moveScene}
-        onCycleLayer={cycleLayer}
+        onSelectLayer={selectLayer}
+        onRecenter={recenterScene}
         disabled={isBusy || Boolean(rewardError)}
       />
     </GameShell>

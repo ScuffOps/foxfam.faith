@@ -344,6 +344,163 @@
   filter: none;
 }
 
+.sanctuary-rail-slot {
+  position: relative;
+  z-index: 30;
+  width: 4.5rem;
+  height: 100%;
+}
+
+.sanctuary-rail {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: flex;
+  width: 4.5rem;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 2px solid #2d3342;
+  background: #11131c;
+  color: #e1e6ef;
+}
+
+.sanctuary-rail__brand {
+  display: flex;
+  min-height: 4.5rem;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.875rem;
+  border-bottom: 1px solid #2d3342;
+}
+
+.sanctuary-rail__brand img {
+  width: 2.625rem;
+  height: 2.625rem;
+  flex: 0 0 auto;
+  border-radius: 0.5rem;
+  object-fit: cover;
+}
+
+.sanctuary-rail__brand strong,
+.sanctuary-rail__brand small {
+  display: block;
+  white-space: nowrap;
+}
+
+.sanctuary-rail__brand strong {
+  font-family: var(--font-heading, inherit);
+  font-size: 0.875rem;
+}
+
+.sanctuary-rail__brand small {
+  margin-top: 0.125rem;
+  color: #9ca8ba;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sanctuary-rail__nav {
+  flex: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0.5rem;
+  scrollbar-width: thin;
+}
+
+.sanctuary-rail__group + .sanctuary-rail__group {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #2d3342;
+}
+
+.sanctuary-rail__group-label {
+  height: 1.25rem;
+  margin: 0;
+  padding: 0 0.625rem;
+  color: #9ca8ba;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.25rem;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sanctuary-rail__link,
+.sanctuary-rail__pin {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.625rem 0.75rem;
+  border: 2px solid transparent;
+  border-radius: 0.5rem;
+  color: #aeb8c9;
+  text-align: left;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.sanctuary-rail__link + .sanctuary-rail__link {
+  margin-top: 0.125rem;
+}
+
+.sanctuary-rail__link svg,
+.sanctuary-rail__pin svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 auto;
+}
+
+.sanctuary-rail__link:hover,
+.sanctuary-rail__pin:hover {
+  border-color: #59657a;
+  background: #202533;
+  color: #f7f1e8;
+}
+
+.sanctuary-rail__link:focus-visible,
+.sanctuary-rail__pin:focus-visible {
+  outline: 3px solid #84b6c4;
+  outline-offset: -3px;
+  color: #f7f1e8;
+}
+
+.sanctuary-rail__link[data-active="true"] {
+  border-color: #6e788b;
+  background: #d6c97f;
+  color: #222b38;
+  box-shadow: 3px 3px 0 #59657a;
+}
+
+.sanctuary-rail__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.sanctuary-rail__pin {
+  flex: 0 0 auto;
+  margin: 0.5rem;
+  width: calc(100% - 1rem);
+  border-color: #59657a;
+  background: #202533;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sanctuary-rail__link,
+  .sanctuary-rail__pin {
+    transition: none;
+  }
+}
+
 .community-dashboard {
   position: relative;
   isolation: isolate;

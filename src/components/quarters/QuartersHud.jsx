@@ -28,22 +28,22 @@ export default function QuartersHud({ name, favor, scene, subtitle = "Personal Q
           <span><small>Favor</small><strong>{favor}</strong></span>
         </div>
       ) : null}
-      <nav className="quarters-hud__dock" aria-label="Quarters shortcuts">
-        {HUD_ACTIONS.map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            type="button"
-            className={scene === "courtyard" && key === "courtyard" ? "is-active" : ""}
-            onClick={() => onAction(key)}
-            aria-label={label}
-            title={label}
-            aria-current={scene === "courtyard" && key === "courtyard" ? "page" : undefined}
-          >
-            <Icon aria-hidden="true" />
-            <span>{label}</span>
-          </button>
-        ))}
-      </nav>
+      {scene === "quarters" ? (
+        <nav className="quarters-hud__dock" aria-label="Quarters shortcuts">
+          {HUD_ACTIONS.map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onAction(key)}
+              aria-label={label}
+              title={label}
+            >
+              <Icon aria-hidden="true" />
+              <span>{label}</span>
+            </button>
+          ))}
+        </nav>
+      ) : null}
     </>
   );
 }

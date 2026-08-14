@@ -1,6 +1,14 @@
 import { useRef } from "react";
 import { Eraser, Send } from "lucide-react";
+import {
+  BOBA_CAFE_INGREDIENT_ATLAS,
+  getBobaCafeAtlasCell,
+  resolveApprovedBobaCafeAuthoredArt,
+} from "../art/bobaCafeAuthoredArt";
 import { BOBA_CAFE_INGREDIENT_GROUPS, SWEETNESS_LEVELS } from "../content/bobaCatalog";
+import BobaAtlasSprite from "./BobaAtlasSprite";
+
+const BOBA_AUTHORED_ART = resolveApprovedBobaCafeAuthoredArt();
 
 const STATIONS = [
   ...BOBA_CAFE_INGREDIENT_GROUPS.map((group) => ({ key: group.key, label: group.label, options: group.options })),
@@ -80,6 +88,7 @@ export default function BobaStationTray({
         <div className="boba-stations__options">
           {station.options.map((option, index) => {
             const selected = tray?.[station.key] === option.key;
+            const ingredientCell = getBobaCafeAtlasCell(BOBA_CAFE_INGREDIENT_ATLAS, option.key);
             return (
               <button
                 key={option.key}
@@ -90,9 +99,18 @@ export default function BobaStationTray({
                 onClick={() => onOptionSelect(station.key, index + 1)}
               >
                 <kbd>{index + 1}</kbd>
-                <span className="boba-stations__ingredient" data-station={station.key} style={{ "--option-color": option.accent || "#dfd8ab" }} aria-hidden="true">
-                  <i />
-                </span>
+                {BOBA_AUTHORED_ART ? (
+                  <BobaAtlasSprite
+                    atlas={BOBA_CAFE_INGREDIENT_ATLAS}
+                    cell={ingredientCell}
+                    src={BOBA_AUTHORED_ART.ingredients}
+                    className="boba-stations__ingredient-art"
+                  />
+                ) : (
+                  <span className="boba-stations__ingredient" data-station={station.key} style={{ "--option-color": option.accent || "#dfd8ab" }} aria-hidden="true">
+                    <i />
+                  </span>
+                )}
                 <span><strong>{option.label}</strong>{option.value ? <small>{option.value}% sweetness</small> : null}</span>
               </button>
             );

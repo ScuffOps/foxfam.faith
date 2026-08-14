@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   STARFISHING_ACHIEVEMENT_KEYS,
   STARFISHING_SERVER_CATALOG_VERSION,
+  STARFISHING_TROPHY_KEYS,
 } from "./starfishingCatalogContract.js";
 
 test("server catalog exposes stable Phase 2 keys", () => {
@@ -15,6 +16,11 @@ test("server catalog exposes stable Phase 2 keys", () => {
     "myth-in-moonwater",
     "celestial-archivist",
     "hundred-lights",
+  ]);
+  assert.deepEqual(STARFISHING_TROPHY_KEYS, [
+    "first-light",
+    "pocket-constellation",
+    "celestial-archivist",
   ]);
 });
 

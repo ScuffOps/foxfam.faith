@@ -106,7 +106,7 @@ export const GAME_WORLD_ORDER = [
     sourceMaterialKeys: ["star-glass"],
     rewardFocus: "Favor, Fishpedia progress, duplicate release choices, celestial fish charms.",
     lore: "Cast a line into the constellation pond and reel in little impossible lights.",
-    trophyExamples: ["First Star Reeled", "Smallest Star", "Caught Them All"],
+    trophyExamples: ["First Light", "Pocket Constellation", "Celestial Archivist"],
     charmExamples: ["Starlit Bobber", "Fishpedia Mythic Frame"],
   },
   {

@@ -9,6 +9,12 @@ export const STARFISHING_ACHIEVEMENT_KEYS = Object.freeze([
   "hundred-lights",
 ]);
 
+export const STARFISHING_TROPHY_KEYS = Object.freeze([
+  "first-light",
+  "pocket-constellation",
+  "celestial-archivist",
+]);
+
 export const STARFISHING_PASSIVE_CAPS = Object.freeze({
   favorMultiplierBps: 2500,
   materialMultiplierBps: 2500,

@@ -1,4 +1,5 @@
 import { BOBA_CAFE_PHASES, createEmptyTray, createInitialBobaCafeState } from "./bobaCafeRules.js";
+import { presentClaimAchievements } from "../../shared/rewards/gameRewardReceiptPresentation.js";
 
 export function createRewardedBobaCafeState(context, previousState = null) {
   const baseState = previousState || createInitialBobaCafeState();
@@ -59,10 +60,7 @@ export function createBobaCafeReceiptIntent(receipt) {
       quantity: material.delta,
       type: "material",
     })),
-    achievements: (receipt.achievements || []).map((achievement) => ({
-      key: achievement.key,
-      title: achievement.title,
-    })),
+    achievements: presentClaimAchievements(receipt),
   };
 }
 

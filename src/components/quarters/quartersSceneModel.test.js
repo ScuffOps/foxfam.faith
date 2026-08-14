@@ -5,6 +5,7 @@ import {
   COURTYARD_WORLD_POSITIONS,
   QUARTERS_STATIONS,
   buildCourtyardStations,
+  findNearbyQuartersStation,
   moveSceneCursor,
 } from "./quartersSceneModel.js";
 
@@ -33,4 +34,10 @@ test("quarters includes the approved diegetic stations", () => {
 
 test("scene cursor movement clamps to the walkable room", () => {
   assert.deepEqual(moveSceneCursor({ x: 50, y: 50 }, { x: 80, y: -90 }), { x: 86, y: 18 });
+});
+
+test("walking near a Quarters station exposes exactly the nearest interaction", () => {
+  assert.equal(findNearbyQuartersStation({ x: 20, y: 71 }), "forge");
+  assert.equal(findNearbyQuartersStation({ x: 86, y: 29 }), "courtyard");
+  assert.equal(findNearbyQuartersStation({ x: 50, y: 65 }), "");
 });

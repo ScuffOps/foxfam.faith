@@ -64,7 +64,34 @@ export const RELIC_CHARM_CATALOG = [
   { key: "unfractured-loop", name: "Unfractured Loop", rarity: "epic", slot: "halo", kind: "achievement", description: "A perfect ring awarded for crossing the clocktower untouched.", effects: { profile_frame: "unfractured-loop" } },
   { key: "blooming-ink-sprout", name: "Blooming Ink Sprout", rarity: "uncommon", slot: "root", kind: "achievement", description: "A first word preserved as a small living sprout.", effects: { profile_particle: "ink-petals" } },
   { key: "full-bloom-quill", name: "Full Bloom Quill", rarity: "epic", slot: "profile-frame", kind: "achievement", description: "A flowering quill earned by completing the entire word bloom.", effects: { profile_frame: "full-bloom" } },
+  { key: "hearthforged-seal", name: "Hearthforged Seal", rarity: "uncommon", slot: "sigil", kind: "achievement", description: "The first mark struck cleanly at the Priory Relic Forge.", effects: { profile_particle: "forge-sparks", game_material_multiplier_bps: 1000 } },
+  { key: "ascendant-anvil", name: "Ascendant Anvil", rarity: "mythic", slot: "profile-frame", kind: "achievement", description: "A masterwork emblem earned by raising a charm to its Ascendant tier.", effects: { profile_frame: "ascendant-forge", game_favor_multiplier_bps: 1000 } },
 ];
+
+export const RELIC_ROLL_CHARM_KEYS = Object.freeze([
+  "ash-thread",
+  "candle-wax-seal",
+  "iron-ring",
+  "smoke-ribbon",
+  "moonlit-chain",
+  "verdant-knot",
+  "static-sigil",
+  "blue-ember",
+  "star-shard",
+  "hollow-bell",
+  "mirror-thorn",
+  "bloodrose-pin",
+  "void-halo",
+  "eclipse-lens",
+  "last-vow-core",
+  "forsaken-halo",
+]);
+
+const relicRollCharmKeys = new Set(RELIC_ROLL_CHARM_KEYS);
+
+export const RELIC_ROLL_CHARM_CATALOG = Object.freeze(
+  RELIC_CHARM_CATALOG.filter((charm) => relicRollCharmKeys.has(charm.key)),
+);
 
 export const DEFAULT_RELIC = {
   name: "Ashen Promise",
@@ -129,21 +156,32 @@ export function normalizeCharm(charm = {}) {
   };
 }
 
-export function rollRelicCharm(randomValue = Math.random()) {
+function normalizeRandomValue(randomValue) {
+  const numericValue = Number(randomValue);
+  if (!Number.isFinite(numericValue)) return 0;
+  return Math.min(Math.max(numericValue, 0), 1 - Number.EPSILON);
+}
+
+export function rollRelicCharm(
+  rarityRandomValue = Math.random(),
+  selectionRandomValue = Math.random(),
+) {
   const totalWeight = Object.values(RELIC_RARITY_META).reduce((sum, item) => sum + item.weight, 0);
-  let threshold = randomValue * totalWeight;
-  let selectedRarity = "common";
+  const threshold = normalizeRandomValue(rarityRandomValue) * totalWeight;
+  let cumulativeWeight = 0;
+  let selectedRarity = "mythic";
 
   for (const [rarity, meta] of Object.entries(RELIC_RARITY_META)) {
-    threshold -= meta.weight;
-    if (threshold <= 0) {
+    cumulativeWeight += meta.weight;
+    if (threshold < cumulativeWeight) {
       selectedRarity = rarity;
       break;
     }
   }
 
-  const pool = RELIC_CHARM_CATALOG.filter((item) => item.rarity === selectedRarity);
-  const selected = pool[Math.floor(Math.random() * pool.length)] || RELIC_CHARM_CATALOG[0];
+  const pool = RELIC_ROLL_CHARM_CATALOG.filter((item) => item.rarity === selectedRarity);
+  const selectionIndex = Math.floor(normalizeRandomValue(selectionRandomValue) * pool.length);
+  const selected = pool[selectionIndex] || RELIC_ROLL_CHARM_CATALOG[0];
   return normalizeCharm({
     charm_key: selected.key,
     name: selected.name,

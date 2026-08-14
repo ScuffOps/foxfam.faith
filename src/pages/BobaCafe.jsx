@@ -38,6 +38,12 @@ import {
   progressGameRewardSession,
   startGameRewardSession,
 } from "@/games/shared/rewards/gameRewardClient";
+import {
+  clearGameRewardRecovery,
+  readGameRewardRecovery,
+  updateRewardSessionContext,
+  writeGameRewardRecovery,
+} from "@/games/shared/rewards/gameRewardRecovery";
 import GameResultSheet from "@/games/shared/ui/GameResultSheet";
 import GameShell from "@/games/shared/ui/GameShell";
 import { useAuth } from "@/lib/AuthContext";
@@ -63,26 +69,43 @@ export default function BobaCafe() {
   const [isBusy, setIsBusy] = useState(false);
   const attemptedUserRef = useRef("");
   const requestInFlightRef = useRef(false);
+  const requestGenerationRef = useRef(0);
   const settleAttemptRef = useRef("");
   const state = mode === "rewarded" ? rewardedState : practiceState;
 
   useEffect(() => writeLocalJson(BOBA_CAFE_STORAGE_KEY, practiceState), [practiceState]);
 
-  const runRequest = useCallback(async (request, operation) => {
+  const runRequest = useCallback(async (request, operation, recoverySession = null) => {
     if (requestInFlightRef.current) return null;
+    const requestGeneration = requestGenerationRef.current;
     requestInFlightRef.current = true;
     setIsBusy(true);
     setRewardError("");
     setRetryRequest(null);
     try {
-      return await operation();
+      const result = await operation();
+      if (requestGeneration !== requestGenerationRef.current) return null;
+      clearGameRewardRecovery(window.sessionStorage, {
+        gameKey: "boba-cafe",
+        ownerId: attemptedUserRef.current,
+      });
+      return result;
     } catch (error) {
+      if (requestGeneration !== requestGenerationRef.current) return null;
       setRewardError(error?.message || "The reward service could not complete that request.");
       setRetryRequest(request);
+      writeGameRewardRecovery(window.sessionStorage, {
+        gameKey: "boba-cafe",
+        ownerId: attemptedUserRef.current,
+        request,
+        session: recoverySession,
+      });
       return null;
     } finally {
-      requestInFlightRef.current = false;
-      setIsBusy(false);
+      if (requestGeneration === requestGenerationRef.current) {
+        requestInFlightRef.current = false;
+        setIsBusy(false);
+      }
     }
   }, []);
 
@@ -104,6 +127,8 @@ export default function BobaCafe() {
   useEffect(() => {
     if (isLoadingAuth) return;
     if (!isAuthenticated) {
+      requestGenerationRef.current += 1;
+      requestInFlightRef.current = false;
       attemptedUserRef.current = "";
       setMode("practice");
       setRewardSession(null);
@@ -114,7 +139,27 @@ export default function BobaCafe() {
     }
     const userKey = user?.id || "authenticated";
     if (attemptedUserRef.current === userKey) return;
+    requestGenerationRef.current += 1;
+    requestInFlightRef.current = false;
     attemptedUserRef.current = userKey;
+    const recovery = readGameRewardRecovery(window.sessionStorage, {
+      gameKey: "boba-cafe",
+      ownerId: userKey,
+    });
+    if (recovery?.request.kind === "start") {
+      setMode("rewarded");
+      setRewardError("A Moonbrew shift start is ready to retry safely.");
+      setRetryRequest(recovery.request);
+      return;
+    }
+    if (recovery?.session && recovery.request.kind !== "start") {
+      setMode("rewarded");
+      setRewardSession(recovery.session);
+      setRewardedState((current) => createRewardedBobaCafeState(recovery.session.context, current));
+      setRewardError("A Moonbrew reward request is ready to retry safely.");
+      setRetryRequest(recovery.request);
+      return;
+    }
     startRewardedShift();
   }, [isAuthenticated, isLoadingAuth, startRewardedShift, user?.id]);
 
@@ -124,8 +169,9 @@ export default function BobaCafe() {
       sessionId: rewardSession.sessionId,
       idempotencyKey: request.idempotencyKey,
       action: request.action,
-    }));
+    }), rewardSession);
     if (!result) return;
+    setRewardSession((current) => updateRewardSessionContext(current, result.state));
     setRewardedState((current) => createRewardedBobaCafeState(result.state, current));
   }, [rewardSession, runRequest]);
 
@@ -217,21 +263,21 @@ export default function BobaCafe() {
     if (action === GAME_ACTIONS.cancel && isServing) handleClear();
   }, [canServe, handleClear, handleNext, handleSubmit, isBusy, isServing, state.phase]);
 
-  useGameControls({ enabled: true, onAction: handleAction, preserveNativeButtonActivation: true });
-
-  useEffect(() => {
-    const handleNumberShortcut = (event) => {
-      if (!isServing || isBusy || event.metaKey || event.ctrlKey || event.altKey) return;
-      const tagName = event.target?.tagName?.toUpperCase();
-      if (event.target?.isContentEditable || ["BUTTON", "INPUT", "TEXTAREA", "SELECT"].includes(tagName)) return;
-      const ordinal = Number(event.key);
-      if (!Number.isInteger(ordinal) || ordinal < 1 || ordinal > 4) return;
-      event.preventDefault();
-      selectOption(activeStation, ordinal);
-    };
-    window.addEventListener("keydown", handleNumberShortcut);
-    return () => window.removeEventListener("keydown", handleNumberShortcut);
+  const handleNumberShortcut = useCallback((event) => {
+    if (!isServing || isBusy || event.metaKey || event.ctrlKey || event.altKey) return false;
+    const ordinal = Number(event.key);
+    if (!Number.isInteger(ordinal) || ordinal < 1 || ordinal > 4) return false;
+    event.preventDefault();
+    selectOption(activeStation, ordinal);
+    return true;
   }, [activeStation, isBusy, isServing, selectOption]);
+
+  useGameControls({
+    enabled: true,
+    onAction: handleAction,
+    onKeyDown: handleNumberShortcut,
+    preserveNativeButtonActivation: true,
+  });
 
   const submitClaim = useCallback(async (request) => {
     if (!rewardSession) return;
@@ -239,7 +285,7 @@ export default function BobaCafe() {
       sessionId: rewardSession.sessionId,
       idempotencyKey: request.idempotencyKey,
       evidence: {},
-    }));
+    }), rewardSession);
     if (receipt) setRewardReceipt(receipt);
   }, [rewardSession, runRequest]);
 
@@ -275,8 +321,8 @@ export default function BobaCafe() {
     setRetryRequest(null);
   };
 
-  const sidebar = (
-    <div className="boba-cafe__sidebar">
+  const shiftDetails = (
+    <div className="boba-cafe__ledger-content">
       <section className="boba-cafe__mode" aria-live="polite">
         <strong>{mode === "rewarded" ? "Rewarded shift" : "Practice shift"}</strong>
         <span>{mode === "rewarded" ? "Server validated · portal rewards" : "Local only · no portal rewards"}</span>
@@ -289,59 +335,12 @@ export default function BobaCafe() {
         )}
       </section>
 
-      {state.phase === BOBA_CAFE_PHASES.shiftComplete ? (
-        <GameResultSheet
-          intent={displayedIntent}
-          rewardLabel={mode === "rewarded" && rewardReceipt ? "Portal rewards" : "Practice reward preview"}
-          finalReward={mode === "rewarded" && Boolean(rewardReceipt)}
-          record={{ label: "Best combo", value: `${state.bestCombo} · ${state.perfectCount} perfect` }}
-          title="Moonbrew shift complete"
-          onReturn={() => navigate("/quarters")}
-        />
-      ) : (
-        <BobaOrderTicket
-          order={activeOrder}
-          tray={state.tray}
-          patiencePercent={patiencePercent}
-          ticketNumber={Math.min(state.servedCount + 1, BOBA_ORDER_LIMIT)}
-          ticketTotal={BOBA_ORDER_LIMIT}
-        />
-      )}
-
       <dl className="boba-cafe__stats">
         <div><dt>Score</dt><dd>{state.score}</dd></div>
         <div><dt>Combo</dt><dd>{state.combo}</dd></div>
         <div><dt>Perfect</dt><dd>{state.perfectCount}</dd></div>
         <div><dt>Served</dt><dd>{state.servedCount}/{BOBA_ORDER_LIMIT}</dd></div>
       </dl>
-
-      {rewardError ? (
-        <section className="boba-cafe__error" role="alert">
-          <strong>{rewardError}</strong>
-          <button className="boba-cafe__button" type="button" onClick={handleRetry} disabled={isBusy}>Retry safely</button>
-        </section>
-      ) : null}
-
-      {state.phase === BOBA_CAFE_PHASES.result ? (
-        <section className="boba-cafe__result" aria-live="polite">
-          <p>Order result</p>
-          <strong>{state.lastResult?.message}</strong>
-          <button className="boba-cafe__button boba-cafe__button--primary" type="button" onClick={handleNext} disabled={isBusy || Boolean(rewardError)}>
-            Next ticket <kbd>Enter</kbd>
-          </button>
-        </section>
-      ) : null}
-
-      {state.phase === BOBA_CAFE_PHASES.shiftComplete ? (
-        <div className="boba-cafe__actions">
-          <button className="boba-cafe__button boba-cafe__button--primary" type="button" onClick={handleClaim} disabled={isBusy || Boolean(rewardError) || (mode === "rewarded" ? Boolean(rewardReceipt) : !practiceIntent)}>
-            <Gift aria-hidden="true" /> {mode === "rewarded" ? (rewardReceipt ? "Rewards recorded" : "Claim portal rewards") : (practiceIntent ? "Save practice preview" : "Practice preview saved")}
-          </button>
-          <button className="boba-cafe__button" type="button" onClick={handleRestart} disabled={mode === "rewarded" && !rewardReceipt}>
-            <RotateCcw aria-hidden="true" /> New shift
-          </button>
-        </div>
-      ) : null}
 
       <p className="boba-cafe__help">
         Click a station and ingredient, or use its number key. <kbd>Enter</kbd> serves a complete cup and advances tickets. <kbd>Esc</kbd> clears the tray.
@@ -362,38 +361,79 @@ export default function BobaCafe() {
             <span>{state.phase === BOBA_CAFE_PHASES.shiftComplete ? "Closed" : `${patiencePercent}% patience`}</span>
           </div>
         )}
-        sidebar={sidebar}
       >
-        {state.phase !== BOBA_CAFE_PHASES.shiftComplete ? (
-          <div className="boba-cafe__mobile-order">
-            <BobaOrderTicket
-              compact
-              order={activeOrder}
+        {state.phase === BOBA_CAFE_PHASES.shiftComplete ? (
+          <section className="boba-cafe__complete">
+            <GameResultSheet
+              intent={displayedIntent}
+              rewardLabel={mode === "rewarded" && rewardReceipt ? "Portal rewards" : "Practice reward preview"}
+              finalReward={mode === "rewarded" && Boolean(rewardReceipt)}
+              record={{ label: "Best combo", value: `${state.bestCombo} · ${state.perfectCount} perfect` }}
+              title="Moonbrew shift complete"
+              onReturn={() => navigate("/quarters")}
+            />
+            <div className="boba-cafe__actions">
+              <button className="boba-cafe__button boba-cafe__button--primary" type="button" onClick={handleClaim} disabled={isBusy || Boolean(rewardError) || (mode === "rewarded" ? Boolean(rewardReceipt) : !practiceIntent)}>
+                <Gift aria-hidden="true" /> {mode === "rewarded" ? (rewardReceipt ? "Rewards recorded" : "Claim portal rewards") : (practiceIntent ? "Save practice preview" : "Practice preview saved")}
+              </button>
+              <button className="boba-cafe__button" type="button" onClick={handleRestart} disabled={mode === "rewarded" && !rewardReceipt}>
+                <RotateCcw aria-hidden="true" /> New shift
+              </button>
+            </div>
+          </section>
+        ) : (
+          <div className="boba-cafe__workbench">
+            <div className="boba-cafe__stage-row">
+              <div className="boba-cafe__scene">
+                <BobaCounter familiar={familiar} order={activeOrder} tray={state.tray} phase={state.phase} result={state.lastResult} />
+              </div>
+              <aside className="boba-cafe__live-ticket" aria-label="Current Moonbrew order">
+                <BobaOrderTicket
+                  compact
+                  order={activeOrder}
+                  tray={state.tray}
+                  patiencePercent={patiencePercent}
+                  ticketNumber={Math.min(state.servedCount + 1, BOBA_ORDER_LIMIT)}
+                  ticketTotal={BOBA_ORDER_LIMIT}
+                />
+                {state.phase === BOBA_CAFE_PHASES.result ? (
+                  <section className="boba-cafe__result" aria-live="polite">
+                    <div>
+                      <p>Order result</p>
+                      <strong>{state.lastResult?.message}</strong>
+                    </div>
+                    <button className="boba-cafe__button boba-cafe__button--primary" type="button" onClick={handleNext} disabled={isBusy || Boolean(rewardError)}>
+                      Next ticket <kbd>Enter</kbd>
+                    </button>
+                  </section>
+                ) : null}
+              </aside>
+            </div>
+            <BobaStationTray
+              activeStation={activeStation}
               tray={state.tray}
-              patiencePercent={patiencePercent}
-              ticketNumber={Math.min(state.servedCount + 1, BOBA_ORDER_LIMIT)}
-              ticketTotal={BOBA_ORDER_LIMIT}
+              disabled={!isServing || isBusy || Boolean(rewardError)}
+              canServe={canServe}
+              onStationChange={setActiveStation}
+              onOptionSelect={selectOption}
+              onClear={handleClear}
+              onServe={handleSubmit}
             />
           </div>
+        )}
+        {rewardError ? (
+          <section className="boba-cafe__error boba-cafe__error--visible" role="alert">
+            <strong>{rewardError}</strong>
+            <button className="boba-cafe__button" type="button" onClick={handleRetry} disabled={isBusy}>Retry safely</button>
+          </section>
         ) : null}
-        <div className="boba-cafe__scene">
-          <BobaCounter familiar={familiar} order={activeOrder} tray={state.tray} phase={state.phase} result={state.lastResult} />
-        </div>
-        {state.phase === BOBA_CAFE_PHASES.result ? (
-          <div className="boba-cafe__mobile-action">
-            <button className="boba-cafe__button boba-cafe__button--primary" type="button" onClick={handleNext} disabled={isBusy || Boolean(rewardError)}>Next ticket</button>
-          </div>
-        ) : null}
-        <BobaStationTray
-          activeStation={activeStation}
-          tray={state.tray}
-          disabled={!isServing || isBusy || Boolean(rewardError)}
-          canServe={canServe}
-          onStationChange={setActiveStation}
-          onOptionSelect={selectOption}
-          onClear={handleClear}
-          onServe={handleSubmit}
-        />
+        <details className="boba-cafe__ledger">
+          <summary>
+            <span>Shift details</span>
+            <small>Score {state.score} · Combo {state.combo} · Served {state.servedCount}/{BOBA_ORDER_LIMIT}</small>
+          </summary>
+          {shiftDetails}
+        </details>
       </GameShell>
     </div>
   );

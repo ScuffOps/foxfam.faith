@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" role="img" aria-labelledby="title description">
+  <title id="title">Foxfam Quarters foreground plane</title>
+  <desc id="description">The lower foreground rug that can pass in front of a moving familiar.</desc>
+<!-- FOREGROUND RUG: irregular soft corners, kept open and free of clutter. -->
+  <path d="M352 610q-7-13 11-18l222-58q15-4 29 1l219 60q18 5 10 18l-228 86q-15 6-31 0Z" fill="#d9c9b3" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M371 602q-5-9 10-13l203-53q14-4 27 1l201 55q15 4 9 12l-210 79q-12 5-25 0Z" fill="#b8d19f" stroke="#263650" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m610 652 190-72 12 12q15 4 9 12l-210 79q-12 5-25 0l-203-57 24-7 179 51Z" fill="#7d9c70" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m570 604 30-30 31 30-31 30Z" fill="#f2cf66" stroke="#263650" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M392 596 584 546q12-3 23 1m-27 56 20-20" fill="none" stroke="#fff8e8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

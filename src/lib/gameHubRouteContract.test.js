@@ -10,7 +10,7 @@ test("the game hub exposes privacy-safe visitor Quarters", () => {
   assert.match(quartersSource, /loadPublicGameProgression\(profileUserId\)/);
   assert.match(quartersSource, /VISITOR_PRIVATE_STATIONS/);
   assert.match(quartersSource, /favor=\{isVisitorMode \? null : favor\}/);
-  assert.match(quartersSource, /isVisitorMode \? DEFAULT_FAMILIAR : familiar/);
+  assert.match(quartersSource, /publicProgression\?\.familiar \|\| DEFAULT_FAMILIAR/);
   assert.match(quartersSource, /This member's public collection is displayed below/);
 });
 

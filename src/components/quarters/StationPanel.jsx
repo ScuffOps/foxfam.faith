@@ -13,6 +13,7 @@ const STATION_COPY = {
 export default function StationPanel({ stationKey, onClose, onOpen }) {
   const station = STATION_COPY[stationKey];
   const actionRef = useRef(null);
+  const dialogRef = useRef(null);
 
   useEffect(() => {
     if (!station) return undefined;
@@ -20,9 +21,23 @@ export default function StationPanel({ stationKey, onClose, onOpen }) {
     actionRef.current?.focus();
 
     const handleKeyDown = (event) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      onClose();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const controls = [...(dialogRef.current?.querySelectorAll("button:not([disabled])") || [])];
+      if (!controls.length) return;
+      const first = controls[0];
+      const last = controls.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => {
@@ -35,7 +50,9 @@ export default function StationPanel({ stationKey, onClose, onOpen }) {
   const { Icon } = station;
 
   return (
-    <aside className="quarters-station-panel" role="dialog" aria-modal="true" aria-labelledby="quarters-station-title" aria-describedby="quarters-station-detail">
+    <>
+      <div className="quarters-station-panel__backdrop" aria-hidden="true" />
+      <aside ref={dialogRef} className="quarters-station-panel" role="dialog" aria-modal="true" aria-labelledby="quarters-station-title" aria-describedby="quarters-station-detail">
       <button type="button" className="quarters-station-panel__close" onClick={onClose} aria-label="Close station panel" title="Close">
         <X aria-hidden="true" />
       </button>
@@ -50,6 +67,7 @@ export default function StationPanel({ stationKey, onClose, onOpen }) {
       <Button ref={actionRef} type="button" onClick={() => onOpen(stationKey)} className="quarters-station-panel__action">
         Open {station.title} <ArrowRight className="h-4 w-4" aria-hidden="true" />
       </Button>
-    </aside>
+      </aside>
+    </>
   );
 }

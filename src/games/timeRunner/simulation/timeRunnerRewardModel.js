@@ -4,6 +4,7 @@ import {
   TIME_RUNNER_POSTURES,
   TIME_RUNNER_RUN_MS,
 } from "./timeRunnerRules.js";
+import { presentClaimAchievements } from "../../shared/rewards/gameRewardReceiptPresentation.js";
 
 const HAZARD_APPROACH_PER_SECOND = 20;
 const HAZARD_VISIBLE_BEHIND_MS = 1200;
@@ -73,10 +74,7 @@ export function createTimeRunnerReceiptIntent(receipt) {
       quantity: material.delta,
       type: "material",
     })),
-    achievements: (receipt.achievements || []).map((achievement) => ({
-      key: achievement.key,
-      title: achievement.title,
-    })),
+    achievements: presentClaimAchievements(receipt),
   };
 }
 

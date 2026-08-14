@@ -4,6 +4,7 @@ import { supabase } from "@/api/communityClient";
 import MatchMergeBoard from "@/games/matchMerge/ui/MatchMergeBoard";
 import MatchMergeHud from "@/games/matchMerge/ui/MatchMergeHud";
 import GameShell from "@/games/shared/ui/GameShell";
+import GameFamiliarCompanion from "@/games/shared/familiar/GameFamiliarCompanion";
 import { GAME_ACTIONS } from "@/games/shared/input/actions";
 import { useGameControls } from "@/games/shared/input/useGameControls";
 import {
@@ -11,6 +12,12 @@ import {
   progressGameRewardSession,
   startGameRewardSession,
 } from "@/games/shared/rewards/gameRewardClient";
+import {
+  clearGameRewardRecovery,
+  readGameRewardRecovery,
+  updateRewardSessionContext,
+  writeGameRewardRecovery,
+} from "@/games/shared/rewards/gameRewardRecovery";
 import {
   canRequestMatchMerge,
   createRewardedMatchMergeState,
@@ -46,28 +53,45 @@ export default function MatchMerge() {
   const [feedback, setFeedback] = useState(QUIET_FEEDBACK);
   const attemptedUserRef = useRef("");
   const requestInFlightRef = useRef(false);
+  const requestGenerationRef = useRef(0);
   const state = mode === "rewarded" ? rewardedState : practiceState;
+  const readyScore = Math.max(0, state.score - (state.claimedScore || 0));
 
   useEffect(() => {
     writeLocalJson(MATCH_MERGE_STORAGE_KEY, practiceState);
   }, [practiceState]);
 
-  const runRequest = useCallback(async (request, operation) => {
+  const runRequest = useCallback(async (request, operation, recoverySession = null) => {
     if (requestInFlightRef.current) return null;
+    const requestGeneration = requestGenerationRef.current;
     requestInFlightRef.current = true;
     setIsBusy(true);
     setRewardError("");
     setRetryRequest(null);
     try {
       const result = await operation();
+      if (requestGeneration !== requestGenerationRef.current) return null;
+      clearGameRewardRecovery(window.sessionStorage, {
+        gameKey: "match-merge",
+        ownerId: attemptedUserRef.current,
+      });
       return result;
     } catch (error) {
+      if (requestGeneration !== requestGenerationRef.current) return null;
       setRewardError(error?.message || "The reward service could not complete that request.");
       setRetryRequest(request);
+      writeGameRewardRecovery(window.sessionStorage, {
+        gameKey: "match-merge",
+        ownerId: attemptedUserRef.current,
+        request,
+        session: recoverySession,
+      });
       return null;
     } finally {
-      requestInFlightRef.current = false;
-      setIsBusy(false);
+      if (requestGeneration === requestGenerationRef.current) {
+        requestInFlightRef.current = false;
+        setIsBusy(false);
+      }
     }
   }, []);
 
@@ -90,6 +114,8 @@ export default function MatchMerge() {
   useEffect(() => {
     if (isLoadingAuth) return;
     if (!isAuthenticated) {
+      requestGenerationRef.current += 1;
+      requestInFlightRef.current = false;
       attemptedUserRef.current = "";
       setMode("practice");
       setRewardSession(null);
@@ -101,7 +127,27 @@ export default function MatchMerge() {
 
     const userKey = user?.id || "authenticated";
     if (attemptedUserRef.current === userKey) return;
+    requestGenerationRef.current += 1;
+    requestInFlightRef.current = false;
     attemptedUserRef.current = userKey;
+    const recovery = readGameRewardRecovery(window.sessionStorage, {
+      gameKey: "match-merge",
+      ownerId: userKey,
+    });
+    if (recovery?.request.kind === "start") {
+      setMode("rewarded");
+      setRewardError("A Reliquary session start is ready to retry safely.");
+      setRetryRequest(recovery.request);
+      return;
+    }
+    if (recovery?.session && recovery.request.kind !== "start") {
+      setMode("rewarded");
+      setRewardSession(recovery.session);
+      setRewardedState((current) => createRewardedMatchMergeState(recovery.session.context, current));
+      setRewardError("A Reliquary reward request is ready to retry safely.");
+      setRetryRequest(recovery.request);
+      return;
+    }
     startRewardedRun();
   }, [isAuthenticated, isLoadingAuth, startRewardedRun, user?.id]);
 
@@ -125,11 +171,12 @@ export default function MatchMerge() {
       sessionId: rewardSession.sessionId,
       idempotencyKey: request.idempotencyKey,
       action: request.action,
-    }));
+    }), rewardSession);
     if (!result) {
       setFeedback({ tone: "warning", message: "That merge did not reach the Reliquary. Retry it safely." });
       return;
     }
+    setRewardSession((current) => updateRewardSessionContext(current, result.state));
     setRewardedState((current) => createRewardedMatchMergeState(result.state, current));
     setFeedback({ tone: "success", message: `Offering refined. Chain ${result.state.merge_streak}!` });
   }, [rewardSession, runRequest]);
@@ -237,7 +284,7 @@ export default function MatchMerge() {
       sessionId: rewardSession.sessionId,
       idempotencyKey: request.idempotencyKey,
       evidence: {},
-    }));
+    }), rewardSession);
     if (!receipt) return;
     setRewardReceipt(receipt);
     setRewardedState((current) => markMatchMergeClaimed(current));
@@ -282,8 +329,22 @@ export default function MatchMerge() {
     <div className="reliquary-shell-status" aria-label="Match and Merge status">
       <span><Gem aria-hidden="true" /> {state.score} refinement</span>
       <span><Sparkles aria-hidden="true" /> {state.mergeStreak} chain</span>
+      <span><Gem aria-hidden="true" /> {mode === "rewarded" ? `${readyScore} ready` : "Practice"}</span>
     </div>
   );
+
+  const compactAction = getCompactAction({
+    isAuthenticated,
+    isBusy,
+    mode,
+    readyScore,
+    rewardError,
+    rewardReceipt,
+    onClaim: handleClaim,
+    onNewRun: handleReset,
+    onRetry: handleRetry,
+    onSignIn: isAuthenticated ? startRewardedRun : openLogin,
+  });
 
   return (
     <GameShell
@@ -292,18 +353,21 @@ export default function MatchMerge() {
       title="Match & Merge"
       status={status}
       sidebar={(
-        <MatchMergeHud
-          state={state}
-          mode={mode}
-          rewardReceipt={rewardReceipt}
-          isPending={isBusy}
-          rewardError={rewardError}
-          onClaim={handleClaim}
-          onReset={mode === "practice" || rewardReceipt ? handleReset : undefined}
-          onRetry={handleRetry}
-          onSignIn={isAuthenticated ? startRewardedRun : openLogin}
-          onPractice={choosePractice}
-        />
+        <div>
+          <GameFamiliarCompanion label="Reliquary helper" />
+          <MatchMergeHud
+            state={state}
+            mode={mode}
+            rewardReceipt={rewardReceipt}
+            isPending={isBusy}
+            rewardError={rewardError}
+            onClaim={handleClaim}
+            onReset={mode === "practice" || rewardReceipt ? handleReset : undefined}
+            onRetry={handleRetry}
+            onSignIn={isAuthenticated ? startRewardedRun : openLogin}
+            onPractice={choosePractice}
+          />
+        </div>
       )}
     >
       <MatchMergeBoard
@@ -316,9 +380,64 @@ export default function MatchMerge() {
         onDragSwap={handleDragSwap}
         onUndo={handleUndo}
         onShuffle={handleShuffle}
+        compactAction={compactAction}
       />
     </GameShell>
   );
+}
+
+function getCompactAction({
+  isAuthenticated,
+  isBusy,
+  mode,
+  readyScore,
+  rewardError,
+  rewardReceipt,
+  onClaim,
+  onNewRun,
+  onRetry,
+  onSignIn,
+}) {
+  if (mode === "practice") {
+    return {
+      label: "Practice bench",
+      detail: "Progress stays on this device.",
+      actionLabel: isAuthenticated ? "Start rewarded" : "Sign in to earn",
+      disabled: isBusy,
+      onAction: onSignIn,
+    };
+  }
+
+  if (rewardError) {
+    return {
+      label: "Reward service paused",
+      detail: "Your last request can be retried safely.",
+      actionLabel: isBusy ? "Retrying..." : "Retry",
+      tone: "warning",
+      disabled: isBusy,
+      onAction: onRetry,
+    };
+  }
+
+  if (rewardReceipt) {
+    return {
+      label: "Rewards received",
+      detail: "The Priory ledger is up to date.",
+      actionLabel: "New rewarded run",
+      tone: "success",
+      disabled: isBusy,
+      onAction: onNewRun,
+    };
+  }
+
+  return {
+    label: readyScore > 0 ? `${readyScore} refinement ready` : "Complete a merge",
+    detail: readyScore > 0 ? "Claim whenever you are ready." : "Each valid pair adds forge rewards.",
+    actionLabel: isBusy ? "Recording..." : "Claim rewards",
+    tone: readyScore > 0 ? "success" : "quiet",
+    disabled: isBusy || readyScore <= 0,
+    onAction: onClaim,
+  };
 }
 
 function indexToCursor(index) {
