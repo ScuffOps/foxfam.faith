@@ -114,6 +114,16 @@
 .quarters-scene__illustration--fixtures { z-index: 2; }
 .quarters-scene__illustration--foreground { z-index: 9; }
 
+.quarters-scene__optional-art {
+  position: absolute;
+  object-fit: contain;
+  object-position: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+.quarters-scene__optional-art--familiar { display: block; }
+
 .scene-linejoin,
 .scene-linejoin * {
   vector-effect: non-scaling-stroke;

@@ -17,6 +17,30 @@ export const STARFISHING_ART_ASSETS = Object.freeze({
     sceneLayer: "foreground",
     requiresTransparency: true,
   }),
+  rig: Object.freeze({
+    slotId: "starfishing.rig",
+    textureKey: "starfishing-rig",
+    sceneLayer: "rig",
+    requiresTransparency: true,
+  }),
+  fisher: Object.freeze({
+    slotId: "starfishing.fisher",
+    textureKey: "starfishing-fisher-atlas",
+    sceneLayer: "fisher",
+    requiresTransparency: true,
+  }),
+  fishFamily: Object.freeze({
+    slotId: "starfishing.fish-family",
+    textureKey: "starfishing-fish-atlas",
+    sceneLayer: "reveal",
+    requiresTransparency: true,
+  }),
+  qte: Object.freeze({
+    slotId: "starfishing.qte",
+    textureKey: "starfishing-qte-atlas",
+    sceneLayer: "interaction",
+    requiresTransparency: true,
+  }),
 });
 
 export const STARFISHING_ART_LAYERS = Object.freeze({
@@ -36,6 +60,7 @@ export const STARFISHING_ART_ANCHORS = Object.freeze({
   bobber: Object.freeze({ x: 0.62, y: 0.58 }),
   catchShadow: Object.freeze({ x: 0.68, y: 0.66 }),
   catch: Object.freeze({ x: 0.68, y: 0.62 }),
+  qte: Object.freeze({ x: 0.84, y: 0.27 }),
 });
 
 export const STARFISHING_ART_SAFE_ZONES = Object.freeze({

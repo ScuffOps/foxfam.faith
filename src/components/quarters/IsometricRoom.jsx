@@ -2,6 +2,7 @@ import { Archive, Armchair, BookOpen, DoorOpen, Hammer, Shirt } from "lucide-rea
 import FamiliarAvatar from "@/games/shared/familiar/FamiliarAvatar";
 import InteractionPrompt from "@/games/shared/ui/InteractionPrompt";
 import { getApprovedGameArtAsset } from "@/games/shared/art/gameArtManifest";
+import { getQuartersOptionalArt } from "./quartersActiveArt.js";
 import { normalizeQuartersDecor } from "./quartersDecorCatalog.js";
 import { QUARTERS_SCENE_PLANE, QUARTERS_STATIONS, scenePercentToPoint } from "./quartersSceneModel";
 
@@ -22,6 +23,20 @@ const QUARTERS_APPROVED_ART_READY = Boolean(
   QUARTERS_ROOM_ASSET
   && (QUARTERS_COMPOSITE_ART_READY || (QUARTERS_FIXTURES_ASSET && QUARTERS_FOREGROUND_ASSET)),
 );
+const QUARTERS_OPTIONAL_ART = getQuartersOptionalArt();
+const QUARTERS_FAMILIAR_IDLE_ART = QUARTERS_OPTIONAL_ART.familiarIdle;
+
+function getOptionalArtStyle(layer) {
+  const { anchor } = layer;
+  return {
+    left: `${anchor.x}%`,
+    top: `${anchor.y}%`,
+    width: `${anchor.width}%`,
+    height: `${anchor.height}%`,
+    zIndex: layer.zIndex,
+    transform: `translate(-${anchor.originX}%, -${anchor.originY}%)`,
+  };
+}
 
 function RoomArtwork() {
   return (
@@ -205,6 +220,7 @@ function RoomDecor({ layout }) {
 }
 
 export default function IsometricRoom({ cursor, selectedStation, nearbyStation, familiar, decor, onMove, onActivate }) {
+  const useApprovedFamiliarFallback = !familiar && QUARTERS_FAMILIAR_IDLE_ART;
   const handleFloorClick = (event) => {
     if (event.target.closest("button")) return;
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -244,6 +260,20 @@ export default function IsometricRoom({ cursor, selectedStation, nearbyStation, 
           </>
         ) : <RoomArtwork />}
         {!QUARTERS_COMPOSITE_ART_READY ? <RoomDecor layout={decor} /> : null}
+        {QUARTERS_OPTIONAL_ART.props.map((layer) => (
+          <img
+            key={layer.layerId}
+            id={layer.layerId}
+            className="quarters-scene__optional-art quarters-scene__optional-art--prop"
+            data-art-slot={layer.slotId}
+            data-scene-layer="optional-prop"
+            src={layer.assetPath}
+            style={getOptionalArtStyle(layer)}
+            alt=""
+            aria-hidden="true"
+            draggable="false"
+          />
+        ))}
 
         {QUARTERS_STATIONS.map((station) => {
           const Icon = STATION_ICONS[station.key];
@@ -268,9 +298,30 @@ export default function IsometricRoom({ cursor, selectedStation, nearbyStation, 
           );
         })}
 
-        <div className="quarters-scene__familiar" style={{ left: `${cursor.x}%`, top: `${cursor.y}%` }}>
+        <div
+          className="quarters-scene__familiar"
+          style={{
+            left: `${cursor.x}%`,
+            top: `${cursor.y}%`,
+            ...(useApprovedFamiliarFallback ? { width: "clamp(72px, 10vw, 118px)", aspectRatio: "3 / 4" } : {}),
+          }}
+        >
           <span className="quarters-scene__familiar-shadow" aria-hidden="true" />
-          <FamiliarAvatar familiar={familiar} size="clamp(72px, 10vw, 118px)" pose="walk" />
+          {useApprovedFamiliarFallback ? (
+            <img
+              id={QUARTERS_FAMILIAR_IDLE_ART.layerId}
+              className="quarters-scene__optional-art quarters-scene__optional-art--familiar"
+              data-art-slot={QUARTERS_FAMILIAR_IDLE_ART.slotId}
+              data-scene-layer="optional-familiar"
+              src={QUARTERS_FAMILIAR_IDLE_ART.assetPath}
+              style={getOptionalArtStyle(QUARTERS_FAMILIAR_IDLE_ART)}
+              alt=""
+              aria-hidden="true"
+              draggable="false"
+            />
+          ) : (
+            <FamiliarAvatar familiar={familiar} size="clamp(72px, 10vw, 118px)" pose="walk" />
+          )}
         </div>
 
         {QUARTERS_APPROVED_ART_READY && !QUARTERS_COMPOSITE_ART_READY ? (
