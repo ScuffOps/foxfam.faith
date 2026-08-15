@@ -5,6 +5,7 @@ import { PROFILE_FRAME_CATALOG, PROFILE_PARTICLE_CATALOG } from "./profileCosmet
 import { TROPHY_CATALOG } from "./trophyPresentation.js";
 import {
   COLLECTIBLE_APPROVAL_STATE,
+  COLLECTIBLE_ART_APPROVAL_REGISTRY,
   COLLECTIBLE_ART_CONTRACT_ID,
   COLLECTIBLE_ART_KINDS,
   COLLECTIBLE_ART_RENDER_RULES,
@@ -23,6 +24,10 @@ const EXPECTED_KEYS = new Map([
   [COLLECTIBLE_ART_KINDS.profileParticle, Object.keys(PROFILE_PARTICLE_CATALOG)],
   [COLLECTIBLE_ART_KINDS.catchEffect, ["merciful-tide"]],
 ]);
+
+test("reviewed collectible art remains inert until explicit checkpoint records exist", () => {
+  assert.deepEqual(COLLECTIBLE_ART_APPROVAL_REGISTRY, {});
+});
 
 test("every authoritative collectible key has exactly one namespaced art slot", () => {
   const expectedIds = [];

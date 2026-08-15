@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { GAME_WORLD_ORDER } from "../../../lib/gameHubCatalog.js";
 import {
   GAME_ART_APPROVAL,
+  GAME_ART_APPROVAL_REGISTRY,
   GAME_ART_CLASSES,
   GAME_ART_CONTRACT_ID,
   GAME_ART_PERSPECTIVES,
@@ -12,6 +13,11 @@ import {
   getApprovedGameArtAsset,
   getGameArtSlots,
 } from "./gameArtManifest.js";
+
+test("reviewed world art remains inert until an explicit approval record exists", () => {
+  assert.deepEqual(GAME_ART_APPROVAL_REGISTRY, {});
+  assert.equal(getApprovedGameArtAsset("quarters.forge"), null);
+});
 
 test("every staged world has an environment and interaction-ready art family", () => {
   for (const world of GAME_WORLD_ORDER) {

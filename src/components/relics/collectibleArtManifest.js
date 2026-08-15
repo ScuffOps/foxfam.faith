@@ -45,6 +45,10 @@ const CATCH_EFFECT_KEYS = Object.freeze([
   ))),
 ]);
 
+// Candidate exports stay fail-closed until all three approval checkpoints are
+// recorded here with their checksum and canonical runtime path.
+export const COLLECTIBLE_ART_APPROVAL_REGISTRY = Object.freeze({});
+
 export const COLLECTIBLE_ART_SLOTS = Object.freeze([
   ...RELIC_BASES.map((base) => createSlot(COLLECTIBLE_ART_KINDS.relicBase, base.id, `${base.label} relic base with one dominant silhouette and focal symbol`)),
   ...RELIC_EFFECTS.map((effect) => createSlot(COLLECTIBLE_ART_KINDS.relicEffect, effect.id, `${effect.label} as one restrained hard-edged cosmetic layer`)),
@@ -84,8 +88,10 @@ export function isCanonicalCollectibleAssetPath(assetPath, kind, key) {
 }
 
 function createSlot(kind, key, brief, metadata = {}) {
+  const id = `shared.${kind}.${key}`;
+  const evidence = COLLECTIBLE_ART_APPROVAL_REGISTRY[id] || {};
   return Object.freeze({
-    id: `shared.${kind}.${key}`,
+    id,
     kind,
     key,
     assetClass: kind === COLLECTIBLE_ART_KINDS.profileFrame ? "ui" : "collectible",
@@ -95,9 +101,9 @@ function createSlot(kind, key, brief, metadata = {}) {
     renderRules: COLLECTIBLE_ART_RENDER_RULES,
     brief,
     metadata: Object.freeze({ ...metadata }),
-    assetPath: null,
-    sha256: null,
-    approval: pendingApproval(),
+    assetPath: evidence.assetPath || null,
+    sha256: evidence.sha256 || null,
+    approval: evidence.approval || pendingApproval(),
   });
 }
 

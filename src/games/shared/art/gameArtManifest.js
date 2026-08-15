@@ -27,6 +27,11 @@ export const GAME_ART_APPROVAL = Object.freeze({
 const AWAITING = GAME_ART_APPROVAL.awaitingRender;
 const APPROVED = GAME_ART_APPROVAL.approved;
 
+// Reviewed assets remain inert until an explicit approval record is added here.
+// Keeping provenance separate from scene declarations makes staged art promotion
+// atomic and prevents a path-only edit from bypassing the approval boundary.
+export const GAME_ART_APPROVAL_REGISTRY = Object.freeze({});
+
 export const GAME_ART_SLOTS = Object.freeze([
   slot("quarters.room", GAME_WORLD_KEYS.quarters, "environment", "3:2", "isometric", "Darker cozy-cafe Quarters shell with aligned walls, warm wood floor, moon window, and clear walkable center", approvedAsset("/assets/game-hub/quarters/quarters-room.png", "2026-08-13")),
   slot("quarters.room-legacy", GAME_WORLD_KEYS.quarters, "environment", "30:19", "isometric", "Approved legacy Quarters environment retained as the layered fallback for older scene renderers", approvedAsset("/assets/game-hub/quarters/quarters-room.svg", "2026-08-13")),
@@ -76,6 +81,7 @@ export const GAME_ART_SLOTS = Object.freeze([
 ]);
 
 function slot(id, worldKey, assetClass, aspect, perspective, brief, evidence = {}) {
+  const approvalEvidence = GAME_ART_APPROVAL_REGISTRY[id] || evidence;
   return Object.freeze({
     id,
     worldKey,
@@ -83,10 +89,10 @@ function slot(id, worldKey, assetClass, aspect, perspective, brief, evidence = {
     aspect,
     perspective: GAME_ART_PERSPECTIVES[perspective],
     artContract: GAME_ART_CONTRACT_ID,
-    approval: evidence.approval || AWAITING,
-    assetPath: evidence.assetPath || null,
-    approvedBy: evidence.approvedBy || null,
-    approvedAt: evidence.approvedAt || null,
+    approval: approvalEvidence.approval || AWAITING,
+    assetPath: approvalEvidence.assetPath || null,
+    approvedBy: approvalEvidence.approvedBy || null,
+    approvedAt: approvalEvidence.approvedAt || null,
     brief,
   });
 }
