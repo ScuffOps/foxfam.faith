@@ -73,7 +73,7 @@ export default function BirthdayList({ birthdays, isAdmin, onApprove, onReject }
                   {isToday ? "🎉 Today!" : daysUntil === 1 ? "❝ tomorrow ❞" : `❝ in ${daysUntil} days ❞`}
                 </span>
                 {b.note && <p className="mt-2 text-[10px] text-muted-foreground/70 italic line-clamp-2">{b.note}</p>}
-                {isToday && <BirthdayWishDialog birthday={b} />}
+                {isToday && (b.recipient_user_id || b.user_id) && <BirthdayWishDialog birthday={b} />}
               </div>
             );
           })}

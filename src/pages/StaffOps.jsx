@@ -74,18 +74,18 @@ import TimeCategoryChart from "@/components/staff/TimeCategoryChart";
 import PortalVisualGallery from "@/components/dashboard/PortalVisualGallery";
 
 const TABS = [
-  { key: "dashboard", label: "Dashboard", icon: Activity },
-  { key: "braindump", label: "Brain Dump", icon: Brain },
-  { key: "handbook", label: "Handbook", icon: BookOpen },
-  { key: "updates", label: "Updates", icon: Bell },
-  { key: "commands", label: "Commands", icon: Bot },
-  { key: "schedule", label: "Schedule", icon: CalendarClock },
-  { key: "time", label: "Time Tracker", icon: Clock },
-  { key: "streams", label: "Stream Logs", icon: Radio },
-  { key: "meds", label: "Medication", icon: Pill },
-  { key: "tasks", label: "Tasklist", icon: ClipboardList },
-  { key: "members", label: "Team", icon: UserCog },
-  { key: "resources", label: "Resources", icon: FolderOpen },
+  { key: "dashboard", label: "Dashboard", shortLabel: "dshbrd", icon: Activity },
+  { key: "braindump", label: "Brain Dump", shortLabel: "brndmp", icon: Brain },
+  { key: "handbook", label: "Handbook", shortLabel: "hndbk", icon: BookOpen },
+  { key: "updates", label: "Updates", shortLabel: "updts", icon: Bell },
+  { key: "commands", label: "Commands", shortLabel: "cmmds", icon: Bot },
+  { key: "schedule", label: "Schedule", shortLabel: "schdl", icon: CalendarClock },
+  { key: "time", label: "Time Tracker", shortLabel: "timer", icon: Clock },
+  { key: "streams", label: "Stream Logs", shortLabel: "logs", icon: Radio },
+  { key: "meds", label: "Medication", shortLabel: "meds", icon: Pill },
+  { key: "tasks", label: "Tasklist", shortLabel: "tasks", icon: ClipboardList },
+  { key: "members", label: "Team", shortLabel: "team", icon: UserCog },
+  { key: "resources", label: "Resources", shortLabel: "refs", icon: FolderOpen },
 ];
 
 const STAFF_HANDY_LINKS = [
@@ -1362,7 +1362,7 @@ export default function StaffOps({ defaultTab = "dashboard" }) {
   }
 
   return (
-    <div className="mx-auto max-w-7xl animate-fade-in">
+    <div className="mx-auto max-w-7xl animate-fade-in pb-24 md:pb-0">
       <TaskCompletionCelebration celebration={taskCelebration} />
       <section className="mb-6 rounded-lg border border-[#4546ff]/25 bg-[linear-gradient(135deg,rgba(8,12,28,0.96),rgba(18,19,46,0.92))] p-5 text-foreground shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
@@ -2428,31 +2428,62 @@ function OpsMetric({ label, value }) {
 
 function StaffOpsNav({ activeTab, onTabChange, tabs }) {
   return (
-    <nav className="mt-6 rounded-lg border border-white/10 bg-black/20 p-2 shadow-inner" aria-label="Staff Ops sections">
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-        {tabs.map(({ key, label, icon: Icon }) => {
-          const active = activeTab === key;
-          return (
-            <button
-              key={key}
-              type="button"
-              aria-current={active ? "page" : undefined}
-              onClick={() => onTabChange(key)}
-              className={`flex min-h-14 items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4546ff] ${
-                active
-                  ? "bg-[#4546ff] text-white shadow-[0_10px_28px_rgba(69,70,255,0.28)]"
-                  : "bg-transparent text-muted-foreground hover:bg-white/10 hover:text-foreground"
-              }`}
-            >
-              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${active ? "bg-white/20" : "bg-white/10"}`}>
-                <Icon className="h-4 w-4" />
-              </span>
-              <span className="min-w-0 truncate">{label}</span>
-            </button>
-          );
-        })}
-      </div>
-    </nav>
+    <>
+      <nav className="mt-6 hidden rounded-lg border border-white/10 bg-black/20 p-2 shadow-inner md:block" aria-label="Staff Ops sections">
+        <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-5">
+          {tabs.map(({ key, label, icon: Icon }) => {
+            const active = activeTab === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                aria-current={active ? "page" : undefined}
+                onClick={() => onTabChange(key)}
+                className={`flex min-h-14 items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4546ff] ${
+                  active
+                    ? "bg-[#4546ff] text-white shadow-[0_10px_28px_rgba(69,70,255,0.28)]"
+                    : "bg-transparent text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                }`}
+              >
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${active ? "bg-white/20" : "bg-white/10"}`}>
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 truncate">{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      <nav
+        className="fixed bottom-3 left-1/2 z-[65] w-[calc(100vw-1rem)] -translate-x-1/2 overflow-hidden rounded-lg border border-[#7778ff]/35 bg-[#090b18]/95 p-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.62)] backdrop-blur-md md:hidden"
+        aria-label="Staff Ops sections"
+      >
+        <div className="flex snap-x snap-mandatory gap-1 overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:thin]">
+          {tabs.map(({ key, label, shortLabel, icon: Icon }) => {
+            const active = activeTab === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                aria-label={label}
+                aria-current={active ? "page" : undefined}
+                title={label}
+                onClick={() => onTabChange(key)}
+                className={`flex min-h-14 min-w-[3.75rem] snap-start flex-col items-center justify-center gap-1 rounded-md px-2 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7778ff] ${
+                  active
+                    ? "bg-[#4546ff] text-white shadow-[0_8px_24px_rgba(69,70,255,0.34)]"
+                    : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className="text-[10px] font-bold leading-none tracking-[0.08em] [font-variant:all-small-caps]">{shortLabel}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+    </>
   );
 }
 

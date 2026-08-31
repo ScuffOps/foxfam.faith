@@ -163,7 +163,7 @@ export default function Forum() {
       </div>
 
       <div className="forum-content-grid">
-        <main className="forum-thread-list">
+        <section className="forum-thread-list" aria-label="Forum threads">
           {loading ? (
             <div className="forum-loading" aria-label="Loading forum">
               <div className="h-7 w-7 animate-spin rounded-full border-4 border-muted border-t-primary" />
@@ -187,7 +187,7 @@ export default function Forum() {
               />
             ))
           )}
-        </main>
+        </section>
         <ForumCommunityPulse activeUsers={activeUsers} threads={threads} />
       </div>
 

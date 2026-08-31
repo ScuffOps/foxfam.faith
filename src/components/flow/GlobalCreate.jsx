@@ -1,10 +1,10 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Bug, CalendarPlus, Feather, HeartHandshake, Lightbulb, MessageSquarePlus, Plus, ScrollText, Sparkles } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/AuthContext";
-import { canModerate } from "@/lib/roles";
+import { canCreateForumThread, canModerate, canPublishShrinePosts } from "@/lib/roles";
 import { OPEN_CREATE_EVENT, SUBMISSION_RECEIPT_EVENT } from "@/lib/userFlow";
 import SubmissionReceiptDialog from "@/components/flow/SubmissionReceiptDialog";
 
@@ -19,25 +19,50 @@ const EventFormDialog = lazy(() => import("@/components/calendar/EventFormDialog
 
 const BASE_ACTIONS = [
   { key: "post", label: "Community post", description: "Share an idea, feedback, update, or poll.", icon: MessageSquarePlus },
-  { key: "forum", label: "Forum thread", description: "Start a longer community discussion.", icon: ScrollText },
   { key: "offering", label: "Offering", description: "Share art, music, writing, video, or files.", icon: HeartHandshake },
-  { key: "reliquary", label: "Reliquary entry", description: "Leave poetry, lore, stories, or memories.", icon: Feather },
   { key: "suggestion", label: "Suggestion", description: "Offer feedback or a portal idea.", icon: Lightbulb },
   { key: "bug", label: "Bug report", description: "Document something broken or confusing.", icon: Bug },
 ];
 
+const CREATE_ACTION_BY_PATH = {
+  "/community": "post",
+  "/polls": "post",
+  "/feedback": "post",
+  "/forum": "forum",
+  "/offerings": "offering",
+  "/reliquary": "reliquary",
+  "/suggestions": "suggestion",
+  "/bugs": "bug",
+  "/blessings": "blessing",
+  "/events": "event",
+};
+
 export default function GlobalCreate() {
   const { user } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeForm, setActiveForm] = useState("");
   const [receipt, setReceipt] = useState(null);
-  const actions = useMemo(
-    () => canModerate(user)
-      ? [...BASE_ACTIONS, { key: "blessing", label: "Blessing", description: "Add a small piece of community care.", icon: Sparkles }, { key: "event", label: "Calendar event", description: "Add a community or staff event.", icon: CalendarPlus }]
-      : BASE_ACTIONS,
-    [user],
-  );
+  const actions = useMemo(() => {
+    const available = [...BASE_ACTIONS];
+    if (canCreateForumThread(user)) {
+      available.splice(1, 0, { key: "forum", label: "Forum thread", description: "Start a longer community discussion.", icon: ScrollText });
+    }
+    if (canPublishShrinePosts(user)) {
+      available.push(
+        { key: "reliquary", label: "Reliquary entry", description: "Leave poetry, lore, stories, or memories.", icon: Feather },
+        { key: "blessing", label: "Blessing", description: "Add a small piece of community care.", icon: Sparkles },
+      );
+    }
+    if (canModerate(user)) {
+      available.push({ key: "event", label: "Calendar event", description: "Add a community or staff event.", icon: CalendarPlus });
+    }
+    return available;
+  }, [user]);
+  const routeAction = CREATE_ACTION_BY_PATH[location.pathname] || "";
+  const routeActionConfig = actions.find((action) => action.key === routeAction);
+  const showCreateButton = location.pathname === "/" || Boolean(routeActionConfig);
 
   useEffect(() => {
     const openCreate = (event) => {
@@ -58,6 +83,10 @@ export default function GlobalCreate() {
     setMenuOpen(false);
     setActiveForm(action);
   };
+  const openCreate = () => {
+    if (routeActionConfig) chooseAction(routeActionConfig.key);
+    else setMenuOpen(true);
+  };
   const closeForm = () => setActiveForm("");
   const refreshCurrentPage = () => window.dispatchEvent(new CustomEvent("foxfam:content-created"));
   const formProps = { open: true, onOpenChange: (open) => !open && closeForm() };
@@ -68,8 +97,8 @@ export default function GlobalCreate() {
       case "suggestion": return <SuggestionForm {...formProps} onCreated={refreshCurrentPage} />;
       case "bug": return <BugReportForm {...formProps} onCreated={refreshCurrentPage} />;
       case "offering": return <OfferingForm {...formProps} user={user} onCreated={refreshCurrentPage} />;
-      case "reliquary": return <ReliquaryForm {...formProps} user={user} onSaved={refreshCurrentPage} />;
-      case "blessing": return <BlessingForm {...formProps} user={user} onCreated={refreshCurrentPage} />;
+      case "reliquary": return canPublishShrinePosts(user) ? <ReliquaryForm {...formProps} user={user} onSaved={refreshCurrentPage} /> : null;
+      case "blessing": return canPublishShrinePosts(user) ? <BlessingForm {...formProps} user={user} onCreated={refreshCurrentPage} /> : null;
       case "event": return canModerate(user) ? <EventFormDialog {...formProps} event={null} onSaved={refreshCurrentPage} /> : null;
       default: return null;
     }
@@ -77,14 +106,16 @@ export default function GlobalCreate() {
 
   return (
     <>
-      <Button
-        type="button"
-        onClick={() => setMenuOpen(true)}
-        className="fixed bottom-5 right-5 z-[70] h-12 gap-2 rounded-full px-5 shadow-[0_14px_36px_rgba(0,0,0,0.45)] md:bottom-7 md:right-7"
-        aria-label="Create something"
-      >
-        <Plus className="h-5 w-5" /> <span>Create</span>
-      </Button>
+      {showCreateButton ? (
+        <Button
+          type="button"
+          onClick={openCreate}
+          className="fixed bottom-5 right-5 z-[60] h-12 gap-2 rounded-full px-5 shadow-[0_14px_36px_rgba(0,0,0,0.45)] md:bottom-7 md:right-7"
+          aria-label={routeActionConfig ? `Create ${routeActionConfig.label.toLowerCase()}` : "Create a new contribution"}
+        >
+          <Plus className="h-5 w-5" /> <span>New</span>
+        </Button>
+      ) : null}
 
       <Dialog open={menuOpen} onOpenChange={setMenuOpen}>
         <DialogContent
@@ -92,7 +123,7 @@ export default function GlobalCreate() {
         >
           <div className="sticky top-0 z-10 border-b border-border bg-[#090b18] px-5 pb-4 pt-5 sm:px-6 sm:pt-6">
             <DialogHeader>
-              <DialogTitle className="font-heading">Create Something</DialogTitle>
+              <DialogTitle className="font-heading">Add to Foxfam</DialogTitle>
               <DialogDescription>Choose where your next contribution belongs. The portal will keep unfinished text safe locally.</DialogDescription>
             </DialogHeader>
           </div>

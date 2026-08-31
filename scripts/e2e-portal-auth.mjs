@@ -272,8 +272,8 @@ async function main() {
     await page.keyboard.press("Escape");
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: path.join(outputDir, "welcome-home-mobile.png"), fullPage: false });
-    await page.getByRole("button", { name: "Create something" }).click();
-    await page.getByRole("heading", { name: "Create Something" }).waitFor();
+    await page.getByRole("button", { name: "Create a new contribution" }).click();
+    await page.getByRole("heading", { name: "Add to Foxfam" }).waitFor();
     await page.waitForTimeout(250);
     await page.screenshot({ path: path.join(outputDir, "global-create-mobile.png"), fullPage: false });
     const createMenuOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
@@ -374,6 +374,16 @@ async function main() {
     if (!staffText.includes("Availability Management") || !staffText.includes("Shift Planner")) {
       failures.push("Staff Ops schedule did not render availability and shift planner modules.");
     }
+    await page.setViewportSize({ width: 390, height: 844 });
+    const staffDock = page.locator('nav[aria-label="Staff Ops sections"]').last();
+    if (!(await staffDock.isVisible())) failures.push("Mobile Staff Ops dock did not render.");
+    if ((await page.getByRole("button", { name: "Create a new contribution" }).count()) > 0) {
+      failures.push("Global New action rendered on a read-only Staff Ops page.");
+    }
+    await staffDock.getByRole("button", { name: "Updates", exact: true }).click();
+    if (!page.url().endsWith("/ops/updates")) failures.push("Mobile Staff Ops dock did not navigate to Updates.");
+    await page.screenshot({ path: path.join(outputDir, "staff-ops-dock-mobile.png"), fullPage: false });
+    await page.setViewportSize({ width: 1280, height: 900 });
 
     await page.goto(`${baseUrl}/ops/time`, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(700);

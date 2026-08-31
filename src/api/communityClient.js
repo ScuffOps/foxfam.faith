@@ -23,7 +23,8 @@ export const LOGIN_EVENT_NAME = "foxfam:open-login";
 const PUBLIC_ROW_SELECT = "id,data,created_at,updated_at";
 const OWNER_ROW_SELECT = "id,user_id,data,created_at,updated_at";
 const PUBLIC_PROFILE_SELECT =
-  "id,role,display_name,avatar_url,accent_color,notification_preferences,onboarded,profile_status,bio,favorite_shrine,created_at,updated_at";
+  "id,role,display_name,avatar_url,accent_color,profile_status,bio,favorite_shrine,created_at,updated_at";
+const LEGACY_OWNER_PROFILE_SELECT = `${PUBLIC_PROFILE_SELECT},notification_preferences,onboarded`;
 const AUTO_PROFILE_NAMES = new Set(["guest", "guest fox", "foxfam member"]);
 
 const ENTITY_TABLES = {
@@ -238,15 +239,31 @@ async function getCurrentSessionUser() {
   return data.user;
 }
 
+async function getMyProfile(client, userId) {
+  const result = await client.rpc("get_my_profile").maybeSingle();
+  if (!result.error) return result.data;
+
+  const functionMissing = result.error.code === "PGRST202"
+    || /get_my_profile/i.test(result.error.message || "");
+  if (!functionMissing) throw result.error;
+
+  const legacy = await client
+    .from("profiles")
+    .select(LEGACY_OWNER_PROFILE_SELECT)
+    .eq("id", userId)
+    .maybeSingle();
+  if (legacy.error) throw legacy.error;
+  return legacy.data;
+}
+
 async function ensureProfile(user) {
   const client = getClient();
   const fallbackName = getAuthDisplayName(user) || "Foxfam Member";
   const fallbackAvatar = getAuthAvatarUrl(user);
 
-  const existing = await client.from("profiles").select(PUBLIC_PROFILE_SELECT).eq("id", user.id).maybeSingle();
-  if (existing.error) throw existing.error;
-  if (existing.data) {
-    const profile = normalizeProfile(existing.data);
+  const existing = await getMyProfile(client, user.id);
+  if (existing) {
+    const profile = normalizeProfile(existing);
     const repairUpdates = {};
     if (fallbackName && shouldRepairProfileName(profile)) {
       repairUpdates.display_name = fallbackName;
@@ -256,13 +273,12 @@ async function ensureProfile(user) {
     }
 
     if (Object.keys(repairUpdates).length > 0) {
-      const { data: updatedProfile, error: updateError } = await client
+      const { error: updateError } = await client
         .from("profiles")
         .update(repairUpdates)
-        .eq("id", user.id)
-        .select(PUBLIC_PROFILE_SELECT)
-        .single();
-      if (!updateError && updatedProfile) {
+        .eq("id", user.id);
+      const updatedProfile = updateError ? null : await getMyProfile(client, user.id);
+      if (updatedProfile) {
         return { ...normalizeProfile(updatedProfile), email: user.email || "" };
       }
       return { ...profile, ...repairUpdates, email: user.email || "" };
@@ -271,16 +287,15 @@ async function ensureProfile(user) {
     return { ...profile, email: user.email || "" };
   }
 
-  const { data, error } = await client
+  const { error } = await client
     .from("profiles")
     .insert({
       id: user.id,
       email: user.email,
       display_name: fallbackName,
-    })
-    .select(PUBLIC_PROFILE_SELECT)
-    .single();
+    });
   if (error) throw error;
+  const data = await getMyProfile(client, user.id);
   return { ...normalizeProfile(data), email: user.email || "" };
 }
 
@@ -490,13 +505,12 @@ export const communityClient = {
     async updateMe(updates = {}) {
       const client = getClient();
       const user = await getCurrentSessionUser();
-      const { data, error } = await client
+      const { error } = await client
         .from("profiles")
         .update(dataOnly(updates))
-        .eq("id", user.id)
-        .select(PUBLIC_PROFILE_SELECT)
-        .single();
+        .eq("id", user.id);
       if (error) throw error;
+      const data = await getMyProfile(client, user.id);
       return { ...normalizeProfile(data), email: user.email || "" };
     },
 
