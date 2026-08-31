@@ -12,6 +12,8 @@ Base production commit: `f1e33fd4d2cffe601d64acf7e28f03c6ee8dbfe0`
 - Vercel project `prj_xzSqkWlrFlS6ADeLhVhamtprmEmZ`: production deployment, aliases, API routing, build output, and response headers.
 - Portal UI: desktop and mobile review of dashboard, forum, settings, and Staff Ops using the Impeccable audit criteria.
 
+The installed Impeccable detector could not run because its package is missing `scripts/lib/impeccable-config.mjs`. The audit therefore used the skill's documented criteria, source inspection, computed-style checks, accessibility snapshots, responsive browser checks, and Playwright E2E rather than presenting a broken detector run as evidence.
+
 No production database migration or deployment was performed during this audit.
 
 ## Findings
