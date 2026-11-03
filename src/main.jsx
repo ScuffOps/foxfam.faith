@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from '@/App.jsx'
+import { lazy, Suspense } from 'react'
 import '@/index.css'
 
 // Apply saved accent color on boot
@@ -11,6 +12,8 @@ if (savedAccent) {
   document.documentElement.style.setProperty('--primary', savedAccent);
 }
 
+const modboardEntry = location.hostname === 'modboard.ing' || /^\/modboard\/?$/.test(location.pathname)
+const Modboard = lazy(() => import('@/pages/Modboard'))
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <App />
+  modboardEntry ? <Suspense fallback={<p role="status">Opening Modboarding…</p>}><Modboard /></Suspense> : <App />
 )

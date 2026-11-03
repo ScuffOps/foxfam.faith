@@ -34,6 +34,7 @@ import {
   Users,
 } from "lucide-react";
 import SidebarProfile from "./SidebarProfile";
+import { useAuth } from "@/lib/AuthContext";
 import { canBookCollab, canUseAdminPanel } from "@/lib/roles";
 
 const rootNavItems = [
@@ -112,6 +113,9 @@ const utilityNavItems = [
 ];
 
 export default function Sidebar({ onClose }) {
+  const { user: signedInUser } = useAuth();
+  const showModboard = ["admin", "lead_mod", "mod"].includes(signedInUser?.role);
+  const modboardLink = { path: "https://modboard.ing/", label: "Modboarding ↗", icon: ClipboardList, external: true };
   const location = useLocation();
   const [userRole, setUserRole] = useState(null);
   const [openGroups, setOpenGroups] = useState({});
@@ -133,8 +137,8 @@ export default function Sidebar({ onClose }) {
     .map((group) => ({ ...group, items: group.items.filter(canShowItem) }))
     .filter((group) => group.items.length > 0);
   const visibleStandaloneItems = standaloneNavItems.filter(canShowItem);
-  const visibleStaffOpsGroup = canShowItem(staffOpsGroup)
-    ? { ...staffOpsGroup, items: staffOpsGroup.items.filter(canShowItem) }
+  const visibleStaffOpsGroup = showModboard || canShowItem(staffOpsGroup)
+    ? { ...staffOpsGroup, items: [...(showModboard ? [modboardLink] : []), ...(canShowItem(staffOpsGroup) ? staffOpsGroup.items.filter(canShowItem) : [])] }
     : null;
   const visibleUtilityItems = utilityNavItems.filter(canShowItem);
 
@@ -162,6 +166,7 @@ export default function Sidebar({ onClose }) {
   };
 
   const renderLink = (item, child = false) => {
+    if (item.external) return <a key={item.path} href={item.path} target="_blank" rel="noopener noreferrer" onClick={onClose} className="sidebar-nav-item sidebar-nav-child ml-5 flex items-center gap-3 rounded-lg px-3 py-2 text-sm"><item.icon size={18}/>{item.label}</a>;
     const isActive = isPathActive(item.path);
     return (
       <Link
@@ -202,6 +207,7 @@ export default function Sidebar({ onClose }) {
         )}
       </div>
 
+      {showModboard && <a href={modboardLink.path} target="_blank" rel="noopener noreferrer" onClick={onClose} className="mx-4 mb-2 flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 font-bold text-primary-foreground focus-visible:ring-2"><ClipboardList size={20}/> Modboarding ↗</a>}
       <SidebarProfile onNavigate={onClose} />
 
       {/* Nav */}
